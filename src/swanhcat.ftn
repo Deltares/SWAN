@@ -16,7 +16,7 @@
 !     hcat.nml file.
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2007  Delft University of Technology
+!     Copyright (C) 2009  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -45,6 +45,7 @@
       logical ydivide, verbose, haloflag, exists, stomp, nonstat
       real, allocatable :: x(:,:),y(:,:)
       integer, allocatable :: locations(:),index(:), source(:)
+      integer, allocatable :: ownlocat(:)
       namelist /arg_nml/ basefile,halo,verbose,stomp
 
  33   FORMAT('-',I3.3,A)
@@ -159,7 +160,7 @@
          ENDIF
       ENDDO
 
-!.....Specifiy the number of location for each hotfile including
+!.....Specify the number of location for each hotfile including
 !.....the one being created at location(0)
       nonstat = .FALSE. !nonstationary unless time is found
       allocate(locations(0:numfiles))
@@ -297,11 +298,22 @@
       ENDDO
       locations(0)=index(0)
 
+!.....Specify the number of own location for each hotfile
+      allocate(ownlocat(0:numfiles))
+      ownlocat=0
+      DO j=1,numfiles
+         index(0)=1
+         DO WHILE (index(0)<=locations(0))
+            IF (source(index(0))==j) ownlocat(j)=ownlocat(j)+1
+            index(0)=index(0)+1
+         END DO
+      END DO
+
 !.....Write total number of locations to basefile
       WRITE (10,37) locations(0),TRIM(RLINE)
 
 !.....Write grid points to basefile
-      DO i=1,index(0)
+      DO i=1,locations(0)
          WRITE (10,36) x(0,i),y(0,i)
       ENDDO
 
@@ -435,7 +447,7 @@
                IF(source(index(0))==j) THEN
 !.................IF source equals 1 there are no halo points at the beginning
                   IF(j .NE. 1) THEN
-                     DO WHILE (index(j-1)<=locations(j-1))
+                     DO WHILE (index(j-1)<=ownlocat(j-1))
                         READ (10+j,35,IOSTAT=ios) RLINE
                         IF (RLINE(1:6).EQ.'FACTOR' .and. ios==0)THEN
                            DO l=1,freq+1

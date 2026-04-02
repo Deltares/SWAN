@@ -1,5 +1,5 @@
 #!/bin/sh
-for cmpl in ifort ifc efc pgf90 lf95 gfortran g95; do
+for cmpl in ifort ifc efc pgf90 xlf90 lf95 gfortran g95; do
     IFS="${IFS= 	}"; ifssav="$IFS"; IFS="${IFS}:"
     for dir in $PATH; do
         test -z "$dir" && dir=.

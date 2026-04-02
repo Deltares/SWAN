@@ -55,4 +55,6 @@ cleandoc:
 	$(RM) $(TARGET).pdf
 	rm -rf $(TARGET)
 
+clobber: cleantex cleandvi cleanps cleanpdf cleanhtml
+
 allclean: cleantex cleandvi cleanps cleanpdf cleanhtml

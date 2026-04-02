@@ -3,7 +3,6 @@ $esmf = "FALSE";
 $tim = "FALSE";
 $mpi = "FALSE";
 $f95 = "FALSE";
-$omp = "FALSE";
 $dos = "FALSE";
 $unx = "FALSE";
 $cry = "FALSE";
@@ -16,7 +15,6 @@ while ( $ARGV[0]=~/-.*/ )
    if ($ARGV[0]=~/-timg/) {$tim="TRUE";shift;}
    if ($ARGV[0]=~/-mpi/) {$mpi="TRUE";shift;}
    if ($ARGV[0]=~/-f95/) {$f95="TRUE";shift;}
-   if ($ARGV[0]=~/-omp/) {$omp="TRUE";shift;}
    if ($ARGV[0]=~/-dos/) {$dos="TRUE";shift;}
    if ($ARGV[0]=~/-unix/) {$unx="TRUE";shift;}
    if ($ARGV[0]=~/-cray/) {$cry="TRUE";shift;}
@@ -35,36 +33,17 @@ foreach (@ARGV) {
 foreach $file (@files)
 {
 # --- set output file name
-  if ($unx=~/TRUE/ && $omp=~/TRUE/)
+  if ($unx=~/TRUE/)
   {
     ($tempf)=split(/.ftn/, $file);
-    $outfile = join(".",$tempf,"F");
-  }
-  elsif ($unx=~/TRUE/)
-  {
-    ($tempf)=split(/.ftn90/, $file);
-    if ($tempf ne $file)
-    {
-      $outfile = join(".",$tempf,"f90");
-    }
-    else
-    {
-      ($tempf)=split(/.ftn/, $file);
-      $outfile = join(".",$tempf,"f");
-    }
+    $ext = ($file =~ m/ftn90/) ? "f90" : "f";
+    $outfile = join(".",$tempf,$ext);
   }
   else
   {
-    ($tempf)=split(/.ftn90/, $file);
-    if ($tempf ne $file)
-    {
-      $outfile = join(".",$tempf,"f90");
-    }
-    else
-    {
-      ($tempf)=split(/.ftn/, $file);
-      $outfile = join(".",$tempf,"for");
-    }
+    ($tempf)=split(/.ftn/, $file);
+    $ext = ($file =~ m/ftn90/) ? "f90" : "for";
+    $outfile = join(".",$tempf,$ext);
   }
 # --- process file
   if (   (! -e $outfile)            #outfile doesn't exist
@@ -81,7 +60,6 @@ foreach $file (@files)
       if ($tim=~/TRUE/) {$newline=~s/^!TIMG//;}
       if ($mpi=~/TRUE/) {$newline=~s/^!MPI//;}
       if ($f95=~/TRUE/) {$newline=~s/^!F95//;}
-      if ($omp=~/TRUE/) {$newline=~s/^!OMP//;}
       if ($dos=~/TRUE/) {$newline=~s/^!DOS//;}
       if ($unx=~/TRUE/) {$newline=~s/^!UNIX//;}
       if ($cry=~/TRUE/) {$newline=~s/^!\/Cray//;}

@@ -33,8 +33,10 @@ obstacle
 ocean
 propagation
 quadruplets
+recti-linear
 reflection
 refraction
+regular
 set-up
 shoaling
 SORDUP
@@ -45,6 +47,8 @@ stationary
 steepness
 swell
 triads
+triangular
+unstructured
 WAM
 WAVEWATCH
 whitecapping

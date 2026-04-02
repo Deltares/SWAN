@@ -15,7 +15,7 @@
 \end{center}
 \vfill
 \begin{center}
-{\Large\bf SWAN Cycle III version 40.51AB}
+{\Large\bf SWAN Cycle III version 40.72ABCDE}
 \end{center}
 
 \cleardoublepage
@@ -37,14 +37,14 @@ mail address &:& Delft University of Technology \\
              & & The Netherlands \\
              & & \\
 e-mail       &:& swan-info-citg@tudelft.nl \\
-home page    &:& \hl{http://www.fluidmechanics.tudelft.nl/swan/index.htm}
+home page    &:& \hl{http://www.swan.tudelft.nl}
 \end{tabular}
 \end{table}
 
 \vfill
 
 \noindent
-Copyright (c) 2007 Delft University of Technology.
+Copyright (c) 2009 Delft University of Technology.
 \\[2ex]
 \noindent
 Permission is granted to copy, distribute and/or modify this document
@@ -71,7 +71,7 @@ This Implementation Manual is a part of the total material to implement the
 SWAN wave model on your computer system. The total material consists of:
 \begin{itemize}
     \item the SWAN source code,
-    \item the SWAN (serial) executable for MS Windows,
+    \item the SWAN executable for Microsoft Windows,
     \item the User Manual,
     \item this Implementation Manual,
     \item the Technical documentation,
@@ -80,10 +80,10 @@ SWAN wave model on your computer system. The total material consists of:
     \item some test cases.
 \end{itemize}
 All of the material can be found on the following SWAN web page\\
-\hl{http://www.fluidmechanics.tudelft.nl/swan/download/info.htm}.
+\hl{http://www.swan.tudelft.nl}.
 \\[2ex]
 \noindent
-On the SWAN home page \hl{http://www.fluidmechanics.tudelft.nl/swan/index.htm},
+On the SWAN home page \hl{http://www.swan.tudelft.nl},
 general information is given about the functionalities, physics and limitations
 of SWAN. Moreover, the modification history of SWAN is given. Finally,
 information on support, links to the related web pages and various
@@ -103,6 +103,8 @@ For the purpose of implementation, you have access to the source code of SWAN an
 additional files, e.g. for testing SWAN. Please read the copyright in this
 manual and in the source code with respect to the terms of usage and distribution
 of SWAN. You are permitted to implement SWAN on your computer system.
+However, for any use of the SWAN source code in your environment, proper reference
+must be made to the origin of the software!
 \\[2ex]
 \noindent
 Implementation involves the following steps:
@@ -120,39 +122,87 @@ that steps 3 and 4 can be done fully automatically.
 
 \section{The material}
 
-The downloaded file {\tt swan4051.tgz} contains the SWAN source code. You can unzip this
+The downloaded file {\tt swan4072.tgz} contains the SWAN source code. You can unzip this
 file either with WinZip (in case of Windows) or with the command {\tt tar xzf} (in case of
 UNIX or Linux). The SWAN source code consists of the following files:
+\begin{tabbing}
+xxxxxxxxxxxxxxxxxxxxxxxx\= \kill
+main program             \>:       swanmain.ftn \\
+pre-processing routines  \>:       swanpre1.ftn \\
+                         \> $\,\,$ swanpre2.ftn \\
+computational routines   \>:       swancom1.ftn \\
+                         \> $\,\,$ swancom2.ftn \\
+                         \> $\,\,$ swancom3.ftn \\
+                         \> $\,\,$ swancom4.ftn \\
+                         \> $\,\,$ swancom5.ftn \\
+post-processing routines \>:       swanout1.ftn \\
+                         \> $\,\,$ swanout2.ftn \\
+service routines         \>:       swanser.ftn \\
+                         \> $\,\,$ SwanIntgratSpc.ftn90 \\
+\end{tabbing}
 \newpage
-\begin{table}[htb]
-\begin{tabular}{lcl}
-main program              &:& swanmain.ftn \\
-pre-processing routines   &:& swanpre1.ftn \\
-                          & & swanpre2.ftn \\
-computational routines    &:& swancom1.ftn \\
-                          & & swancom2.ftn \\
-                          & & swancom3.ftn \\
-                          & & swancom4.ftn \\
-                          & & swancom5.ftn \\
-post-processing routines  &:& swanout1.ftn \\
-                          & & swanout2.ftn \\
-service routines          &:& swanser.ftn \\
-routines for support      & & \\
-parallel MPI runs         &:& swanparll.ftn \\
-routines for installation &:& ocpids.ftn \\
-command reading routines  &:& ocpcre.ftn \\
-miscellaneous routines    &:& ocpmix.ftn \\
-modules                   &:& swmod1.ftn \\
-                          & & swmod2.ftn \\
-                          & & m\_constants.ftn90 \\
-                          & & m\_fileio.ftn90 \\
-                          & & serv\_xnl4v5.ftn90 \\
-                          & & mod\_xnl4v5.ftn90
-\end{tabular}
-\end{table}
+\begin{tabbing}
+xxxxxxxxxxxxxxxxxxxxxxxx\= \kill
+routines for support     \> \\
+parallel MPI runs        \>:       swanparll.ftn \\
+routines for unstructured \> $\,\,$ \\
+grids                     \>:       SwanReadGrid.ftn90 \\
+                          \> $\,\,$ SwanReadADCGrid.ftn90 \\
+                          \> $\,\,$ SwanReadTriangleGrid.ftn90 \\
+                          \> $\,\,$ SwanReadEasymeshGrid.ftn90 \\
+                          \> $\,\,$ SwanInitCompGrid.ftn90 \\
+                          \> $\,\,$ SwanCheckGrid.ftn90 \\
+                          \> $\,\,$ SwanCreateEdges.ftn90 \\
+                          \> $\,\,$ SwanGridTopology.ftn90 \\
+                          \> $\,\,$ SwanGridVert.ftn90 \\
+                          \> $\,\,$ SwanGridCell.ftn90 \\
+                          \> $\,\,$ SwanGridFace.ftn90 \\
+                          \> $\,\,$ SwanPrintGridInfo.ftn90 \\
+                          \> $\,\,$ SwanFindPoint.ftn90 \\
+                          \> $\,\,$ SwanPointinMesh.ftn90 \\
+                          \> $\,\,$ SwanBpntlist.ftn90 \\
+                          \> $\,\,$ SwanPrepComp.ftn90 \\
+                          \> $\,\,$ SwanVertlist.ftn90 \\
+                          \> $\,\,$ SwanCompUnstruc.ftn90 \\
+                          \> $\,\,$ SwanDispParm.ftn90 \\
+                          \> $\,\,$ SwanPropvelX.ftn90 \\
+                          \> $\,\,$ SwanSweepSel.ftn90 \\
+                          \> $\,\,$ SwanPropvelS.ftn90 \\
+                          \> $\,\,$ SwanTranspAc.ftn90 \\
+                          \> $\,\,$ SwanTranspX.ftn90 \\
+                          \> $\,\,$ SwanDiffPar.ftn90 \\
+                          \> $\,\,$ SwanGSECorr.ftn90 \\
+                          \> $\,\,$ SwanInterpolatePoint.ftn90 \\
+                          \> $\,\,$ SwanInterpolateAc.ftn90 \\
+                          \> $\,\,$ SwanInterpolateOutput.ftn90 \\
+                          \> $\,\,$ SwanConvAccur.ftn90 \\
+                          \> $\,\,$ SwanConvStopc.ftn90 \\
+                          \> $\,\,$ SwanThreadBounds.ftn90 \\
+                          \> $\,\,$ SwanFindObstacles.ftn90 \\
+                          \> $\,\,$ SwanCrossObstacle.ftn90 \\
+                          \> $\,\,$ SwanComputeForce.ftn90 \\
+routines for installation \>:       ocpids.ftn \\
+command reading routines  \>:       ocpcre.ftn \\
+miscellaneous routines    \>:       ocpmix.ftn \\
+\end{tabbing}
+\newpage
+\begin{tabbing}
+xxxxxxxxxxxxxxxxxxxxxxxx\= \kill
+general modules           \>:       swmod1.ftn \\
+                          \> $\,\,$ swmod2.ftn \\
+modules for XNL           \>:       m\_constants.ftn90 \\
+                          \> $\,\,$ m\_fileio.ftn90 \\
+                          \> $\,\,$ serv\_xnl4v5.ftn90 \\
+                          \> $\,\,$ mod\_xnl4v5.ftn90 \\
+modules for unstructured  \> $\,\,$ \\
+grids                     \>:       SwanGriddata.ftn90 \\
+                          \> $\,\,$ SwanGridobjects.ftn90 \\
+                          \> $\,\,$ SwanCompdata.ftn90 \\
+\end{tabbing}
+
 \noindent
 The source code is written in Fortran 90. Some routines are written in fixed form and depending on your system,
-the extension may be {\tt for}, {\tt f} or {\tt F}. Other routines are written in free form and are indicated by
+the extension may be {\tt for} or {\tt f}. Other routines are written in free form and are indicated by
 extension {\tt f90}. The conversion from {\tt ftn} or {\tt ftn90} to one of these extensions
 can be done automatically or manually; see Chapter \ref{ch:instal}.
 \\[2ex]
@@ -161,46 +211,46 @@ You are allow to make changes in the source code of SWAN, but Delft University o
 will not support modified versions of SWAN. If you ever want your modifications to be
 implemented in the authorized version of SWAN (the version on the SWAN web page), you need
 to submit these changes to the SWAN team ({\it swan-info-citg@tudelft.nl}).
-\\[2ex]
 \newpage
 \noindent
 The source code is being attended with the following files:
-\begin{table}[htb]
-\begin{tabular}{lcl}
-installation procedures   &:& INSTALL.README \\
-                          & & Makefile \\
-                          & & Makefile.latex \\
-                          & & macros.inc \\
-                          & & getcmpl \\
-                          & & platform.pl \\
-                          & & switch.pl \\
-                          & & adjlfh.pl \\
-run procedures            &:& SWANRUN.README \\
-                          & & swanrun \\
-                          & & swanrun.bat \\
-machinefile for parallel  & & \\
-MPI runs                  &:& machinefile \\
-for concatenation of      & & \\
-multiple hotfiles         &:& swanhcat.ftn \\
-                          & & hcat.nml \\
-edit file                 &:& swan.edt \\
-for conversion of spectra &:& cvspec1d.for \\
-                          & & cvspec2d.for \\
-documentations            &:& swanuse.tex \\
-                          & & swanuse.pdf \\
-                          & & swanimp.tex \\
-                          & & swanimp.pdf \\
-                          & & swantech.tex \\
-                          & & swantech.pdf \\
-                          & & swanpgr.tex \\
-                          & & swanpgr.pdf \\
-                          & & latexfordummies.tex \\
-                          & & latexfordummies.pdf \\
-                          & & conc.lst \\
-                          & & *.eps \\
-                          & & *.ps
-\end{tabular}
-\end{table}
+\begin{tabbing}
+xxxxxxxxxxxxxxxxxxxxxxxx\= \kill
+installation procedures   \>:       INSTALL.README \\
+                          \> $\,\,$ Makefile \\
+                          \> $\,\,$ Makefile.latex \\
+                          \> $\,\,$ macros.inc \\
+                          \> $\,\,$ getcmpl \\
+                          \> $\,\,$ platform.pl \\
+                          \> $\,\,$ switch.pl \\
+                          \> $\,\,$ adjlfh.pl \\
+run procedures            \>:       SWANRUN.README \\
+                          \> $\,\,$ swanrun \\
+                          \> $\,\,$ swanrun.bat \\
+machinefile for parallel  \> $\,\,$ \\
+MPI runs                  \>:       machinefile \\
+for concatenation of      \> $\,\,$ \\
+multiple hotfiles         \>:       swanhcat.ftn \\
+                          \> $\,\,$ hcat.nml \\
+edit file                 \>:       swan.edt \\
+for conversion of spectra \>:       cvspec1d.for \\
+                          \> $\,\,$ cvspec2d.for \\
+Matlab scripts for        \> $\,\,$ \\
+unstructured grids        \>:       plotunswan.m \\
+                          \> $\,\,$ plotgrid.m \\
+documentations            \>:       swanuse.tex \\
+                          \> $\,\,$ swanuse.pdf \\
+                          \> $\,\,$ swanimp.tex \\
+                          \> $\,\,$ swanimp.pdf \\
+                          \> $\,\,$ swantech.tex \\
+                          \> $\,\,$ swantech.pdf \\
+                          \> $\,\,$ swanpgr.tex \\
+                          \> $\,\,$ swanpgr.pdf \\
+                          \> $\,\,$ latexfordummies.tex \\
+                          \> $\,\,$ latexfordummies.pdf \\
+                          \> $\,\,$ conc.lst \\
+                          \> $\,\,$ *.eps, *.ps \\
+\end{tabbing}
 
 \noindent
 The Latex files (*.tex) can be read and written by any editor and can be compiled with \LaTeXe.
@@ -218,8 +268,8 @@ features are published on the SWAN web page. These are provided by patch files t
 be downloaded from the web site. Typically, a patch can be installed over the top of the
 existing source code. Patches are indicated by a link to {\bf patchfile}. The names
 refer to the current version number supplemented with letter codes. The first will be
-coded 'A' (i.e. 40.51.A), the second will be coded 'B', the third will be coded 'C', etc.
-The version number in the resulting output files will be updated to 40.51ABC, indicating
+coded 'A' (i.e. 40.72.A), the second will be coded 'B', the third will be coded 'C', etc.
+The version number in the resulting output files will be updated to 40.72ABC, indicating
 the implemented patches.
 \\[2ex]
 \noindent
@@ -242,8 +292,8 @@ found. If you have trouble with patch, you can look at the patch file itself.
 Note to UNIX/Linux users:
 the downloaded patch files are MS-DOS ASCII files and contain carriage return (CR) characters.
 To convert these files to  UNIX format, use the command {\tt dos2unix}. Alternatively,
-execute {\tt cat 40.51.[A-C] | tr -d '$\backslash$r' | patch} that apply the patch files
-40.51.A to 40.51.C to the SWAN source code at once after which the conversion is
+execute {\tt cat 40.72.[A-C] | tr -d '$\backslash$r' | patch} that apply the patch files
+40.72.A to 40.72.C to the SWAN source code at once after which the conversion is
 carried out.
 \\[2ex]
 \noindent
@@ -252,18 +302,18 @@ from the SWAN web site, which is appropriate for Windows operating system (NT/20
 
 \chap{Installation of SWAN on your computer} \label{ch:instal}
 
-The portability of the SWAN code between single processor machines is guaranteed by the use of standard ANSI
+The portability of the SWAN code between different platforms is guaranteed by the use of standard ANSI
 FORTRAN 90. Hence, virtually all Fortran compilers can be used for installing SWAN. See also the manual Programming rules.
 \\[2ex]
 \noindent
 The SWAN code is parallelized, which enables a considerable reduction in the turn-around time for relatively
 large CPU-demanding calculations. Two parallelization strategies are available:
 \begin{itemize}
-  \item A message passing modelling is employed based on the Message Passing Interface (MPI) standard that
-        enables communication between independent processors. Only simple point-to-point and collective
-        communications have been employed. Hence, users can optionally run SWAN on a cluster of PC nodes.
   \item The computational kernel of SWAN contains a number of OpenMP compiler directives, so that users can
-        optionally run SWAN on shared-memory supercomputers or a dual-core PC.
+        optionally run SWAN on a dual core PC or multiprocessor systems.
+  \item A message passing modelling is employed based on the Message Passing Interface (MPI) standard that
+        enables communication between independent processors. Hence, users can optionally run SWAN on a
+        Linux cluster.
 \end{itemize}
 \noindent
 The material on the SWAN web site provides a {\tt Makefile} and two Perl scripts ({\tt platform.pl}
@@ -280,12 +330,13 @@ IBM SP                              & AIX         & IBM \\
 Compaq True 64 Alpha (DEC ALFA)     & OSF1        & Compaq \\
 Sun SPARC                           & Solaris     & Sun \\
 PA-RISC (HP 9000 series 700/800)    & HP-UX v11   & HP \\
+IBM Power6 (pSeries 575)            & Linux       & IBM \\
 Intel Pentium (32-bit) PC           & Linux       & GNU (g95) \\
 Intel Pentium (32-bit) PC           & Linux       & GNU (gfortran) \\
 Intel Pentium (32-bit) PC           & Linux       & Intel \\
 Intel Pentium (64-bit) PC           & Linux       & Intel \\
 Intel Itanium (64-bit) PC           & Linux       & Intel \\
-Intel Pentium (32-bit) PC           & Linux       & Portland Group \\
+Intel Pentium (64-bit) PC           & Linux       & Portland Group \\
 Intel Pentium (32-bit) PC           & Linux       & Lahey \\
 Intel Pentium (32-bit) PC           & MS Windows  & Intel \\
 Intel Pentium (64-bit) PC           & MS Windows  & Intel \\
@@ -320,19 +371,20 @@ one SWAN program running on one processor. However, for relatively large CPU-dem
 (e.g., instationary or nesting ones), two ways of parallelism for reducing the turn-around time are
 available:
 \begin{itemize}
-   \item The SWAN code contains a number of so-called OpenMP directives that tells the
-         compiler how to generate multi-threaded code on a shared memory computer. For this,
-         you need a Fortran 90 compiler having the OpenMP option. The performance is good
-         for a restricted number of threads ($< 8$).This type of parallelism can be used e.g.,
-         on symmetric multiprocessors and PC's with dual-core or quad-core processors.
+   \item The SWAN code contains a number of so-called OpenMP directives that enables the
+         compiler to generate multithreaded code on a shared memory computer. For this,
+         you need a Fortran 90 compiler supporting OpenMP 2.0. The performance is good
+         for a restricted number of threads ($< 8$). This type of parallelism can be used e.g.,
+         on (symmetric) multiprocessors and PC's with dual core or quad core processors.
    \item If the user want to run SWAN on a relative large number of processors, a message passing
          model is a good alternative. It is based on independent processors which do not share
          any memory but are connected via an interconnection network, such as Beowulf systems
-         (cluster of Linux PC's connected via fast Ethernet switches). Since, the Message Passing
-         Interface (MPI) standard (e.g., MPICH distribution, freely available for several platforms,
-         such as Linux and Windows NT/2000/XP, at \hl{http://www-unix.mcs.anl.gov/mpi/mpich}) is
-         very popular nowadays, the SWAN code contains a set of generic subroutines that call a
-         number of MPI-routines, meant for local data exchange, gathering data, global reductions,
+         (cluster of Linux PC's connected via fast Ethernet switches). The implementation is based on
+         the Message Passing Interface (MPI) standard (e.g., MPICH2 distribution, freely available
+         for several platforms, such as Linux and Windows NT/2000/XP, at
+         \hl{http://www-unix.mcs.anl.gov/mpi/mpich}).
+         The SWAN code contains a set of generic subroutines that call a
+         number of MPI routines, meant for local data exchange, gathering data, global reductions,
          etc. This technique is beneficial for larger simulations only, such that the communication
          times are relatively small compared to the computing times.
 \end{itemize}
@@ -376,7 +428,7 @@ IMPORTANT NOTES:
                  (see http://support.microsoft.com/default.aspx?scid=kb;en-us;Q132084). Run the
                  downloaded file ({\tt Nmake15.exe}) to extract it. Copy both the {\tt NMAKE.EXE} and
                  the {\tt NMAKE.ERR} file to SWAN directory.
-           \item This setup does support OpenMP for Windows dual-core systems, if Intel Fortran
+           \item This setup does support OpenMP for Windows dual core systems, if Intel Fortran
                  compiler is provided.
            \item This installation currently supports MPICH for
                  Windows NT/2000/XP (Professional); Win9x/ME are not supported.
@@ -388,10 +440,10 @@ IMPORTANT NOTES:
         \end{itemize}
   \item One of the commands {\tt make ser}, {\tt make omp} and {\tt make mpi}
         must be preceded by {\tt make config}.
-  \item If desirable, you may clean-up the generated object files and modules by
+  \item If desirable, you may clean up the generated object files and modules by
         typing {\tt make~clean}. If you want to go back to the original state
         with respect to the source code, i.e. removing everything that has been
-        generated by the Makefile, just type {\tt make~allclean}.
+        generated by the Makefile, just type {\tt make~clobber}.
   \item If you are unable to install SWAN using the Makefile and Perl scripts for
         whatever reason, see Section \ref{sec:manual} for instructions on manual
         installation.
@@ -402,14 +454,14 @@ IMPORTANT NOTES:
 \subsection{Modifications in the source code}
 
 To compile SWAN on your computer system properly, some subroutines should be adapted first
-depending on the operating system, use of compilers and the wish to use MPI or OpenMP for
+depending on the operating system, use of compilers and the wish to use MPI for
 parallel runs. This can be done by removing the switches started with '!' followed by an
 indentifiable prefix in the first 3 or 4 columns of the subroutine. A Perl script called
 {\tt switch.pl} is provided in the material that enables the user to quickly select the
 switches to be removed. This script can be used as follows:
 \begin{verbatim}
-perl switch.pl [-dos] [-unix] [-f95] [-mpi] [-omp] [-cray]
-               [-sgi] [-cvis] [-timg] [-impi] *.ftn
+perl switch.pl [-dos] [-unix] [-f95] [-mpi] [-cray] [-sgi]
+               [-cvis] [-timg] [-impi] *.ftn
 \end{verbatim}
 where the options are all optionally. The meaning of these options are as follows.
 \begin{itemize}
@@ -430,10 +482,6 @@ where the options are all optionally. The meaning of these options are as follow
   \item[{\tt -mpi}]
   For the proper use of MPI, you must remove the switch !MPI at several places in the file
   {\tt swanparll.ftn}, {\tt swancom1.ftn} and {\tt swmod1.ftn}.
-  \item[{\tt -omp}]
-  The subroutine {\tt SWCOMP} (in {\tt swancom1.ftn}) contains a number of {\tt \_OPENMP}
-  macro that needs to be set by first preprocessing it by the C (or Fortran) preprocessor.
-  In order to use this macro just remove the !OMP switch.
   \item[{\tt -cray}, {\tt -sgi}]
   If you use a Cray or SGI Fortran 90 compiler, the subroutines {\tt OCPINI} (in {\tt ocpids.ftn})
   and {\tt FOR} (in {\tt ocpmix.ftn}) should be adapted by removing the switch !/Cray or !/SGI since,
@@ -456,23 +504,22 @@ where the options are all optionally. The meaning of these options are as follow
 \end{itemize}
 
 \noindent
-For example, you work on a Beowulf cluster where MPI has been installed and use the Intel Fortran
+For example, you work on a Linux cluster where MPI has been installed and use the Intel Fortran
 compiler (that can handle Fortran 95 statements), then type the following:
 \begin{verbatim}
-perl switch.pl -unix -f95 -mpi *.ftn
+perl switch.pl -unix -f95 -mpi *.ftn *.ftn90
 \end{verbatim}
-Note that due to the option {\tt -unix} the extension {\tt ftn} is automatically changed into {\tt f}.
+Note that due to the option {\tt -unix} the extension {\tt ftn} is automatically changed into {\tt f}
+and {\tt ftn90} into {\tt f90}.
 
 \subsection{Compiling and linking SWAN source code}
 
 After the necessary modifications are made as described in the previous section, the source code is
-ready for compilation. All source code is written in fixed form Fortran 90 so you must have a
+ready for compilation. All source code is written in Fortran 90 so you must have a
 Fortran 90 compiler in order to compile SWAN. The source code cannot be compiled with a Fortran 77
 compiler. If you intended to use MPI for parallel runs, you must use the command {\tt mpif90} instead
 of the original compiler command or using the Integrated Development Environment e.g., for Visual
-Fortran (see Installation and User's Guide for MPICH). For parallel runs using OpenMP, the compiler
-must have an option to interpret OpenMP directives and the extension {\tt ftn} must be changed into
-{\tt F} (will be done automatically when using the script {\tt switch.pl}).
+Fortran (see Installation and User's Guide for MPICH).
 \\[2ex]
 \noindent
 The SWAN source code complies with the ANSI Fortran 90 standard, except for a few cases, where
@@ -488,28 +535,31 @@ is 8 bytes. When a compiler allocates 8 bytes for a {\scriptsize REAL} and 4 byt
 \\[2ex]
 \noindent
 Furthermore, SWAN can generate binary MATLAB files on request, which are unformatted. Some compilers,
-e.g. Compaq Visual Fortran and Intel Fortran version 9.x, measured record length in 4-byte units and
+e.g. Compaq Visual Fortran and Intel Fortran version 9.x, measured record length in 4-byte or longword units and
 as a consequence, these unformatted files cannot be loaded in MATLAB. Hence, in such as case a
 compiler option is needed to request 1-byte units, e.g. for Compaq Visual Fortran this is
 {\tt /assume:byterecl} and for Intel Fortran version 9.x this is {\tt -assume byterecl}.
 \\[2ex]
 \noindent
-The modules (in files {\tt swmod1.ftn}, {\tt swmod2.ftn} and {\tt swmod3.ftn}) must be compiled first.
-Several subroutines use the modules. These subroutines need the compiled versions of {\tt swmod1.ftn},
-{\tt swmod2.ftn} and {\tt swmod3.ftn}, before they can be compiled.
+The modules (in files {\tt swmod1.ftn}, {\tt swmod2.ftn}, {\tt m\_constants.ftn90},
+{\tt m\_fileio.ftn90}, {\tt serv\_xnl4v5.ftn90}, {\tt mod\_xnl4v5.ftn90},
+{\tt SwanGriddata.ftn90}, {\tt SwanGridobjects.ftn90} and {\tt SwanCompdata.ftn90}) must be compiled first.
+Several subroutines use the modules. These subroutines need the compiled versions of the modules before they can be compiled.
 Linking should be done without any options nor using shared libraries (e.g. math or NAG). It is
 recommended to rename the executable to {\tt swan.exe} after linking.
 \\[2ex]
 \noindent
 Referring to the previous example, compilation and linking may be done as follows:
 \begin{verbatim}
-mpif90 swmod1.f swmod2.f swmod3.f ocp*.f swan*.f -o swan.exe
+mpif90 swmod1.f swmod2.f m_constants.f90 m_fileio.f90 serv_xnl4v5.f90
+       mod_xnl4v5.f90 SwanGriddata.f90 SwanGridobjects.f90 SwanCompdata.f90
+       ocp*.f swan*.f Swan*.f90 -o swan.exe
 \end{verbatim}
 
 \newpage
 \section{Make SWAN documentation} \label{sec:makedoc}
 
-SWAN comes with 4 detailed documents which are provided as downloadable PDF files as well as browsable web-pages:
+SWAN comes with 4 detailed documents which are provided as downloadable PDF files as well as browsable web pages:
 \begin{itemize}
   \item The \underline{User Manual} describes the complete input and usage of the SWAN package.
   \item The \underline{Implementation Manual} explains the installation procedure of SWAN on a single- or multi-processor machine
@@ -621,7 +671,7 @@ To help you in editing an command file for SWAN input, the file {\tt swan.edt} i
 \noindent
 Two run procedures are provided among the source code, one for the Windows platform, called
 {\tt swanrun.bat}, and one for the UNIX/Linux platform, called {\tt swanrun}. Basically, the
-following actions need to be done by the run procedure:
+run procedure carries out the following actions:
 \begin{itemize}
   \item Copy the command file with extension {\tt swn} to {\tt INPUT} (assuming {\tt INPUT} is
         the standard file name for command input, see Chapter \ref{ch:usechan}).
@@ -634,22 +684,42 @@ On other operating system a similar procedure can be followed. For parallel MPI 
 program {\tt mpirun} is needed and is provided in the MPICH distribution.
 \\[2ex]
 \noindent
-Before calling the run procedure, the environment variable PATH need to be adapted by
+Before calling the run procedure, the environment variable {\small \tt PATH} need to be adapted by
 including the pathname of the directory where {\tt swan.exe} can be found. In case of Windows,
 this pathname can be specified through the category {\it System} of {\it Control Panel} (on the
 {\it Advanced} tab, click {\it Environment Variables}) or by adding it in the {\tt AUTOEXEC.BAT}
-file. In case of UNIX or Linux running the Bourne shell, the environment variable PATH may be
-changed as follows:
+file. In case of UNIX or Linux running the bash shell (sh or ksh), the environment variable
+{\small \tt PATH} may be changed as follows:
 \begin{verbatim}
 export PATH=${PATH}:/usr/local/swan
 \end{verbatim}
-if {\tt /usr/local/swan} is the directory where the executable {\tt swan.exe} can be found.
-In case of the C shell, use the following command:
+if {\tt /usr/local/swan} is the directory where the executable {\tt swan.exe} is resided.
+In case of the C shell (csh), use the following command:
 \begin{verbatim}
 setenv PATH ${PATH}:/usr/local/swan
 \end{verbatim}
+
+\noindent
 If appropriate, you also need to add the directory path where the {\tt bin} directory of MPICH
-is resided to PATH to have access to the command {\tt mpirun}.
+is resided to {\small \tt PATH} to have access to the command {\tt mpirun}.
+\\[2ex]
+\noindent
+You may also specify the number of threads to be used during execution of the multithreaded
+implementation of SWAN on multiprocessor systems. The environment variable for this is
+{\small \tt OMP\_NUM\_THREADS} and can be set like
+\begin{verbatim}
+export OMP_NUM_THREADS=4
+\end{verbatim}
+or
+\begin{verbatim}
+setenv OMP_NUM_THREADS 4
+\end{verbatim}
+or, in case of Windows,
+\begin{verbatim}
+OMP_NUM_THREADS = 4
+\end{verbatim}
+When dynamic adjustment of the number of threads is enabled, the value given in\\
+{\small \tt OMP\_NUM\_THREADS} represents the maximum number of threads allowed.
 \\[2ex]
 \noindent
 The provided run procedures enable the user to properly and easily run SWAN both serial as
@@ -666,26 +736,34 @@ swanrun filename [nprocs]
 where {\tt filename} is the name of your command file without extension (assuming it is {\tt swn})
 and {\tt nprocs} indicates how many processes need to be launched for a parallel MPI run (do not
 type the brackets; they just indicate that {\tt nprocs} is optional). By default, $nprocs = 1$.
+You may also run on a dual/quad core computer; do not set {\tt nprocs}.
 \\[2ex]
 \noindent
 The command line for the UNIX script {\tt swanrun} is as follows:
 \begin{verbatim}
 ./swanrun -input filename [-omp n | -mpi n]
 \end{verbatim}
-where {\tt filename} is the name of your command file without extension. The parameter {\tt -omp~n}
-specifies a parallel run on $n$ processors using OpenMP. The parameter {\tt -mpi~n} specifies a
-parallel run on $n$ processors using MPI. The parameter {\tt -input} is obliged, whereas the
-parameters {\tt -omp~n} and {\tt -mpi~n} can be omitted (default: $n=1$). Note that the script
+where {\tt filename} is the name of your command file without extension. Note that the script
 {\tt swanrun} need to be made executable first, as follows:
 \begin{verbatim}
 chmod +rx ./swanrun
+\end{verbatim}
+The parameter {\tt -omp~n}
+specifies a parallel run on $n$ cores using OpenMP. Note that the UNIX script will set
+{\small \tt OMP\_NUM\_THREADS} to $n$. The parameter {\tt -mpi~n} specifies a
+parallel run on $n$ processors using MPI. The parameter {\tt -input} is obliged, whereas the
+parameters {\tt -omp~n} and {\tt -mpi~n} can be omitted (default: $n=1$). To redirect screen
+output to a file, use the sign $>$. Use an ampersand to run SWAN in the background. An
+example:
+\begin{verbatim}
+./swanrun -input f31har01 -omp 4 > swanout &
 \end{verbatim}
 
 \noindent
 For a parallel MPI run, you may also need a {\tt machinefile} that contains the names of the
 nodes in your parallel environment. Put one node per line in the file. Lines starting with
 the \# character are comment lines. You can specify a number after the node name to indicate
-how many processes to launch on the node. This is useful e.g., for dual-processors. The run
+how many cores to launch on the node. This is useful e.g., for multi-core processors. The run
 procedure will cycle through this list until all the requested processes are launched. Example
 of such a file may look like:
 \begin{verbatim}
@@ -721,7 +799,7 @@ processors, i.e. the number of hotfiles equals the number of processors (see the
 a (parallel MPI) run can be either from a single (concatenated) hotfile or from multiple hotfiles.
 In the latter case, the number of processors must be equal to the number of generated hotfiles. If
 appropriate, the single hotfile can be created from a set of multiple hotfiles using the program
-{\tt hcat.exe} as available from SWAN version 40.51AB. This executable is generated from the Fortran
+{\tt hcat.exe} as available from SWAN version 40.51A. This executable is generated from the Fortran
 program {\tt swanhcat.ftn}. A self-contained input file {\tt hcat.nml} is provided. This file contains,
 e.g. the (basis) name of the hotfile. To concatenate multiple hotfiles into single hotfile just execute
 {\tt hcat.exe}.
@@ -729,7 +807,10 @@ e.g. the (basis) name of the hotfile. To concatenate multiple hotfiles into sing
 \chap{Testing the system} \label{ch:test}
 
 The SWAN system consists of one executable file ({\tt swan.exe}), a command file ({\tt swan.edt}) and
-a run procedure ({\tt swanrun.bat} or {\tt swanrun}). The input and output to a number of test problems
+a run procedure ({\tt swanrun.bat} or {\tt swanrun}).
+Depending on your system, you may use 32-bit or 64-bit executable.
+These executables for Windows NT/2000/XP can be obtained from the SWAN web site.
+The input and output to a number of test problems
 is provided on the SWAN web page. The files with extension {\tt swn} are the command files for these
 tests; the files with extension {\tt bot} are the bottom files for these tests, etc. This input can be
 used to make a configuration test of SWAN on your computer. Compare the results with those in the

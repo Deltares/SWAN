@@ -27,7 +27,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2007  Delft University of Technology
+!     Copyright (C) 2009  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -190,7 +190,7 @@
         IUNMAX = 99
 !/SGI        IUNMAX = 199
 !       TABC is the Tab character (interpreted as blank in command reading)
-        TABC = CHAR(9)                                                    40.67
+        TABC = CHAR(9)                                                    40.69
 !       COMID is the comment identifier (usually $)
         COMID  = '$'
 !       DIRCH1 is directory separation character as appears in input file
@@ -339,7 +339,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2007  Delft University of Technology
+!     Copyright (C) 2009  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -438,7 +438,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2007  Delft University of Technology
+!     Copyright (C) 2009  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -459,6 +459,8 @@
 !     Updates
 !
 !       ver 30.70, Sep 1997 by N.Booij: adaptation in view year 2000
+!       40.89, Nico Booij: integer Jumpyear introduced to prevent porblems
+!                          with 2-digit year code
 !
 !     Function:
 !
@@ -484,6 +486,7 @@
 !
 !     Source:
 !
+      INTEGER :: JUMPYEAR = 30     ! Used in interpretation of 2-digit year code
       INTEGER    IOPT, DTTIME(6)
       CHARACTER  TIMSTR *24, MONC(12) *3, MONCI *3
       DATA MONC /'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL',
@@ -494,7 +497,7 @@
       ELSE IF (IOPT.EQ.2) THEN
         READ (TIMSTR, '(I2,1X,A3,1X,I2,3(1X,I2))', ERR=98)
      &  DTTIME(3), MONCI, DTTIME(1), (DTTIME(II), II=4,6)
-        IF (DTTIME(1).LT.10) THEN                                         30.70
+        IF (DTTIME(1).LT.JUMPYEAR) THEN                                   40.89 30.70
           DTTIME(1) = 2000 + DTTIME(1)                                    30.70
         ELSE
           DTTIME(1) = 1900 + DTTIME(1)
@@ -510,7 +513,7 @@
       ELSE IF (IOPT.EQ.3) THEN
         READ (TIMSTR, '(I2,5(1X,I2))', ERR=98)
      &  DTTIME(2), DTTIME(3), DTTIME(1), (DTTIME(II), II=4,6)
-        IF (DTTIME(1).LT.10) THEN                                         30.70
+        IF (DTTIME(1).LT.JUMPYEAR) THEN                                   40.89 30.70
           DTTIME(1) = 2000 + DTTIME(1)                                    30.70
         ELSE
           DTTIME(1) = 1900 + DTTIME(1)
@@ -522,7 +525,7 @@
   40    CONTINUE
       ELSE IF (IOPT.EQ.5) THEN                                            30.11
         READ (TIMSTR, '(I2,5(1X,I2))', ERR=98) (DTTIME(II), II=1,6)       30.11
-        IF (DTTIME(1).LT.10) THEN                                         30.70
+        IF (DTTIME(1).LT.JUMPYEAR) THEN                                   40.89 30.70
           DTTIME(1) = 2000 + DTTIME(1)                                    30.70
         ELSE
           DTTIME(1) = 1900 + DTTIME(1)
@@ -530,7 +533,7 @@
       ELSE IF (IOPT.EQ.6) THEN                                            30.11
         READ (TIMSTR, '(5I2)', ERR=98) (DTTIME(II), II=1,5)
         DTTIME(6) = 0.
-        IF (DTTIME(1).LT.10) THEN                                         30.70
+        IF (DTTIME(1).LT.JUMPYEAR) THEN                                   40.89 30.70
           DTTIME(1) = 2000 + DTTIME(1)                                    30.70
         ELSE
           DTTIME(1) = 1900 + DTTIME(1)
@@ -559,7 +562,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2007  Delft University of Technology
+!     Copyright (C) 2009  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as

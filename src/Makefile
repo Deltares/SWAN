@@ -10,7 +10,7 @@
 #
 # To remove compiled objects and modules: type "make clean"
 #
-# To remove compiled objects, modules and executable: type "make allclean"
+# To remove compiled objects, modules and executable: type "make clobber"
 #
 # To compile the SWAN documentation type "make doc"
 #
@@ -30,6 +30,9 @@ m_constants.$(EXTO) \
 m_fileio.$(EXTO) \
 serv_xnl4v5.$(EXTO) \
 mod_xnl4v5.$(EXTO) \
+SwanGriddata.$(EXTO) \
+SwanGridobjects.$(EXTO) \
+SwanCompdata.$(EXTO) \
 swanmain.$(EXTO) \
 swanpre1.$(EXTO) \
 swanpre2.$(EXTO) \
@@ -42,6 +45,42 @@ swanout1.$(EXTO) \
 swanout2.$(EXTO) \
 swanser.$(EXTO) \
 swanparll.$(EXTO) \
+SwanReadGrid.$(EXTO) \
+SwanReadADCGrid.$(EXTO) \
+SwanReadTriangleGrid.$(EXTO) \
+SwanReadEasymeshGrid.$(EXTO) \
+SwanInitCompGrid.$(EXTO) \
+SwanCheckGrid.$(EXTO) \
+SwanCreateEdges.$(EXTO) \
+SwanGridTopology.$(EXTO) \
+SwanGridVert.$(EXTO) \
+SwanGridCell.$(EXTO) \
+SwanGridFace.$(EXTO) \
+SwanPrintGridInfo.$(EXTO) \
+SwanFindPoint.$(EXTO) \
+SwanPointinMesh.$(EXTO) \
+SwanBpntlist.$(EXTO) \
+SwanPrepComp.$(EXTO) \
+SwanVertlist.$(EXTO) \
+SwanCompUnstruc.$(EXTO) \
+SwanDispParm.$(EXTO) \
+SwanPropvelX.$(EXTO) \
+SwanSweepSel.$(EXTO) \
+SwanPropvelS.$(EXTO) \
+SwanTranspAc.$(EXTO) \
+SwanTranspX.$(EXTO) \
+SwanDiffPar.$(EXTO) \
+SwanGSECorr.$(EXTO) \
+SwanInterpolatePoint.$(EXTO) \
+SwanInterpolateAc.$(EXTO) \
+SwanInterpolateOutput.$(EXTO) \
+SwanConvAccur.$(EXTO) \
+SwanConvStopc.$(EXTO) \
+SwanThreadBounds.$(EXTO) \
+SwanFindObstacles.$(EXTO) \
+SwanCrossObstacle.$(EXTO) \
+SwanComputeForce.$(EXTO) \
+SwanIntgratSpc.$(EXTO) \
 ocpids.$(EXTO) \
 ocpcre.$(EXTO) \
 ocpmix.$(EXTO)
@@ -49,19 +88,19 @@ ocpmix.$(EXTO)
 HCAT_EXE = hcat.exe
 HCAT_OBJS = swanhcat.$(EXTO)
 
-.SUFFIXES: .f .F .for .f90
+.SUFFIXES: .o .f .for .f90
 
-.PHONEY: help
+.PHONEY: help clean clobber
 
 help:
 	@echo "This Makefile supports the following:"
 	@echo "make config    -- makes machine-dependent macros include file"
-	@echo "make ser       -- makes the Serial $(SWAN_EXE) executable"
+	@echo "make ser       -- makes the serial $(SWAN_EXE) executable"
 	@echo "make omp       -- makes the OpenMP $(SWAN_EXE) executable"
 	@echo "make mpi       -- makes the    MPI $(SWAN_EXE) executable"
 	@echo "make doc       -- makes the SWAN documentation (PDF)"
 	@echo "make clean     -- removes compiled objects and modules"
-	@echo "make allclean  -- removes compiled objects, modules and $(SWAN_EXE)"
+	@echo "make clobber   -- removes compiled objects, modules and $(SWAN_EXE)"
 	@echo "make cleandoc  -- removes all SWAN documents"
 
 config:
@@ -73,20 +112,28 @@ install:
 ser:
 	@perl switch.pl $(swch) *.ftn *.ftn90
 	$(MAKE) FOR=$(F90_SER) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" \
+	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_SER)" \
                 INCS="$(INCS_SER)" LIBS="$(LIBS_SER)" $(SWAN_EXE)
-	$(MAKE) FOR="$(F90_SER)" FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" $(HCAT_EXE)
+	$(MAKE) hcat
 
 omp:
-	@perl switch.pl $(swch) -omp *.ftn *.ftn90
+	@perl switch.pl $(swch) *.ftn *.ftn90
 	$(MAKE) FOR=$(F90_OMP) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_OMP)" \
+	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_OMP)" \
                 INCS="$(INCS_OMP)" LIBS="$(LIBS_OMP)" $(SWAN_EXE)
-	$(MAKE) FOR="$(F90_SER)" FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" $(HCAT_EXE)
+	$(MAKE) hcat
 
 mpi:
 	@perl switch.pl $(swch) -mpi *.ftn *.ftn90
 	$(MAKE) FOR=$(F90_MPI) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_MPI)" \
+	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_MPI)" \
                 INCS="$(INCS_MPI)" LIBS="$(LIBS_MPI)" $(SWAN_EXE)
-	$(MAKE) FOR="$(F90_SER)" FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" $(HCAT_EXE)
+	$(MAKE) hcat
+
+hcat:
+	@perl switch.pl $(swch) swanhcat.ftn
+	$(MAKE) FOR=$(F90_SER) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" \
+	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_SER)" $(HCAT_EXE)
 
 doc:
 	$(MAKE) -f Makefile.latex TARGET=swanuse doc
@@ -105,10 +152,7 @@ $(SWAN_EXE): $(SWAN_OBJS)
 	$(FOR) $< -c $(FFLAGS) $(INCS)
 
 .f90.o:
-	$(FOR) $< -c $(FFLAGS) $(INCS)
-
-.F.o:
-	$(FOR) $< -c $(FFLAGS) $(INCS)
+	$(FOR) $< -c $(FFLAGS90) $(INCS)
 
 .for.o:
 	$(FOR) $< -c $(FFLAGS) $(INCS)
@@ -117,13 +161,16 @@ $(SWAN_EXE): $(SWAN_OBJS)
 	$(FOR) $< -c $(FFLAGS) $(INCS)
 
 .f90.obj:
-	$(FOR) $< -c $(FFLAGS) $(INCS)
+	$(FOR) $< -c $(FFLAGS90) $(INCS)
 
 clean:
 	$(RM) *.$(EXTO) *.mod
 
+clobber:
+	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE)
+
 allclean:
-	$(RM) *.$(EXTO) *.mod *.f ocp*.F sw*.F *.for *.f90 $(SWAN_EXE) $(HCAT_EXE)
+	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE)
 
 cleandoc:
 	$(MAKE) -f Makefile.latex TARGET=swanuse cleandoc

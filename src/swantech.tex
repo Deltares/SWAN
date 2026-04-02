@@ -13,17 +13,17 @@
 \end{center}
 \vspace{2cm}
 \begin{center}
-{\Large\bf TECHNICAL DOCUMENTATION}
+{\Large\bf SCIENTIFIC\\ AND\\ TECHNICAL\\ DOCUMENTATION\\}
 \end{center}
 \vfill
 \begin{center}
-{\Large\bf SWAN Cycle III version 40.51AB}
+{\Large\bf SWAN Cycle III version 40.72ABCDE}
 \end{center}
 
 \cleardoublepage
 
 \noindent
-{\Large\bf SWAN TECHNICAL DOCUMENTATION}
+{\Large\bf SWAN\\ SCIENTIFIC AND TECHNICAL\\ DOCUMENTATION\\}
 
 \vfill
 
@@ -39,14 +39,14 @@ mail address &:& Delft University of Technology \\
              & & The Netherlands \\
              & & \\
 e-mail       &:& swan-info-citg@tudelft.nl \\
-home page    &:& \hl{http://www.fluidmechanics.tudelft.nl/swan/index.htm}
+home page    &:& \hl{http://www.swan.tudelft.nl}
 \end{tabular}
 \end{table}
 
 \vfill
 
 \noindent
-Copyright (c) 2007 Delft University of Technology.
+Copyright (c) 2009 Delft University of Technology.
 \\[2ex]
 \noindent
 Permission is granted to copy, distribute and/or modify this document
@@ -105,7 +105,7 @@ waves in coastal regions with shallow water and ambient current.
 \\[2ex]
 \noindent
 SWAN is developed at Delft University of Technology and is freely available from\\
-\hl{http://www.fluidmechanics.tudelft.nl/swan/index.htm}. It is used by many goverment
+\hl{http://www.swan.tudelft.nl}. It is used by many goverment
 authorities, research institutes and consultants worldwide. The feedback has widely
 indicated the reliability of SWAN in different experiment and field cases.
 \\[2ex]
@@ -171,7 +171,8 @@ wave height are large within a horizontal scale of a few wave lengths. However, 
 in arbitrary geophysical conditions is rather complicated and requires considerable computing effort. To
 avoid this, a phase-decoupled approach, as described in (Holthuijsen~{\it et~al}., 2003),
 is employed so that same qualitative behaviour of spatial redistribution and changes in wave direction is
-obtained.
+obtained. This approach, however, does not properly handle diffraction in harbours
+or in front of reflecting obstacles.
 \nocite{Hol03HB}
 \\[2ex]
 \noindent
@@ -194,6 +195,7 @@ Chapter~\ref{ch:solver} is devoted to the linear solvers for the solution of the
 systems of equations.
 Chapter~\ref{ch:parall} deals with some consideration on parallelization of SWAN on
 distributed memory architectures.
+Chapter~\ref{ch:unswan} presents an unstructured-grid procedure for SWAN.
 Chapter~\ref{ch:concl} concludes this document by summarizing the overall solution algorithm of SWAN.
 \\[2ex]
 \noindent
@@ -214,7 +216,7 @@ the Delft University of Technology in Delft, The Netherlands in 1993: Nico Booij
 \noindent
 We further want to acknowledge all contributors who helped us to improve SWAN, reported bugs, and tested SWAN
 thoroughly: Tim Campbell, John Cazes, IJsbrand Haagsma, Agnieszka Herman, Jim Kaihatu, Kees Kassels, Annette Kieftenburg,
-Ekaterini Kriezi, Roberto Padilla-Hernandez, Erick Rogers, Kees Vuik, Andre van der Westhuijsen and Marcel Zijlema.
+Ekaterini Kriezi, Roberto Padilla-Hernandez, Erick Rogers, Kees Vuik, Andre van der Westhuysen and Marcel Zijlema.
 \\[2ex]
 \noindent
 Many thanks are due to Gerbrant van Vledder and Noriaki Hashimoto who provided the source code for exact
@@ -226,8 +228,8 @@ Research (USA), which helped a lot to develop and maintain SWAN. The present ver
 Rijkswaterstaat (as part of the Ministry of Transport, Public Works and Water Management, The Netherlands).
 \\[2ex]
 \noindent
-We are finally grateful to all those other people working on the Public Domain Software without which a project
-like SWAN would be unthinkable: Linux, Intel, GNU F95, \LaTeX, MPICH and many others.
+We are finally grateful to all those other people working on the Public Domain Software without which the development
+of SWAN would be unthinkable: Linux, Intel, GNU F95, \LaTeX, MPICH2, Perl and many others.
 
 \chap{Governing equations} \label{ch:goveq}
 
@@ -258,7 +260,7 @@ current is present) and ${\alpha}_i$ the random phase of the $i^{\rm th}$ wave c
 This is called the random-phase model.
 \\[2ex]
 \noindent
-In the presene of the ambient current, it is assumed that it is uniform with respect to the vertical
+In the presence of the ambient current, it is assumed that it is uniform with respect to the vertical
 co-ordinate and the changes in the mean flow within a wave length are so small that they affect only
 negligibly the dispersion relation. The absolute radian frequency $\omega$ then equals the sum of
 the relative radian frequency $\sigma$ and the multiplication of the wave number and ambient current
@@ -378,7 +380,11 @@ Cartesian framework and spectral space can be obtained from the kinematics of a 
 \end{eqnarray}
 where $c_x$, $c_y$ are the propagation velocities of wave energy in spatial $x-$, $y-$space, $c_\sigma$ and $c_\theta$
 are the propagation velocities in spectral space $\sigma-$, $\theta-$space, $d$ is water depth, $s$ is the space co-ordinate
-in the wave propagation direction of $\theta$ and $m$ is a co-ordinate perpendicular to $s$. Furthermore,
+in the wave propagation direction of $\theta$ and $m$ is a co-ordinate perpendicular to $s$.
+The expression for $c_\theta$ is presented here without diffraction effects. These are treated separately in Section~\ref{sec:diffrac}.
+\\[2ex]
+\noindent
+Furthermore,
 \begin{equation}
   \vec{k} = (k_x,k_y) = (|\vec{k}|\cos \theta, |\vec{k}|\sin \theta) \, , \quad \vec{u} = (u_x,u_y)
   \label{intro10}
@@ -443,7 +449,7 @@ spherical co-ordinates as follows:
   \label{eq:actbal3}
 \end{equation}
 with action density $\tilde{N}$ with respect to longitude $\lambda$ and latitude $\varphi$.
-Note that $\theta$ is the wave direction taken counter-clockwise from geographic East. The propagation
+Note that $\theta$ is the wave direction taken counterclockwise from geographic East. The propagation
 velocities are reformulated as follows. On a sphere, we have
 \begin{eqnarray}
    &&dx = R \cos \varphi d\lambda \\ \nonumber
@@ -475,7 +481,10 @@ Since, $dy = ds \sin \theta$, we have $d\varphi/ds = \sin\theta/R$. Substitution
 $ds=(c_x \cos \theta + c_y \sin \theta)dt$ yields
 \begin{equation}
   \frac{d\theta}{dt} = -\frac{c_x \cos \theta + c_y \sin \theta}{R} \cos \theta \tan \varphi
+  \label{eq:dthdt}
 \end{equation}
+This term (\ref{eq:dthdt}) accounts for the change of propagation direction relative to true North when travelling
+along a great circle.
 This holds for deep water and without currents. Hence,
 \begin{equation}
   \tilde{c}_\theta = c_\theta - \frac{c_x \cos \theta + c_y \sin \theta}{R} \cos \theta \tan \varphi
@@ -496,7 +505,8 @@ Substitution into (\ref{eq:actbal3}) yields:
 
 First, in Section~\ref{sec:gencon} general concepts of the physical processes of generation, dissipation and
 nonlinear wave-wave interactions that are implemented in SWAN are outlined. Next, complete expressions for
-these physical processes are given in subsequent sections.
+these physical processes are given in subsequent sections. Finally, for completeness, the first- and second-generation
+formulations as employed in SWAN are outlined in Section~\ref{sec:relaxmod}.
 
 \subsection{General concepts} \label{sec:gencon}
 
@@ -586,26 +596,22 @@ expected.
 \noindent
 A number of alternative whitecapping expressions have been proposed to improve the accuracy of SWAN. These range
 from alternative calibrations of the Komen~{\it et~al} (1984) expression, e.g. Rogers~{\it et~al} (2003), to
-alternative ways of calculating mean spectral steepness, e.g. Van Vledder and Hurdle (2002). In SWAN, two
-alternatives are presented.
+alternative ways of calculating mean spectral steepness, e.g. Van Vledder and Hurdle (2002).
+In SWAN, another alternative is presented.
 \nocite{Vle02H}
 \\[2ex]
 \noindent
-An alternative formulation for whitecapping is based on the Cumulative Steepness Method as described
-in Hurdle and Van Vledder (2004). With this method dissipation due to whitecapping depends on the steepness of
-the wave spectrum at and below a particular frequency.
-\\[2ex]
-\noindent
-A second alternative of the whitecapping expression is based on Alves and Banner (2003). This expression is based
+This alternative is proposed by Van der Westhuysen~{\it et~al} (2007) and Van der Westhuysen (2007),
+based on the whitecapping expression of Alves and Banner (2003). This expression is based
 on experimental findings that whitecapping dissipation appears to be related to the nonlinear hydrodynamics within
 wave groups. This yields a dissipation term that primarily depends on quantities that are local in the frequency
 spectrum, as opposed to ones that are distributed over the spectrum, as in the expression of Komen~{\it et~al} (1984).
 However, the final whitecapping expression proposed by Alves and Banner (2003) features additional dependencies on
 the spectral mean wavenumber and steepness, which is problematic in situations of mixed sea and swell often
-encountered in the nearshore. Therefore, their whitecapping expression is applied here without these mean spectral
-dependencies. This adapted whitecapping expression is used together with a wind input term that is based on that
-of Yan (1987). Further information and details can be found in Van der Westhuysen~{\it et~al} (2007).
-\nocite{Alv03B,Yan87,Wes07ZB}
+encountered in the nearshore. Therefore, their whitecapping expression is applied in Van der Westhuysen (2007)
+without these mean spectral dependencies. This adapted whitecapping expression is used together with a wind input
+term that is based on that of Yan (1987).
+\nocite{Alv03B,Yan87,Wes07ZB,Wes07}
 \\[2ex]
 \noindent
 In shallow water the orbital motions of the water particles, induced by surface waves, extend
@@ -657,17 +663,22 @@ their expression to include directions, the expression reads:
   \label{eq2-8}
 \end{equation}
 in which $E_{\rm tot}$ is the total wave energy and $D_{\rm tot}~<~0$ is the rate of dissipation of
-the total energy due to wave breaking according to Battjes and Janssen (1978). Adding a quadratic dependency
-on frequency as suggested by Mase and Kirby (1992) and supported by Elgar~{\it et~al}. (1997) seems to have no
-noticeable effect on the SWAN results. Chen and Guza (1997) inferred from observations and simulations with a
-Boussinesq model that the high-frequency levels are insensitive to such frequency dependency because
-an increased dissipation at high frequencies is compensated approximately by increased nonlinear
-energy transfer (but they did find the frequency dependency to be relevant in time domain). The value of
-$D_{\rm tot}$ depends critically on the breaking parameter $\gamma = H_{\max}/d$
+the total energy due to wave breaking according to Battjes and Janssen (1978).
+%Adding a quadratic dependency
+%on frequency as suggested by Mase and Kirby (1992) and supported by Elgar~{\it et~al}. (1997)
+%and Chen~{\it et~al}. (1997)
+%may have effect on the SWAN results. This option is available in SWAN.
+%%Chen~{\it et~al}. (1997) inferred from observations and simulations with a
+%%Boussinesq model that the high-frequency levels are insensitive to such frequency dependency because
+%%an increased dissipation at high frequencies is compensated approximately by increased nonlinear
+%%energy transfer (but they did find the frequency dependency to be relevant in time domain).
+The value of $D_{\rm tot}$ depends critically on the breaker parameter $\gamma = H_{\max}/d$
 (in which $H_{\max}$ is the maximum possible individual wave height in the local water depth $d$).
-In SWAN, both a constant value and a variable value are available. The constant value is $\gamma=0.73$ found as
+In SWAN, both a constant value and a variable value are available. Examples of a variable breaker parameter
+can be found in Nelson (1987) and Ruessink et al. (2003). (Both are implemented in SWAN.)
+The constant value is $\gamma=0.73$ found as
 the mean value of the data set of Battjes and Stive (1985).
-\nocite{Bat78J,Tho83G,Bat92B,Vin94SD,Arc94RC,Eld96B,Eld95B,Mas92K,Elg97GRHG,Che97G,Bat85S}
+\nocite{Bat78J,Tho83G,Bat92B,Vin94SD,Arc94RC,Eld96B,Eld95B,Mas92K,Elg97GRHG,Che97GE,Nel87,Rue03WS,Bat85S}
 \\[2ex]
 \noindent
 \underline{Nonlinear wave-wave interactions}\\[2ex]
@@ -723,7 +734,7 @@ made by Abreu~{\it et~al}. (1992). However, their expression is restricted to no
 waves and is therefore not suitable in many practical applications of wind waves. The breakthrough in the
 development came with the work of Eldeberky and Battjes (1995) who transformed the amplitude part of
 the Boussinesq model of Madsen and S{\o}rensen (1993) into an energy density formulation and who
-parameterized the bi-phase of the waves on the basis of laboratory observations (Battjes and Beji, 1992;
+parameterized the biphase of the waves on the basis of laboratory observations (Battjes and Beji, 1992;
 Arcilla~{\it et~al}., 1994). A discrete triad approximation (DTA) for co-linear waves was subsequently
 obtained by considering only the dominant self-self interactions. Their model has been verified with flume
 observations of long-crested, random waves breaking over a submerged bar (Beji and Battjes, 1993) and
@@ -881,40 +892,15 @@ G\"{u}nther~{\it et~al} (1992) obtained (assuming $p=4$) $C_{\rm ds} = 4.10 \tim
 Cycle~4; Komen~{\it et~al}., 1994).
 \\[2ex]
 \noindent
-\underline{Whitecapping: CSM formulation}\\[2ex]
-An alternative formulation for whitecapping is based on the Cumulative Steepness Method as described
-in Hurdle and Van Vledder (2004). With this method dissipation due to whitecapping depends on the steepness of
-the wave spectrum at and below a particular frequency. It is defined as (directionally dependent):
-\begin{equation}
-  S_{\rm st} (\sigma,\theta) = A_m \int_{0}^{\sigma} \int_{0}^{2\pi} k^2 | \cos (\theta - \theta')|^m E
-  (\sigma,\theta)d\sigma d\theta
-  \label{eq2-5}
-\end{equation}
-with $A_m$ the normalisation coefficient as determined by
-\begin{equation}
-  \int_{0}^{2\pi} A_m \cos^m (\theta) d\theta = 1
-\end{equation}
-In expression (\ref{eq2-5}) the coefficient $m$ controls the directional dependence. It is expected that this
-coefficient will be order 1 if the straining mechanism is dominant, $m$ is more than 10 if other mechanism play
-a role (e.g. instability that occurs when vertical acceleration in the waves becomes greater than gravity).
-Default in SWAN is $m=2$. The alternative whitecapping source term is given by
-\begin{equation}
-  S_{\rm wc}^{\rm st} = -C_{\rm wc}^{\rm st} \left( S_{\rm st} (\sigma,\theta) \right)^p E (\sigma,\theta)
-  \label{eq2-6}
-\end{equation}
-with $C_{wc}^{st}$ a tuneable coefficient and $p$ a parameter controlling the proportionality of the dissipation
-rate on the steepness. In SWAN, $p=1$ is assumed.
-\nocite{Hur04V}
-\\[2ex]
-\noindent
 \underline{Whitecapping: saturation-based model}\\[2ex]
-The whitecapping formulation used in SWAN is an adapted form of the expression of Alves and Banner (2003), which is based
+An alternative description for whitecapping in SWAN is given by Van der Westhuysen~{\it et~al} (2007) and
+Van der Westhuysen (2007), which is an adapted form of the expression of Alves and Banner (2003). The latter is based
 on the apparent relationship between wave groups and whitecapping dissipation. This adaption is due to the fact that it
 can also be applied to mixed sea-swell conditions and in shallow water. This was done by removing the dependencies on mean
 spectral steepness and wavenumber in the original expression, and by applying source term scaling arguments for its
 calibration (see below). This led to the following expression for whitecapping dissipation
 \begin{equation}
-  S_{\rm ds,w} (\sigma,\theta) = -C_{\rm ds} \left( \frac{B(k)}{B_{\rm r}} \right)^{p/2} (\tanh(kh))^{(2-p_0)/4}
+  S_{\rm ds,break} (\sigma,\theta) = -C'_{\rm ds} \left( \frac{B(k)}{B_{\rm r}} \right)^{p/2} (\tanh(kh))^{(2-p_0)/4}
                                   \sqrt{gk} E(\sigma,\theta)
   \label{eq:satu}
 \end{equation}
@@ -923,7 +909,8 @@ the probability of wave group-induced breaking. It is calculated from frequency 
 \begin{equation}
   B(k) = \int_{0}^{2\pi} c_g k^3 E(\sigma,\theta) d\theta
 \end{equation}
-and $B_{\rm r}$ is a threshold saturation level. When $B(k) > B_{\rm r}$, waves break and the exponent $p$ is set equal
+and $B_{\rm r} = 1.75 \times 10^{-3}$ is a threshold saturation level. The proportionality coefficient is set to
+$C'_{\rm ds} = 5.0 \times 10^{-5}$. When $B(k) > B_{\rm r}$, waves break and the exponent $p$ is set equal
 to a calibration parameter $p_0$. For $B(k) \leq B_{\rm r}$ there is no breaking, but some residual dissipation proved
 necessary. This is obtained by setting $p = 0$. A smooth transition between these two situations is achieved by
 (Alves and Banner, 2003);
@@ -931,6 +918,28 @@ necessary. This is obtained by setting $p = 0$. A smooth transition between thes
   p = \frac{p_0}{2} + \frac{p_0}{2} \tanh \left[ 10 \left( \sqrt{\frac{B(k)}{B_{\rm r}}} - 1 \right) \right]
   \label{eq:expo}
 \end{equation}
+\noindent
+In Van der Westhuysen (2007) the dissipation modes of breaking and non-breaking waves are separated, so that they
+are active over different parts of the spectrum:
+\begin{equation}
+  S_{\rm ds,w}(\sigma,\theta) = f_{\rm br}(\sigma)S_{\rm ds,break} + \left[ 1 - f_{\rm br}(\sigma) \right]
+  S_{\rm ds,non-break} \ \ ,
+  \label{eq:wctot}
+\end{equation}
+\noindent
+where $S_{\rm ds,break}$ is the contribution by breaking waves (\ref{eq:satu}), and $S_{\rm ds,non-break}$ dissipation
+by means other than breaking (e.g. turbulence). The changeover between the two modes is made with a smooth transition
+function $f_{\rm br}$ similar to (\ref{eq:expo}):
+\begin{equation}
+  f_{\rm br}(\sigma) = \frac{1}{2} + \frac{1}{2} \tanh \left[ 10 \left( \sqrt{\frac{B(k)}{B_{\rm r}}} - 1 \right) \right]
+  \label{eq:fbr}
+\end{equation}
+\noindent
+Since relatively little is known about the dissipation mechanisms of the non-breaking low-frequency waves, their dissipation
+is not modelled in detail. Instead, the expression (\ref{eq3-11}) is used for $S_{\rm ds,non-break}$, to provide general
+background dissipation of non-breaking waves. For this component, the parameter settings of Komen~{\it et~al}. (1984)
+are applied.
+\\[2ex]
 \noindent
 The wind input expression used in saturation-based model is based on that by Yan (1987). This expression embodies experimental
 findings that for strong wind forcing, $u_*/c > 0.1$ say, the wind-induced growth rate of waves depends quadratically on
@@ -978,15 +987,16 @@ Madsen~{\it et~al}. (1988). The formulations for these bottom friction models ca
   \label{eq3-17}
 \end{equation}
 in which $C_{\rm b}$ is a bottom friction coefficient that generally depends on the bottom orbital motion
-represented by $U_{rms}$:
+represented by $U_{\rm rms}$:
 \begin{equation}
-  U^2_{rms} = \int_{0}^{2\pi} \int_{0}^{\infty} \frac{\sigma^2}{g^2 \sinh^2 kd} E(\sigma,\theta) d\sigma d\theta
+  U^2_{\rm rms} = 2\,\int_{0}^{2\pi} \int_{0}^{\infty} \frac{\sigma^2}{g^2 \sinh^2 kd} E(\sigma,\theta) d\sigma d\theta
   \label{eq3-18}
 \end{equation}
-Hasselmann~{\it et~al}. (1973) found from the results of the JONSWAP experiment
-$C_{\rm b}~=~C_{\rm JON}~=~0.038$m$^{2}$s$^{-3}$ for swell conditions. Bouws and Komen (1983) selected a bottom
-friction coefficient of $C_{\rm JON}~=~0.067$m$^{2}$s$^{-3}$ for
-fully developed wave conditions in shallow water. Both values are available in SWAN.
+Hasselmann~{\it et~al}. (1973) found $C_{\rm b}=C_{\rm JON}=0.038$m$^{2}$s$^{-3}$ which is in
+agreement with the JONSWAP result for swell dissipation. However, Bouws and Komen (1983) suggest a
+value of $C_{\rm JON}~=~0.067$m$^{2}$s$^{-3}$ for depth-limited wind-sea conditions in the North Sea. This value is derived
+from revisiting the energy balance equation employing an alternative deep water dissipation.
+Both values are available in SWAN.
 \\[2ex]
 \noindent
 The expression of Collins (1972) is based on a conventional formulation for periodic waves with the
@@ -1000,7 +1010,7 @@ Madsen~{\it et~al}. (1988) derived a formulation similar to that of Hasselmann a
 model the bottom friction factor is a function of the bottom roughness height and the actual wave
 conditions. Their bottom friction coefficient is given by:
 \begin{equation}
-  C_{\rm b} = f_w \frac{g}{\sqrt{2}} U_{rms}
+  C_{\rm b} = f_w \frac{g}{\sqrt{2}} U_{\rm rms}
   \label{eq3-19}
 \end{equation}
 in which $f_w$ is a non-dimensional friction factor estimated by using the formulation of Jonsson (1966) cf.
@@ -1026,7 +1036,7 @@ of Battjes and Janssen (1978) is used in SWAN. The mean rate of energy dissipati
 area due to wave breaking $D_{\rm tot}$ is expressed as:
 \begin{equation}
   D_{\rm tot} = - \frac{1}{4} \alpha_{\rm BJ} Q_b (\frac{\tilde{\sigma}}{2\pi}) H^2_{\rm max}
-              = \alpha_{\rm BJ} Q_b \tilde{\sigma} \frac{H^2_{\rm max}}{8\pi}
+              = - \alpha_{\rm BJ} Q_b \tilde{\sigma} \frac{H^2_{\rm max}}{8\pi}
   \label{eq3-22}
 \end{equation}
 in which $\alpha_{\rm BJ} = 1$ in SWAN, $Q_b$ is the fraction of breaking waves determined by:
@@ -1066,7 +1076,7 @@ dissipation for a spectral component per unit time is calculated in SWAN with:
   -\frac{\alpha_{\rm BJ} Q_b \tilde{\sigma}}{\beta^2 \pi} E(\sigma,\theta)
   \label{eq3-26}
 \end{equation}
-The maximum wave height $H_{\rm max}$ is determined in SWAN with $H_m = \gamma d$, in which $\gamma$ is the breaker parameter
+The maximum wave height $H_{\rm max}$ is determined in SWAN with $H_{\rm max} = \gamma d$, in which $\gamma$ is the breaker parameter
 and $d$ is the total water depth (including the wave-induced set-up if computed by SWAN). In the literature,
 this breaker parameter $\gamma$ is often a constant or it is expressed as a function of bottom slope or incident
 wave steepness (see e.g., Galvin, 1972; Battjes and Janssen, 1978; Battjes and Stive, 1985; Arcilla and
@@ -1078,6 +1088,42 @@ varying between 0.6 and 0.83 for different types of bathymetry (plane, bar-troug
 of 0.73. From a compilation of a large number of experiments Kaminsky and Kraus (1993) have found
 breaker parameters in the range of 0.6 to 1.59 with an average of 0.79.
 \nocite{Arc90L,Kam93K,Nel87,Nel94}
+\\[2ex]
+\noindent
+An alternative to the bore-based model of Battjes and Janssen (1978) is proposed by Thornton and Guza (1983).
+This model can be regarded as an alteration of Battjes and Janssen with respect to the description of the wave
+height probability density function. The total dissipation due to depth-induced breaking is formulated as
+\begin{equation}
+  D_{\rm tot} = - \frac{B^3 \tilde{\sigma}}{8 \pi d} \int_{0}^{\infty} H^3 \, p_b(H)\,dH
+  \label{eq:tg83}
+\end{equation}
+in which $B$ is a proportionality coefficient and $p_b(H)$ is the probability density function of breaking
+waves times the fraction of breakers, $Q_b$. Based on field observations, the wave heights in the surf zone
+are assumed to remain Rayleigh distributed, even after breaking. This implies that all waves will break, not
+only the highest as assumed by Battjes and Janssen (1978). The function $p_b(H)$ is obtained by multiplying
+the Rayleigh wave height probability density function $p(H)$, given by
+\begin{equation}
+  p(H) = \frac{2H}{H^2_{\rm rms}}\exp \left( - \left( \frac{H}{H_{\rm rms}} \right)^2 \right)
+\end{equation}
+by a weighting function $W(H)$ defined so that $0 \leq W(H) \leq 1$, to yield
+\begin{equation}
+  p_b(H) = W(H)\,p(H)
+\end{equation}
+Thornton and Guza (1983) proposed the following weighting function in which the fraction of breaking waves
+is independent of the wave height:
+\begin{equation}
+  W(H) = Q_b = \left( \frac{H_{\rm rms}}{\gamma d} \right)^n
+\end{equation}
+with a calibration parameter $n$ and a breaker index $\gamma$ (not to be confused with the Battjes and Janssen breaker index!).
+The integral in expression (\ref{eq:tg83}) can then be simplified, as follows:
+\begin{equation}
+  \int_{0}^{\infty} H^3 \, p_b(H)\,dH = Q_b\,\int_{0}^{\infty} H^3 \, p(H)\,dH = \frac{3}{4}\sqrt{\pi}\,Q_b\,H^3_{\rm rms}
+\end{equation}
+Hence,
+\begin{equation}
+  D_{\rm tot} = - \frac{3 B^3 \tilde{\sigma}}{32 \sqrt{\pi} d} \, Q_b\, H^3_{\rm rms}
+  \label{eq:tg83_2}
+\end{equation}
 
 \subsection{Nonlinear wave-wave interactions ($S_{\rm nl}$)} \label{sec:waveint}
 
@@ -1346,7 +1392,7 @@ and
   S^-_{\rm nl3} (\sigma,\theta) = -2 S^+_{\rm nl3} (2\sigma,\theta)
   \label{eq3-35}
 \end{equation}
-in which $\alpha _{\rm EB}$ is a tunable proportionality coefficient. The bi-phase $\beta$ is approximated with
+in which $\alpha _{\rm EB}$ is a tunable proportionality coefficient. The biphase $\beta$ is approximated with
 \begin{equation}
   \beta = -\frac{\pi}{2} + \frac{\pi}{2} \tanh (\frac{0.2}{Ur})
   \label{eq3-36}
@@ -1363,6 +1409,130 @@ coefficient $J$ is taken from Madsen and S{\o}rensen (1993):
            {k_\sigma d (gd + \frac{2}{15} gd^3 k^2_\sigma - \frac{2}{5} \sigma^2 d^2)}
   \label{eq3-38}
 \end{equation}
+
+\subsection{First- and second-generation model formulations in SWAN} \label{sec:relaxmod}
+
+The source term $S_{\rm tot}$ for the first- and second-generation formulation (relaxation model) of
+SWAN is (Holthuijsen and de Boer, 1988):
+\begin{equation}
+   S_{\rm tot} =
+    \left\{
+      \begin{array}{lll}
+         S_{\rm in} = A + B E
+         \, , & \mbox{if } E < E_{\rm lim} & \mbox{and } |\theta - \theta_w| < \frac{\pi}{2} \\
+         \\
+         S_{\rm ds,w} = \frac{E_{\rm lim} - E}{\tau}
+         \, , & \mbox{if } E > E_{\rm lim} & \mbox{and } |\theta - \theta_w| < \frac{\pi}{2} \\
+         \\
+         0 \, , & \mbox{if } E > E_{\rm lim} & \mbox{and } |\theta - \theta_w| > \frac{\pi}{2} \\
+      \end{array}
+    \right.
+  \label{eq:relaxmod}
+\end{equation}
+where $S_{\rm in}$ and $S_{\rm ds,w}$ represent input by wind and decay for over-developed sea states,
+respectively, $A$ and $B E$ are a linear and exponential growth term, respectively, $E$ is the
+spectral density, $E_{\rm lim}$ is the saturated spectrum, $\tau$ is a time scale and $\theta$ and
+$\theta_w$ are the discrete spectral wave direction and the wind direction, respectively.
+The expressions for the source terms $S_{\rm in}$ and $S_{\rm ds,w}$ have been modified for shallow water applications
+(N. Booij and L.H. Holthuijsen, personal communication, 1996) and are given below.
+\nocite{Hol88B}
+\\[2ex]
+\noindent
+The distinction between first- and second-generation is only in the formulation of the
+saturated spectrum $E_{\rm lim}$ as outlined below.
+\\[2ex]
+\noindent
+\underline{Linear and exponential growth}\\[2ex]
+The linear growth term $A$ is given by  an expression due to Cavaleri and Malanotte-Rizolli
+(1981) as adapted by Holthuijsen and de Boer (1988) and Holthuijsen et al. (1996):
+\begin{equation}
+   A =
+    \left\{
+      \begin{array}{ll}
+         \frac{\beta_1}{2\pi} \frac{\pi}{g^2} C^2_{\rm drag} \left(  \frac{\rho_a}{\rho_w} \right)^2 (U_{10} \max [0,\cos(\theta-\theta_w)])^4
+         \, , &  \sigma \geq 0.7 \sigma_{\rm PM,d} \\
+         \\
+         0 \, , & \sigma < 0.7 \sigma_{\rm PM,d} \\
+      \end{array}
+    \right.
+\end{equation}
+where $\beta_1$ is a coefficient that has been tuned to be $\beta_1 = 188$,
+$C_{\rm drag}$ is a drag coefficient equal to $C_{\rm drag} = 0.0012$ and
+$\sigma_{\rm PM,d}$ is the fully developed peak frequency including the effect of shallow
+water and is estimated from the depth dependent
+relation of the Shore Protection Manual (1973):
+\begin{equation}
+  \sigma_{\rm PM,d} = \frac{\sigma_{\rm PM}}{\tanh(0.833 {\tilde d}^{0.375})}
+\end{equation}
+with the dimensionless depth
+\begin{equation}
+  {\tilde d} = \frac{gd}{U^2_{10}}
+\end{equation}
+The Pierson-Moskowitz (1964) frequency is
+\begin{equation}
+  \sigma_{\rm PM} = \frac{0.13g}{U_{10}} 2\pi
+\end{equation}
+\nocite{Hol96BB,CER73}
+\\[2ex]
+\noindent
+The exponential growth term $B E$ is due to Snyder et al. (1981) rescaled in terms of $U_{10}$ as
+adapted by Holthuijsen and de Boer (1988) and Holthuijsen et al. (1996):
+\begin{equation}
+  B = \max [0, \beta_2 \frac{5}{2\pi} \frac{\rho_a}{\rho_w} (\frac{U_{10}}{\sigma/k}\cos(\theta-\theta_w) -\beta_3)]\sigma
+\end{equation}
+in which the coefficients $\beta_2$ and $\beta_3$ have been tuned to be $\beta_2 = 0.59$ and $\beta_3 = 0.12$.
+\\[2ex]
+\noindent
+\underline{Decay}\\[2ex]
+If the spectral densities are larger than the wind-dependent saturation spectrum $E_{\rm lim}$, (e.g.,
+when the wind decreases), energy is dissipated with a relaxation model:
+\begin{equation}
+  S_{\rm ds,w} (\sigma,\theta)= \frac{E_{\rm lim}(\sigma,\theta) - E(\sigma,\theta)}{\tau(\sigma)}
+\end{equation}
+where $\tau(\sigma)$ is a time scale given by
+\begin{equation}
+  \tau(\sigma) = \beta_4 \left(\frac{2\pi}{\sigma}\right)^2 \frac{g}{U_{10}\cos(\theta - \theta_w)}
+\end{equation}
+in which the coefficient $\beta_4$ has been tuned to be $\beta_4 = 250$.
+\\[2ex]
+\noindent
+\underline{Saturated spectrum}\\[2ex]
+The saturated spectrum has been formulated in term of wave number with a $\cos^2-$directional
+distribution centred at the local wind direction $\theta_w$. It is essentially an adapted
+Pierson-Moskowitz (1964) spectrum:
+\begin{equation}
+   S_{\rm tot} =
+    \left\{
+      \begin{array}{ll}
+         \frac{\alpha k^{-3}}{2c_g} \exp{ \left \{ -\frac{5}{4}(\frac{\sigma}{\sigma_{\rm PM,d}})^{-4} \right\} }
+         \, \frac{2}{\pi} \, \cos^2(\theta-\theta_w)
+         \, , & \mbox{for } |\theta - \theta_w| < \frac{\pi}{2} \\
+         \\
+         0 \, , & \mbox{for } |\theta - \theta_w| \geq \frac{\pi}{2} \\
+      \end{array}
+    \right.
+\end{equation}
+For the \underline{first-generation} formulation, the scale factor $\alpha$ is a constant and equals
+\begin{equation}
+  \alpha = 0.0081
+\end{equation}
+For the \underline{second-generation} formulation, the scale factor $\alpha$ depends on the total dimensionless
+wave energy ${\tilde E}_{\rm tot,sea}$ of the wind sea part of the spectrum and the dimensionless depth ${\tilde d}$:
+\begin{equation}
+  \alpha = \max [ (0.0081 + (0.013 - 0.0081)e^{-{\tilde d}}), 0.0023 {\tilde E}^{-0.223}_{\rm tot,sea} ]
+\end{equation}
+where the total dimensionless wind sea wave energy ${\tilde E}_{\rm tot,sea}$ is given by:
+\begin{equation}
+  {\tilde E}_{\rm tot,sea} = \frac{g^2 E_{\rm tot,sea}}{U^4_{10}}
+\end{equation}
+with
+\begin{equation}
+  E_{\rm tot,sea} = \int_{\theta_w - \pi/2}^{\theta_w + \pi/2} \int_{0.7 \sigma_{\rm PM,d}}^{\infty}
+  E(\sigma,\theta) d\sigma d\theta
+\end{equation}
+The maximum value of $\alpha$ is taken to be 0.155. This dependency of $\alpha$ on the local
+dimensionless energy of the wind sea permits an overshoot in the wave spectrum under wave
+generation conditions. For deep water $\alpha = 0.0081$ as proposed by Pierson and Moskowitz (1964).
 
 \section{The influence of ambient current on waves} \label{sec:curre}
 
@@ -1546,10 +1716,24 @@ By means of computations, $n=6$ is found to be an optimum value (corresponding t
 1/5 to 1/10 of the wavelength), so that $\varepsilon_x \approx 2\Delta x$. For the $y-$direction, the expressions
 are identical, with $y$ replacing $x$. Note that this smoothing is only applied to compute the diffraction
 parameter $\delta$. For all other computations the wave field is not smoothed.
+\\[2ex]
+\noindent
+Diffraction is SWAN should \underline{not} be used if,
+\begin{itemize}
+  \item an obstacle or coastline covers a significant part of the down-wave view, \underline{and}
+  \item the distance to that obstacle or coastline is small (less than a few wavelengths), \underline{and}
+  \item the reflection off that obstacle or coastline is coherent, \underline{and}
+  \item the reflection coefficient is significant.
+\end{itemize}
+This implies that the SWAN diffraction approximation can be used in most situations near absorbing or reflecting
+coastlines of oceans, seas, bays, lagoons and fjords with an occasional obstacle such as islinds, breakwaters,
+or headlands but \underline{NOT} in harbours or in front of reflecting breakwaters or near wall-defined
+cliff walls. Behind breakwaters (which may be reflecting), the SWAN results seem reasonable if the above
+conditions are met.
 
 \section{Wave-induced set-up} \label{sec:setup}
 
-In a (geographic) 1D case the computation of the wave induced set-up is based on the vertically integrated
+In a (geographic) 1D case the computation of the wave-induced set-up is based on the vertically integrated
 momentum balance equation which is a balance between the wave force (gradient of the wave radiation
 stress normal to the coast) and the hydrostatic pressure gradient (note that the component parallel to the
 coast causes wave-induced currents but no set-up).
@@ -1577,6 +1761,9 @@ equation. If the divergence of the acceleration in the resulting equation is ign
   \frac{\partial}{\partial y} (\rho g H \frac{\partial \overline{\eta}}{\partial y}) = 0
   \label{eq3-41}
 \end{equation}
+This approximation can \underline{only} be applied to open coast (unlimited supply of water from outside
+the domain, e.g. nearshore coasts and estuaries) in contrast to closed basin, e.g. lakes, where this approach
+should not be used.
 
 \chap{Numerical approaches} \label{ch:numerics}
 
@@ -1662,7 +1849,7 @@ at higher frequencies is under-relaxation, i.e. making smaller updates by means
 of a much smaller (pseudo) time step (Ferziger and Peri\'{c}, 1999).
 Consequently, a limiter may no longer be needed. Although this
 approach may be suitable to SWAN, it slows down convergence significantly.
-In this paper, we propose a new method that finds a
+Here, we propose a new method that finds a
 compromise between fast convergence on the one hand and minimizing the role of the limiter in the
 energetic part of the
 spectrum on the other. The key idea to achieve this is to link the extent of updating to the wave
@@ -1672,7 +1859,7 @@ under-relaxation.
 \nocite{Fer99P}
 \\[2ex]
 \noindent
-The second objective of this paper concerns the formulation and the use of termination criteria required by
+The second objective concerns the formulation and the use of termination criteria required by
 the iteration procedure in SWAN.
 In principle, the iterative process should be stopped if the convergence error defined as the
 difference between the current iterate and the stationary solution is smaller
@@ -1719,16 +1906,22 @@ takes place with the implicit Euler technique. We obtain the following approxima
 \end{eqnarray}
 where $n$ is a time-level with $\Delta t$ a time step. Note that locations in between consecutive
 counters are reflected with the half-indices.
+
+\subsection{Discretization in geographical space}
+
+Since, the unknown $N$ and the propagation velocities are only given in points $(i,j,l,m)$,
+further approximation is needed. A first order upwind scheme
+in geographical space may be employed, since it fully
+monotone, i.e. it can not to give rise to spurious oscillations.
+A disadvantage of this scheme is that it is numerically
+diffusive, which naturally degrades the accuracy of the model.
+This numerical diffusion is caused by gradients of wave action across geographic space, e.g. due to refraction by bathymetry or currents.
+However, in
+the current SWAN version, two alternatives to this scheme are implemented, namely the second
+order SORDUP and the third order Stelling/Leendertse schemes. These schemes produce far less numerical diffusion.
 \\[2ex]
 \noindent
-Since, the unknown $N$ and the propagation velocities are only given in points $(i,j,l,m)$,
-further approximation is needed. In the present paper, we employ a first order upwind scheme
-in geographical space, since it is sufficient accurate for nearshore applications and fully
-monotone, i.e. it can not to give rise to spurious oscillations. It should be noted, however,
-that in applications at oceanic scales, a higher order upwind scheme should be employed. In
-the current SWAN version, two alternatives to this scheme are implemented, namely the second
-order SORDUP and the third order Stelling/Leendertse schemes.
-See also Rogers~{\it et~al}. (2002) and Stelling and Leendertse (1992).
+\underline {First order upwind scheme; BSBT}
 \\[2ex]
 \noindent
 The fluxes $c_x N$ at $(i+1/2,j,l,m)$ and $c_y N$ at $(i,j+1/2,l,m)$ are approximated in the
@@ -1770,6 +1963,7 @@ and
 \begin{equation}
   \left( \frac{1.5 (c_y N)_{i_y} - 2 (c_y N)_{i_y-1} + 0.5 (c_y N)_{i_y-2}}{\Delta y} \right)^{i_t,n}_{i_x, i_{\sigma}, i_{\theta}}
 \end{equation}
+See also Rogers~{\it et~al}. (2002).
 In the neighboorhood of open boundaries, land boundaries and obstacles (i.e., the last two grids adjoining such grid points for
 the SORDUP scheme), SWAN will revert to the first order upwind BSBT scheme. This scheme has a larger numerical diffusion but that
 is usually acceptable over the small distances involved.
@@ -1789,6 +1983,7 @@ and
   \left( \frac{\frac{5}{6} (c_y N)_{i_y} - \frac{5}{4} (c_y N)_{i_y-1} + \frac{1}{2} (c_y N)_{i_y-2} \frac{1}{12} (c_y N)_{i_y-3}}{\Delta y} \right)^{i_t,n}_{i_x, i_{\sigma}, i_{\theta}}
   + \left( \frac{(c_y N)_{i_y+1} - (c_y N)_{i_y-1}}{4 \Delta y} \right)^{i_t-1}_{i_x, i_{\sigma}, i_{\theta}}
 \end{equation}
+See also Stelling and Leendertse (1992).
 In the neighboorhood of open boundaries, land boundaries and obstacles (i.e., the last three grids adjoining such grid points for
 the Stelling and Leendertse scheme), SWAN will revert to the first order upwind BSBT scheme.
 \\[2ex]
@@ -1811,7 +2006,14 @@ From these, diffusion coefficients are calculated as
   D_{xx} = D_{ss} \cos^2\theta + D_{nn} \sin^2 \theta \,, \quad D_{yy} = D_{ss} \sin^2\theta + D_{nn} \cos^2 \theta \,, \quad
   D_{xy} = (D_{ss}-D_{nn}) \cos \theta \sin \theta
 \end{equation}
-The diffusion terms are computed at the time level $i_t-1$. The diffusion terms are computed as follows
+The diffusion terms are given by
+\begin{equation}
+  -D_{xx}\frac{\partial^2 N}{\partial x^2}
+  -2D_{xy}\frac{\partial^2 N}{\partial x \partial y}
+  -D_{yy}\frac{\partial^2 N}{\partial y^2}
+  \label{eq:gsediff}
+\end{equation}
+and are computed at the time level $i_t-1$ as follows
 \begin{equation}
   D_{xx} \left( \frac{(N)_{i_x+1} - 2(N)_{i_x} + (N)_{i_x-1}}{\Delta x^2} \right)^{i_t-1}_{i_y, i_{\sigma}, i_{\theta}}
 \end{equation}
@@ -1849,8 +2051,30 @@ GSE correction is stable for typical ocean cases. For shelf sea (regional) appli
 effect tends to be small on these scales and the diffusion can and should not be used to avoid the stability problem. For small-scale (local)
 applications, typically $\mu = {\cal O} (10-100)$. But such cases are usually treated as stationary and the SORDUP scheme should be used (no GSE
 correction is included in this scheme).
+
+\subsection{Note on the choice of geographic propagation schemes}
+
+The main interest of the SWAN users is in simulating wind-generated waves and combined swell-sea cases in {\em coastal ocean waters},
+and it is particularly with the view to
+such computations that a simple and compact, but first order, scheme was implemented in SWAN.
+A substantial body of experience gathered over the past 15 years on the performance of both lower and higher upwind schemes in SWAN suggests that in many circumstances,
+the discretization of the propagation terms in geographical space is not a crucial issue. Many nearshore simulations have shown the solution for action density to
+be on the whole rather insensitive to the accuracy with which geographic propagation terms are approximated.
+This reflects the tendency for the level of wave action to be dictated by source terms, while the local changes of
+the energy field across geographical space is relatively weak.
+This is consonant with the established view that a certain amount of numerical diffusion can be safely tolerated in the numerical scheme for geographic propagation,
+as its impact on wave parameters is negligible
+(Rogers~{\it et~al}., 2002; WISE Group, 2007).
+Also, broad wave spectra will tend make numerical diffusion far less noticable in a wave field.
 \\[2ex]
 \noindent
+This would appear to suggest, however, that the use of higher order upwind schemes serves no useful purpose. This is probably not so since there might be some cases
+that are prone to diffusion, where the benefit of such schemes is obvious. One can think of a case of swell propagation over very long distances. While low-diffusive,
+higher order schemes did permit long-distance swell cases to be validated, the reduced diffusion was found to pose a serious difficulty as the garden sprinkler
+effect becomes more visible, see e.g. WISE Group (2007).
+
+\subsection{Discretization in spectral space}
+
 The fluxes in the spectral space $(\sigma,\theta)$, as given in (\ref{eq:actdisc}), should not be approximated
 with the first order upwind scheme since, it turns out to be very diffusive for frequencies near the blocking
 frequency\footnote{Waves can be blocked by the current at a relative high frequency.}. Central differences
@@ -1885,6 +2109,18 @@ and
 where the parameters $\mu$ and $\nu$ are still to be chosen. For all values $\mu \in [0,1]$ and $\nu \in [0,1]$,
 a blended form arises between first order upwind differencing ($\mu = \nu = 0$) and central differencing
 ($\mu = \nu = 1$).
+\\[2ex]
+\noindent
+If large gradients in action density in the directional space are present, numerical oscillations can
+arise. Negative action density (which is unphysical) is removed from the two-dimensional spectrum. To
+retain a conservative numerical scheme, first the total action density for a certain frequency in a
+quadrant is computed, as follows:
+\begin{equation}
+  N(\sigma) = \int_{\mbox{quadrant}} N(\sigma,\theta)\, d\theta
+\end{equation}
+then all negative action density is removed and the positive action density is multiplied by a factor
+determined by the total action density divided by the absolute value of the total negative action
+density.
 
 \section{Solution algorithm} \label{sec:sol}
 
@@ -1946,7 +2182,8 @@ suppose that $c_x > 0$ and $c_y > 0$, everywhere. Then, the matrix structure has
 One recognizes that the subblocks on the main diagonal express coupling among the unknowns in
 the $(\sigma,\theta)-$space for each geographic grid point, whereas the off-diagonal subblocks
 represent coupling across geographical grid points. This system can be solved with a
-Gauss-Seidel technique in one step (Wesseling, 1992). Generally,
+Gauss-Seidel technique in one step (Wesseling, 1992). For an illustrative explanation of
+this technique, see Section~\ref{sec:simple}. Generally,
 the velocities $c_x$ and $c_y$ may have different
 signs in the geographical domain and hence, more steps are needed. However, it is well known
 that adapting the ordering of updates of the unknowns $N$ in geographical space to the propagation
@@ -2100,6 +2337,115 @@ reasonable first guess of the wave field based on second-generation source
 terms of Holthuijsen and De Boer (1988).
 \nocite{Hol88B}
 
+\section{An illustrative explanation of the sweeping approach}
+\label{sec:simple}
+
+In the absence of a current, the direction of propagation of the wave crest is equal to that of the wave
+energy. For this case, the propagation velocity of energy ($c_x$, $c_y$) is equal
+to the group velocity ($c_{g,x}$, $c_{g,y}$). In presence of a current this is not the case, since the propagation
+velocities $c_x$ and $c_y$ of energy are changed by the current. Considering the applied numerical procedure
+in SWAN, it is initially more convenient to explain the basic principles of the numerical procedure in
+the absence of a current than in the situation where a current is present. So, first, we shall focus on
+the sweeping technique in the absence of a current. After this, we shall discuss the numerical
+procedure in case a current is present.
+\\[2ex]
+\noindent
+The computational region is a rectangle covered with a rectangular grid. One of the axes (say
+the $x-$axis) is chosen arbitrary, for instance perpendicular to the coast.
+The state in a grid point ($x_i$,$y_j$) in an upwind stencil is determined by its up-wave grid points
+($x_{i-1}$,$y_j$) and ($x_i$,$y_{j-1}$). This stencil covers
+the propagation of action density within a sector of 0$^o -$90$^o$, in the entire geographic space; see Figure~\ref{fig:fsweep}.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=fsweep.eps,height=10cm}
+              }
+      \caption{Numerical scheme for wave propagation in geographic space with below the first quadrant for which the waves are propagated.}
+      \label{fig:fsweep}
+\end{figure}
+Hence, this procedure is called
+sweep 1 and encloses all wave energy propagation over the first quadrant. By rotating the stencil over
+90$^o$, the next quadrant 90$^o -$180$^o$ is propagated. Rotating the stencil twice more ensures propagation over
+all four quadrants (see Figure~\ref{fig:4sweep}). This allows waves to propagate from all directions. Hence, the method
+is characterized as a four-sweep technique.
+\\[2ex]
+\noindent
+The gain of such a stencil is that the propagation is unconditionally stable because the wave
+characteristics lie within the concerning quadrant. Propagation is not subjected to a CFL criterion.
+In cases with current refraction or bottom refraction, action density can shift from one quadrant to
+another. This is taken into account in the model by repeating the computations with converging results
+(iterative four-sweep technique). Typically, we choose a change of less then 1\% or so in significant wave
+height and mean wave period in all geographic grid points to terminate the iteration (see Section~\ref{sec:sol}).
+\\[2ex]
+\noindent
+The numerical procedure as described above remains in principle the same when a current ($U_x$,$U_y$) is present. The
+main difference is that the propagation velocities of energy are no longer equal to the group velocity
+of the waves but become equal to $c_x = c_{g,x}+U_x$ and $c_y = c_{g,y}+U_y$. To ensure an unconditionally
+stable propagation of action in geographical space in the presence of any current, it is first determined
+which spectral wave components of the spectrum can be propagated in one sweep. This implies that all wave
+components with $c_x>0$ and $c_y>0$ are propagated in the first sweep, components with $c_x<0$ and $c_y>0$
+in the second sweep, components with $c_x<0$ and $c_y<0$ in the third sweep, and finally, components $c_x>0$
+and $c_y<0$ in the fourth sweep.
+Since the group velocity of the waves decreases with increasing frequency, the higher frequencies
+are more influenced by the current. As a result, the sector boundaries in directional space for these
+higher frequencies change more compared to the sector boundaries for the lower frequencies. In general,
+four possible configurations do occur (see Figure~\ref{fig:sweepcur}). Consider, for instance, one fixed frequency
+propagating on a uniform current. The current propagates at an angle of 45$^o$ with the $x-$axis. The sign
+of the current vector and strength of the current are arbitrary. The shaded sectors in Figure~\ref{fig:sweepcur}
+indicate that all the wave components that are propagating in the direction within the shaded sector, are
+propagated in the first sweep ($c_x>0$, $c_y>0$).
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=sweepcur.eps,height=10cm}
+              }
+      \caption{Four possible configurations and propagation velocities $c_x$, $c_y$ for a fixed frequency in the presence of
+               a current propagating at an angle of 45$^o$ with the $x-$axis.}
+      \label{fig:sweepcur}
+\end{figure}
+\\[2ex]
+\noindent
+The top-left panel (A) represents a situation in which both $c_x$ and $c_y$ are negative due to a strong
+opposing current, i.e. wave blocking occurs. None of the wave components is propagated within the first
+sweep. The top-right panel (B) represents a situation in which the current velocity is rather small.
+The sector boundaries in directional space are hardly changed by the current such that the sector
+boundaries are approximately the same as in the absence of a current. The bottom-left panel (C)
+reflects a following current that causes the propagation velocities of the wave components in two
+sectors to be larger than zero. In this specific case, all the waves of the shaded sectors are propagated
+within the first sweep. The bottom-right panel (D) represents a case with a strong following current
+for which all the action is take along with the current. For this case the fully 360$^o$ sector is
+propagated in the first sweep.
+\\[2ex]
+\noindent
+After it has been determined which wave components are propagated in one
+sweep, i.e., the sector boundaries in directional space have been determined for each frequency, the
+integration in frequency and directional space can be carried out for those wave components.
+
+\section{Implementation of DIA within the four-sweep technique}
+
+In SWAN, the quadruplets are integrated using the DIA, see Section~\ref{sec:quad}. As a
+consequence of the four-sweep technique, two different types of methods can be used to calculate the
+four wave-wave interactions.
+\begin{enumerate}
+\item
+The first method implies that the interactions are calculated in every
+iteration prior to the first sweep. This method ensures conservation of energy density, but has the
+disadvantage that the spectral source term $S_{\rm nl4}(\sigma,\theta)$ for every grid point in
+geographical space has to be stored in internal memory. Such an integration method increases the
+amount of required memory with a factor about 2.
+The source term is stored in memory and is then explicitly integrated for a particular sweep.
+\item
+The second method is slightly different, in which the interactions are
+calculated and integrated for every sweep separately. The calculation of the energy transfer for a specific
+quadrant requires also the calculation of the transfer within a sector of about 33$^o$ in the adjacent two
+quadrants. Calculating the interactions for one sweep increases the
+computation time for the quadruplets with a factor of about 1.66 (2 adjacent sectors of 33$^o$ times
+4 sweeps divided by 360$^o$). Contrary to the first method, the total rate of this energy shift is
+not stored in memory such that energy density is not conserved per sweep (and per iteration). However,
+this does not influence the converging results.
+Within this second method, two different numerical schemes are available, namely, a semi-implicit scheme
+and a fully explicit scheme. The use of a fully explicit scheme is recommended because of the computational
+efficiency. A semi-implicit scheme increases the computation time of the quadruplets with a factor of about 2.
+\end{enumerate}
+
 \section{Convergence-enhancing measures} \label{sec:stab}
 
 As explained in Section~\ref{sec:intnum},
@@ -2239,7 +2585,7 @@ in the spectrum at high frequencies, to which $T_{m01}$ is sensitive.
 This
 behaviour is problematic when any form of stricter stopping criterion is developed
 based on $T_{m01}$. Therefore, in the improved termination criterion
-proposed in this paper, $T_{m01}$ has been abandoned as a convergence
+proposed, $T_{m01}$ has been abandoned as a convergence
 measure and only $H_{m0}$, which displays more monotonic behaviour near
 convergence, is retained.
 \\[2ex]
@@ -2409,8 +2755,8 @@ and
 \begin{equation}
   F_y = -\frac{\partial S_{yx}}{\partial x} - \frac{\partial S_{yy}}{\partial y}
 \end{equation}
-If the value of {\tt [inrhog]} is set to 0, the force differs by a factor $\rho$.
 \\[2ex]
+\noindent
 In order to compute the force, the derivative of the radiation stress tensor has to be taken.
 Let $f$ be one of the components of the tensor. We have to derive expressions for $\partial f/\partial x$ and
 $\partial f/\partial y$. Derivatives with respect to the computational grid co-ordinates $\xi$ and $\eta$
@@ -2485,7 +2831,7 @@ a few grid lines in order to have a noticeable effect, see Figure~\ref{fig:obsgr
 \noindent
 After the transmission coefficient has been calculated, it is used in
 the propagation terms of the action balance equation.
-In curvilinear coordinates, the propagation terms
+In curvi-linear coordinates, the propagation terms
 (including time-derivative, but ignoring dependence on
 $\sigma$ and $\theta$ temporarily) read:
 \begin{eqnarray}
@@ -2541,7 +2887,32 @@ If the denominator in both expressions is zero, the two lines are parallel and i
 
 \section{Integration over $\sigma$}
 
-Integration over $\sigma$ makes use of the logarithmic discrete distribution of frequencies.
+Two methods are considered in SWAN for integration over frequency space. The first method is the common
+trapezoidal rule. We consider the following integration
+\begin{equation}
+  I = \int_{0}^{\sigma_m} f\,E(\sigma)d\sigma
+  \label{eq:pmomint}
+\end{equation}
+where $\sigma_m$ is the highest spectral frequency and $f$ is an arbitrary function. Usually, this function may be
+$\sigma^p$, $\omega^p$ or $k^p$ with $p$ a power. We assume a discrete (logarithmic) distribution
+of frequencies: $\sigma_{i}\, ,i=1,...,m$.
+The approximation of (\ref{eq:pmomint}) is as follows:
+\begin{equation}
+  I \approx \sum_{2}^{m} \frac{1}{2}(f_{i-1} \sigma_{i-1} N_{i-1} + f_{i} \sigma_{i} N_{i})(\sigma_{i} - \sigma_{i-1})
+\end{equation}
+The contribution by the tail needs to be added as well, as follows. The tail of the energy density is proportional to $\sigma^{-P^*}$.
+We have,
+\begin{equation}
+  \int_{\sigma_m}^{\infty} R \sigma^{-P^*} d\sigma = \sigma_{m} \frac{R \sigma_{m}^{-P^*}}{P^*-1}
+\end{equation}
+Assuming that a function $f$ has a tail with power $P^*$, so that $R \sigma_{m}^{-P^*} = f(\sigma_{m})$.
+Hence,
+\begin{equation}
+  \int_{\sigma_m}^{\infty} f(\sigma)d\sigma = \frac{\sigma_{m}}{P^*-1} f(\sigma_{m})
+\end{equation}
+This integration is only valid if $P^* > 1$.
+\\[2ex]
+The second technique for integration over $\sigma$ makes use of the logarithmic discrete distribution of frequencies.
 We introduced two variables in SWAN: {\tt FRINTF} and {\tt FRINTH}. The first is equal to
 $\ln(\sigma_{i+1}/\sigma_{i})$, the latter to $\sqrt{\sigma_{i+1}/\sigma_{i}}$. Hence,
 $\sigma_i = e^{\mu i}$ with $\mu = \ln(\sigma_{i+1}/\sigma_{i})$ and can be approximated as
@@ -2559,13 +2930,13 @@ The boundaries of a mesh in $\sigma-$space are $\sigma_i/\sqrt{\sigma_{i+1}/\sig
 and $\sigma_i \sqrt{\sigma_{i+1}/\sigma_{i}}$.
 \\[2ex]
 Computation of the contribution by the tail is done as follows. It is assumed that in the tail
-the energy density is proportional to $\sigma^{-P}$. Furthermore, the discrete integration extends
-to $M\cdot\sigma_m$, where $\sigma_m$ is the highest spectral frequency and
+the energy density is proportional to $\sigma^{-P^*}$. Furthermore, the discrete integration extends
+to $M\cdot\sigma_m$, where
 $M = \sqrt{1+\Delta \sigma/\sigma}$. Then the contribution by the tail is:
 \begin{equation}
   \int_{\theta=0}^{2\pi} \int_{M\sigma_m}^{\infty} R \sigma^{-P^*} d\sigma d\theta =
   R \frac{M^{1-P^*} \cdot \sigma^{1-P^*}_{m}}{P^* - 1} =
-  \frac{\sigma_m}{(P^*-1)M^{P^*-1}} R \sigma^{P^*}_{m}
+  \frac{\sigma_m}{(P^*-1)M^{P^*-1}} R \sigma^{-P^*}_{m}
 \end{equation}
 Assuming that a function $f$ has a tail with power $P^*$, the integral over $f$ has a tail contribution of
 \begin{equation}
@@ -2576,14 +2947,14 @@ Since, $M$ is close to 1, the tail factor can be approximated as
 \begin{equation}
   \frac{\sigma_m}{(P^*-1)M^{P^*-1}} \approx \frac{\sigma_m}{(P^*-1)(1+(P^*-1)(M-1))}
 \end{equation}
-In the SWAN program, we have $M=${\tt FRINTH}, $P=${\tt PWTAIL(1)} and $m=${\tt MSC}. The value of $P^*$
+In the SWAN program, we have $M=${\tt FRINTH}, $P^*=${\tt PWTAIL(1)} and $m=${\tt MSC}. The value of $P^*$
 depends on the quantity that is integrated. For instance, in the computation of $\overline{k}$,
 $P^*=P-2n-1$. Note that it is required that $P^*>1$, otherwise the integration fails.
 
 \section{Transformation from relative to absolute frequency}
 
 Internally, SWAN use action density as function of direction and relative (angular) frequency. Users may want
-to obtain results in terms of asbolute frequency, if only because measurements were taken at fixed positions.
+to obtain results in terms of absolute frequency, if only because measurements were taken at fixed positions.
 \\[2ex]
 Two modifications of the SWAN model that were needed to supply the information to the users are
 \begin{itemize}
@@ -2615,57 +2986,123 @@ In the continuous model the mapping is done by
 This relation is discretized whereby the energy density is assumed to be constant over intervals from
 $\sigma_i/M$ to $M\sigma_i$.
 
+\section{Interpolation of spectra}
+
+The interpolation of spectra in SWAN, both in space and time, is a slight modification of the procedure
+as used in WAM. This procedure is not a simple (spectral) bin-by-bin interpolation because that would cause
+reduction of the spectral peak if the peaks of the original spectra do not coincide. It is an interpolation
+where the spectra are first normalized by average frequency and direction, then interpolated and then
+transformed back.
+\\[2ex]
+The average frequencies of the two origin spectra are determined using the frequency moments of the
+spectra
+\begin{equation}
+  m_{i,k} = \int N_{i} (\sigma,\theta)\sigma^k d\sigma d\theta
+\end{equation}
+with $i$=1,2 (the two origin
+spectra) and $k$=0,1 (the zero- and first frequency moments of these spectra). Then
+\begin{equation}
+  \overline{\sigma}_{i} = \frac{m_{i,1}}{m_{i,0}}
+\end{equation}
+The average frequency for the interpolated spectrum
+is calculated as
+\begin{equation}
+  \overline{\sigma} = (w_{1} m_{1,1} + w_{2} m_{2,1})/(w_{1} m_{1,0} + w_{2} m_{2,0})
+\end{equation}
+where $w_{1}$ is the relative distance (in space or time) from the interpolated spectrum to the first
+origin spectrum $N_{1}(\sigma,\theta)$ and $w_{2}$ is the same for the second origin spectrum
+$N_{2}(\sigma,\theta)$. Obviously, $w_{1} + w_{2} = 1$.
+\\[2ex]
+The average directions of the two origin spectra are determined using directional moments of the spectra:
+\begin{equation}
+  m_{i,x} = \int N_{i} (\sigma,\theta) \cos (\theta) d\sigma d\theta
+\end{equation}
+and
+\begin{equation}
+  m_{i,y} = \int N_{i} (\sigma,\theta) \sin (\theta) d\sigma d\theta
+\end{equation}
+with $i$=1,2. The average direction is then
+\begin{equation}
+  {\overline{\theta}}_{i} = \mbox{atan} (\frac{m_{i,y}}{m_{i,x}})
+\end{equation}
+The average direction of the interpolated spectrum is calculated as
+\begin{equation}
+  \overline{\theta} = \mbox{atan} [\frac{w_{1} m_{1,y} + w_{2} m_{2,y}}{w_{1} m_{1,x} + w_{2} m_{2,x}}]
+\end{equation}
+Finally the interpolated spectrum is calculated as follows:
+\begin{equation}
+  N(\sigma,\theta) = w_{1} N_{1} [\overline{\sigma}_{1} \sigma/\overline{\sigma}, \theta -
+  (\overline{\theta} - {\overline{\theta}}_{1} ) ] + w_{2} N _{2} [{\overline{\sigma}}_{2} \sigma /
+  \overline{\sigma}, \theta - (\overline{\theta}-{\overline{\theta}}_{2})]
+\end{equation}
+
 \section{Computation of breaking source term}
 
-The surf breaking source term is
+The surf breaking dissipation of Battjes and Janssen (1978) reads
 \begin{equation}
-  S_{\rm br} = -\beta Q_{b} \frac{H^2_m}{8}
+  D_{\rm tot} = -\alpha_{\rm BJ} Q_{b} \tilde{\sigma} \frac{H^2_{\rm max}}{8\pi}
 \end{equation}
-and for each spectral bin $i$, we have
+The surf breaking source term for each spectral bin $i$ is
 \begin{equation}
-  S_{\rm br} = -\beta \frac{Q_b}{B} E_i
+  S_{i} = \frac{D_{\rm tot}}{E_{\rm tot}} E_i = {\tilde D}\, E_i
+  \label{eq:st1}
 \end{equation}
-with
+with the normalized total dissipation
 \begin{equation}
-  B = \frac{8E_{\rm tot}}{H^2_m}
+  {\tilde D} = -\frac{\alpha_{\rm BJ} \tilde{\sigma} Q_{b}}{\pi {\cal B}} < 0
 \end{equation}
-In the numerical process, we need old values (from previous iteration) to express $S$ in $E$. This is linearized
-in the numerical process by using the derivative of $Q_b$ (which is the factor varying the most) with respect
-to $B$. The two are related by
+and
 \begin{equation}
-  1- Q_b + B \ln Q_b = 0
+  {\cal B} = \frac{8E_{\rm tot}}{H^2_{\rm max}} = \left( \frac{H_{\rm rms}}{\gamma d} \right)^2
 \end{equation}
-The derivative is found by differentiating this with respect to $B$:
+Since, the source term is strongly nonlinear in $E$ (since ${\tilde D}$ depends on $E$ through ${\cal B}$), we apply the Newton linearisation
+to approximate the source term at iteration level $n+1$, as follows:
 \begin{equation}
-  -{Q'}_{b} + \ln Q_b + \frac{B}{Q_b} {Q'}_{b}
+   S^{n+1}_{i} \approx {\tilde D} E_i^{n} + \left( \frac{\partial S}{\partial E} \right)_i^n (E_i^{n+1} - E_i^n)
+   \label{eq:newlin}
+\end{equation}
+In SWAN, this approximation has been slightly adapted for reasons of numerical stability; the first term in the right-hand
+side, ${\tilde D} E_i^{n}$, is replaced by ${\tilde D} E_i^{n+1}$. This preserves positivity of energy density $E$, if the following
+inequality holds
+\begin{equation}
+  \frac{\partial S}{\partial E} < 0
+\end{equation}
+We derive an expression for this derivative as follows. From (\ref{eq:st1}), we have
+\begin{equation}
+  \frac{\partial S}{\partial E} |_i = \frac{\partial {\tilde D}}{\partial E}|_i E_i + {\tilde D}
+\end{equation}
+The normalized dissipation ${\tilde D}$ is a function of ${\cal B}$ which is proportional to $E$, so
+\begin{equation}
+  \frac{\partial S}{\partial E} |_i = \frac{\partial {\tilde D}}{\partial {\cal B}}|_i {\cal B}_i + {\tilde D}
+  \label{eq:st4}
+\end{equation}
+Since, $Q_b$ is a function of ${\cal B}$, we get (using the quotient rule)
+\begin{equation}
+  \frac{\partial S}{\partial E} |_i = -\frac{\alpha_{\rm BJ} \tilde{\sigma}}{\pi}\, \frac{\partial Q_b}{\partial {\cal B}}
+  \label{eq:st2}
+\end{equation}
+Since,
+\begin{equation}
+  1- Q_b + {\cal B} \ln Q_b = 0
+  \label{eq:breakfract}
+\end{equation}
+the derivative of $Q_b$ is found by differentiating this with respect to ${\cal B}$:
+\begin{equation}
+  -{Q'}_{b} + \ln Q_b + \frac{\cal B}{Q_b} {Q'}_{b} = 0
 \end{equation}
 Hence,
 \begin{equation}
-  {Q'}_{b} = \frac{\ln Q_b}{1 - B/Q_b} = \frac{Q_b}{B} \frac{Q_b - 1}{Q_b - B}
+  {Q'}_{b} = \frac{\ln Q_b}{1 - {\cal B}/Q_b} = \frac{Q_b}{\cal B} \frac{Q_b - 1}{Q_b - {\cal B}}
 \end{equation}
-The approximation of the source term is based on
+using Eq. (\ref{eq:breakfract}). Now, ${Q'}_{b} > 0$, because $0 < Q_b < 1$ and ${\cal B} > Q_b$.
+Substitution in (\ref{eq:st2}) gives
 \begin{equation}
-  S_{\rm br,i}^{+} = S_{\rm br,i}^{-} + \frac{d S_{\rm br}}{d E_{\rm tot}} (E_{i}^{+} - E_{i}^{-})
+  \frac{\partial S}{\partial E} |_i = {\tilde D} \, \frac{Q_b - 1}{Q_b - {\cal B}} |_i < 0
 \end{equation}
-Here,
+Finally, the approximation of the source term reads
 \begin{equation}
-  \frac{d S_{\rm br}}{d E_{\rm tot}} = -\beta \frac{H_m^2}{8} \frac{dQ_b}{dB} \frac{B}{E_{\rm tot}} =
-  -\beta \frac{dQ_b}{dB}
+  S^{n+1}_{i} = {\tilde D} \left( 1 + \frac{Q_b - 1}{Q_b - {\cal B}} \right)_i^n E_i^{n+1} - {\tilde D} \, \frac{Q_b - 1}{Q_b - {\cal B}} |^n_i E_i^n
 \end{equation}
-So,
-\begin{equation}
-  S_{\rm br,i}^{+} =-\beta \frac{Q_b}{B}E_{i}^{-} - \beta \frac{Q_b}{B} \frac{Q_b - 1}{Q_b - B} (E_{i}^{+} - E_{i}^{-})
-\end{equation}
-or
-\begin{equation}
-  S_{\rm br,i}^{+} =\beta \frac{Q_b}{B} \frac{1 - B}{B - Q_b} E_{i}^{-} + \beta \frac{Q_b}{B} \frac{1 - Q_b}{Q_b - B} E_{i}^{+}
-\end{equation}
-In order to prevent oscillations the factor $\beta \frac{Q_b}{B} \frac{1 - B}{B - Q_b}$ was enhanced to
-$\beta \frac{Q_b}{B} \frac{1 - Q_b}{B - Q_b}$. This does not influence the limit of the process.
-\\[2ex]
-In the SWAN program, $S$ is dissipation in terms of action, and $E$ is used for action density. This does not matter since, the ratio
-between dissipation in terms of energy and dissipation in terms of action is the same as the ratio between energy density and
-action density.
 
 \chap{Wave boundary and initial conditions} \label{ch:bc}
 
@@ -2802,11 +3239,10 @@ The actual design of the modifications of the SWAN commands is presented in
 Appendix A, the design of the modifications of the code is presented in Appendix
 B. After each iteration performed in SWAN new values of the setup are being
 calculated and added to the depth, so that the SWAN model incorporates the effect
-of setup on the wave field. An output quantity SETUP is added so that the user can
+of setup on the wave field. An output quantity {\tt SETUP} is added so that the user can
 be informed about the magnitude and distribution of the wave setup.
 \\[2ex]
 \noindent
-% stuk van Guus
 \section{Analysis and Results}
 \subsection{Discretization of the 2D setup equation}
 \label{sec1G}
@@ -3157,7 +3593,52 @@ available in both the recti-linear and curvi-linear grids.
 \nocite{Bot85E}
 
 \chap{Iterative solvers} \label{ch:solver}
-This chapter is under preparation.
+
+\section{Strongly Implicit Procedure (SIP)}
+
+We want to solve the following linear system of equations
+\begin{equation}
+  A \, \vec{N} = \vec{b}
+\end{equation}
+where $A$ is some non-symmetric penta-diagonal matrix, $\vec{N}$ is the wave action vector to be solved and $\vec{b}$
+contains source terms and boundary values.
+
+The basis for the SIP method (Stone, 1968; Ferziger and Peri\'{c}, 1999) lies in the observation that an LU decomposition is an excellent
+general purpose solver, which unfortunately cannot take advantage of the sparseness of a
+matrix. Secondly, in an iterative method, if the matrix $M = LU$ is a good approximation to the
+matrix $A$, rapid convergence results. These observations lead to the idea
+of using an approximate LU factorization of $A$ as the iteration matrix $M$, i.e.:
+\begin{equation}
+   M = L\,U = A + K
+  \label{eq:lusip}
+\end{equation}
+where $L$ and $U$ are both sparse and $K$ is small. For non-symmetric matrices the incomplete LU
+(ILU) factorisation gives such an decomposition but unfortunately converges rather slowly. In
+the ILU method one proceeds as in a standard LU decomposition. However, for every element
+of the original matrix $A$ that is zero the corresponding elements in $L$ or $U$ is set to zero. This
+means that the product of $LU$ will contain more nonzero diagonals than the original matrix $A$.
+Therefore the matrix $K$ must contain these extra diagonals as well if Eq. (\ref{eq:lusip}) is to hold.
+
+Stone reasoned that if the equations approximate an elliptic partial differential equation the
+solution can be expected to be smooth. This means that the unknowns corresponding to
+the extra diagonals can be approximated by interpolation of the surrounding points. By
+allowing $K$ to have more non zero entries on all seven diagonals and using the interpolation
+mentioned above the SIP method constructs an LU factorization with the property that for a
+given approximate solution $\phi$ the product $K\phi \approx 0$ and thus the iteration matrix $M$ is close to
+$A$ by relation (\ref{eq:lusip}).
+
+To solve the system of equations the following iterations is performed,
+starting with an initial guess for the wave action vector ${\vec{N}}^0$ an iteration is performed solving:
+\begin{equation}
+   U\,{\vec{N}}^{s+1}  = L^{-1}\,K\,{\vec{N}}^s + L^{-1}\,\vec{b}
+\end{equation}
+Since the matrix $U$ is upper triangular this equation is efficiently solved by back substitution.
+An essential property which makes the method feasible is that the matrix $L$ is easily
+invertible. This iterative process is repeated $s=0,1,2,...$ until convergence is reached.
+
+\section{Successive Over Relaxation (SOR) technique}
+This section is under preparation.
+See also Botta and Ellenbroek (1985).
 
 \chap{Parallel implementation aspects} \label{ch:parall}
 
@@ -3309,7 +3790,474 @@ implemented in the current operational version of SWAN.
 
 A survey of other alternatives to the parallelization of the implicit schemes is given in Templates (1994).
 
+\chap{Unstructured mesh implementation} \label{ch:unswan}
+
+Since, the characteristic spatial scales of the wind waves propagating from deep to shallow waters are very
+diverse, a flexible grid would be required to allow local refinement of the mesh
+in areas of interest  e.g.,
+regions of strong bathymetry variations in estuaries and fjords,
+without incurring
+overhead associated with grid adaptation at some distance offshore. Traditionally, this can be achieved by employing
+a nesting technique.
+Although, this practise is very common for SWAN, it is generally recognized that
+this may lead to complicated programming with the corresponding significant increase in computational effort.
+
+The use of unstructured grids, however, offers a good alternative to nested models not only because of the
+ease of local grid refinement, either adaptive or fixed, but also the high flexibility to generate
+grids along coastline and around islands.
+The variable mesh is especially useful in coastal regions where the water depth varies greatly.
+Thus, the variable grid gives the highest resolution where it is most needed.
+Moreover, this can be automated to a large extent.
+Although, the CPU cost per grid point is often relative higher than cases with structured grids,
+this effect is probably more than offset by the reduction in the number of grid points.
+
+This chapter presents an unstructured grid procedure for SWAN.
+The numerical propagation scheme for structured grids is based on
+a four-direction Gauss-Seidel iteration technique and is accompanied by a fully implicit temporal discretization; see Section~\ref{sec:sol}.
+Hence, SWAN is stable for any time step.
+Because of this nice property, this solution technique is tailored to unstructured grids.
+
+\section{Description of an unstructured grid}
+\label{sec:defunstr}
+
+\subsection{Definitions}
+
+We distinguish between two types of grids, namely structured and unstructured grids. A two-dimensional structured grid may contain quadrilaterals. These
+can be recti-linear or curvi-linear. The number
+of cells that meet each other in an internal vertex is always 4. In unstructured meshes this restriction is abandoned. Moreover, 2D unstructured grids usually
+consist of triangles or a combination of triangles and quadrilaterals, a so-called hybrid grid. The unstructured meshes that we consider in SWAN consist solely
+of triangles, also called cells. The edges of the triangles are called faces.
+
+\subsection{Relations between number of cells, vertices and faces}
+
+For a two-dimensional triangular mesh, the number of cells $C$, the number of boundary faces $E_b$ and internal faces $E_i$ are related according to:
+\begin{equation}
+  E_b + 2 E_i = 3C
+\end{equation}
+The total number of faces $E = E_i + E_b$. With $V$ the number of vertices and $H$ the number of holes ('islands'), we have the following Euler's relation
+for a triangulation:
+\begin{equation}
+  C + V  - E = 1 - H
+\end{equation}
+Usually, $E_b << E_i$ and the number of holes $H$ is negligibly small, so
+\begin{equation}
+  C \approx 2V\, , \quad E \approx 3V
+\end{equation}
+There are approximately twice as many cells as vertices
+in a triangular mesh.
+Therefore, it is an optimal choice to locate the action density in vertices
+as the number of unknowns is minimal on a given grid.
+Concerning the
+time-consuming evaluation of the physical processes representing the wave energy generation,
+dissipation and redistribution, this allows SWAN to save a considerable amount of computing time.
+
+\subsection{Conditions imposed to the grid}
+
+In order to avoid badly shaped grids, the grids must satisfy the following
+properties:
+\begin{itemize}
+  \item The number of cells that meet at each vertex in the interior of the mesh must be at least 4 and at most 10.
+  \item The angles inside each triangle must be smaller than a certain value. Let $\vec{a}$ and $\vec{b}$ be the tangential vectors of two faces of a
+        triangle, then the angle $\phi$ between these two faces equals
+        \begin{equation}
+           \cos \phi = \frac{\vec{a} \cdot \vec{b}}{|\vec{a}||\vec{b}|}
+        \end{equation}
+        For safety, we do not allow for angles with $\cos \phi < -0.8$ or, equivalently, $\phi > 143^o$.
+\end{itemize}
+
+\section{Some notes on grid generation}
+
+We briefly outline some issues related to grid generation from a practical point of view.
+The process of grid generation can be difficult and time consuming. A common approach is proceeding from coarse to fine grid through refinement in various ways.
+Generally, one would like to have an optimal grid in which areas where the bathymetry or evolution of the waves change
+rapidly require a higher resolution than areas where the physics or depth changes less.
+This goes around by having an indication how to determine the refinement based on
+bathymetry or geometric variations through preliminary evaluations.
+To facilitate this procedure,
+a mesh generation package BatTri (Bilgili and Smith, 2003) is used.
+This grid generator is a public-domain, graphical Matlab interface to Triangle (Shewchuk, 1996).
+Triangle is a freely-distributed, two-dimensional Delaunay triangulator.
+\nocite{Bil03S,She96}
+
+An important key ingredient for the preparation of the grid for the model domain is bathymetry data.
+Boundary nodes, segments and holes
+can be created from this data with the
+use of the mesh editing options of BatTri.
+After checking and improving grid quality, the final information on nodes and segments is forced into the
+triangulation of the domain. Triangle is called within BatTri to generate
+the actual grid. This triangulation includes only acute triangles.
+
+BatTri provides many pre-defined depth-dependent contraints for further mesh refinement.
+From a numerical point of view, mesh refinement is often directly related to properly resolve the shape of the wave,
+i.e. to keep the wavelength to grid size ratio relatively large.
+When wavelength decreases in shallower water, the grid size must decrease as well. Therefore, this criterion, called the $h$-refinement,
+has the effect of using smaller cells in shallow water and larger
+cells in deeper water. Here, $h$ refers to the water depth. Another useful criterion is known as the topographic length scale constraint,
+when one try to keep the ratio $\Delta h/h$ less than one. Here, $\Delta h$ equals the difference between the maximum depth of a triangle and the minimum depth and
+$h$ is the average depth. This
+criterion addresses the bathymetric slope and cells with a high value of $\Delta h/h$ indicate areas of steep bottom topography that will need to be
+more finely resolved.
+When refining the grid, one must balance the need to fully meet the refinement criteria with the desire to keep the triangle sizes from becoming too small.
+Thus, these criteria
+are generally imposed along with a minimum area constraint.
+The refinement process is repeated iteratively until a final grid with the appropriate resolution is obtained.
+
+\section{Numerical method}
+\label{sec:nummeth}
+
+\subsection{Discretization procedure}
+
+For the sake of clarity of the algorithm description below, we put all the terms but the time derivative and propagation term in the geographical space of Eq. (\ref{eq:actbal1})
+in one term $F(\vec{x},\sigma,\theta)$:
+\begin{equation}
+  \frac{\partial N}{\partial t} + \nabla_{\vec{x}} \cdot [\vec{c}_{\vec{x}} N] = F
+  \label{eq:waveeq}
+\end{equation}
+with $\vec{c}_{\vec{x}} = {\vec{c}}_g + \vec{U}$ the geographic velocity vector.
+
+For the time being, we restrict ourselves to triangular meshes. However, other
+type of meshes can be employed as well, e.g. hybrid grids (consisting of both triangles and quadrilaterals). We consider a triangulation of a geographical domain in which
+Eq. (\ref{eq:waveeq}) is solved; see Fig~\ref{fig:triangul}.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=triangul.eps,height=7cm}
+              }
+      \caption{An example of triangulation.}
+      \label{fig:triangul}
+\end{figure}
+Every vertex and all the triangles around this vertex are taken into account.
+Observe that the number of cells around a vertex can be different for all vertices.
+A vertex-based scheme is used in which the wave action $N$ is stored at the vertices and Eq. (\ref{eq:waveeq}) is solved in each vertex.
+We note that the values at boundary vertices are fixed during the computation.
+
+For the time integration, we adopt the first order implicit Euler scheme, as follows
+\begin{equation}
+  \frac{N^n - N^{n-1}}{\Delta t} + \nabla_{\vec{x}} \cdot [\vec{c}_{\vec{x}} N^n] = F^n
+  \label{eq:waveeq2}
+\end{equation}
+where $\Delta t$ is the time step and $n$ is the time step counter. The main property of this approximation is that it does not suffer from the stability restriction
+imposed by the CFL condition inherent in the explicit methods as employed in most spectral models. In principle, the time step is limited only by
+the desired temporal accuracy. This procedure, however, involves the solution of a large system of equations.
+
+A point-by-point multi-directional Gauss-Seidel iteration technique is employed for updating all grid vertices.
+A key feature of this technique is that it takes advantage of the newly acquired vertex values during an iteration.
+It is locally implicit but globally explicit. In other words, it circumvents the need to build or store large matrices and remains stable at any time steps.
+This means that this numerical procedure can converge to steady state much more rapidly than
+explicit methods without requiring too much computational work and memory as do implicit methods.
+
+We consider the update of a vertex as labeled 1 in Figure~\ref{fig:gsunstruc}. This involves looping over each cell of this vertex.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=gsunstruc.eps,height=7cm}
+              }
+      \caption{Update of the wave action at vertex 1 in a triangle $\triangle$123 and the shaded directional sector
+               in spectral space for which the waves are propagated.}
+      \label{fig:gsunstruc}
+\end{figure}
+We want to find an approximation for the propagation term of Eq. (\ref{eq:waveeq2}). To this end, we employ some vector calculus.
+We consider a triangular cell as depicted in Figure~\ref{fig:celldisc}.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=celldisc2.eps,height=8cm}
+              }
+      \caption{A triangular cell with geometrical quantities used for discretization in geographical space. Definitions of these quantities are provided in the text.}
+      \label{fig:celldisc}
+\end{figure}
+In vertex 1, we apply a mapping from a local coordinate system $\vec{\xi}$ = ($\xi$,$\eta$) to the
+Cartesian one $\vec{x}$ = ($x$,$y$).
+Based on this transformation $\vec{x}(\vec{\xi})$, we have the following base vectors that are tangential to the coordinate lines $\xi$ and $\eta$, respectively,
+\begin{equation}
+  {\vec{e}}_{(1)}  = \frac{\partial \vec{x}}{\partial \xi} \, , \quad {\vec{e}}_{(2)}  = \frac{\partial \vec{x}}{\partial \eta} \, .
+\end{equation}
+The vectors
+\begin{equation}
+  {\vec{e}}^{(1)}  = \mbox{grad} \, \xi \, , \quad {\vec{e}}^{(2)}  = \mbox{grad} \, \eta
+\end{equation}
+are normal to the coordinate surface of constant $\xi$ and $\eta$, respectively (see Figure~\ref{fig:celldisc}). Moreover, they are reciprocal to the base vectors, i.e.
+\begin{equation}
+  {\vec{e}}_{(\alpha)} \cdot {\vec{e}}^{(\beta)} = \delta_{\alpha}^{\beta} \, , \quad \alpha, \beta = \{1,2\} \, ,
+\end{equation}
+where $\delta_{\alpha}^{\beta}$ is Kronecker delta (which is unity if $\alpha$ = $\beta$, and zero otherwise). Using Cramer's rule, one can find
+\begin{equation}
+  \vec{e}^{(1)} = \frac{1}{D} ( e^2_{(2)},-e^1_{(2)} )^{\top}\, ,\, \, \vec{e}^{(2)} = \frac{1}{D} (-e^2_{(1)}, e^1_{(1)} )^{\top}\, , \, \,
+  D = e^2_{(2)} e^1_{(1)} - e^2_{(1)} e^1_{(2)} \, .
+  \label{eq:contravar}
+\end{equation}
+
+Next, we expand the propagation term of Eq. (\ref{eq:waveeq2}):
+\begin{equation}
+  \nabla_{\vec{x}} \cdot [\vec{c}_{\vec{x}} N] = \frac{\partial c_x N}{\partial x} + \frac{\partial c_y N}{\partial y} \, ,
+\end{equation}
+where $c_x$ and $c_y$ are the $x-$ and $y-$components of the wave propagation vector $\vec{c}_{\vec{x}}$, respectively.
+Using the chain rule, we obtain
+\begin{equation}
+  \nabla_{\vec{x}} \cdot [\vec{c}_{\vec{x}} N] = e^{(1)}_1 \frac{\partial c_x N}{\partial \xi} + e^{(2)}_1 \frac{\partial c_x N}{\partial \eta}
+  + e^{(1)}_2 \frac{\partial c_y N}{\partial \xi} + e^{(2)}_2 \frac{\partial c_y N}{\partial \eta} \, .
+  \label{eq:propterm}
+\end{equation}
+Further, we approximate the derivatives in Eq. (\ref{eq:propterm}). The most simplest one is a one-sided first order difference scheme, as follows
+\begin{eqnarray}
+  && \frac{\partial c_x N}{\partial \xi} \approx \frac{c_x N_1 - c_x N_2 }{\Delta \xi} \, , \quad
+  \frac{\partial c_x N}{\partial \eta} \approx \frac{c_x N_1 - c_x N_3 }{\Delta \eta} \, , \nonumber \\
+  && \nonumber \\
+  &&\frac{\partial c_y N}{\partial \xi} \approx \frac{c_y N_1 - c_y N_2 }{\Delta \xi} \, , \quad
+  \frac{\partial c_y N}{\partial \eta} \approx \frac{c_y N_1 - c_y N_3 }{\Delta \eta} \, ,
+  \label{eq:onedif}
+\end{eqnarray}
+where the action densities at vertices 1, 2 and 3 are denoted by $N_1$, $N_2$ and $N_3$, respectively.
+Here, we choose the mapping $\vec{x}(\vec{\xi})$ such that $\Delta \xi$ = $\Delta \eta$ = 1.
+The approximation is completed by substituting (\ref{eq:onedif}) in (\ref{eq:propterm}):
+\begin{equation}
+  \nabla_{\vec{x}} \cdot [\vec{c}_{\vec{x}} N] \approx c_x N|_2^1 e^{(1)}_1 + c_x N|_3^1 e^{(2)}_1 + c_y N|_2^1 e^{(1)}_2 + c_y N|_3^1 e^{(2)}_2 \, .
+  \label{eq:spacedisc}
+\end{equation}
+Note that the components of the vectors ${\vec{e}}^{(1)}$ and ${\vec{e}}^{(2)}$ in Eq. (\ref{eq:spacedisc}) are given by Eqs. (\ref{eq:contravar}), while
+the base vectors are calculated according to
+\begin{equation}
+  {\vec{e}}_{(1)}  = {\vec{x}}_1 - {\vec{x}}_2 \, , \quad {\vec{e}}_{(2)}  = {\vec{x}}_1 - {\vec{x}}_3
+  \label{eq:basevec}
+\end{equation}
+with ${\vec{x}}_i = (x_i, y_i)$ the position vector of vertex $i$ in a Cartesian coordinate system.
+
+This space discretization is of lowest order accurate and conserves action. The upwind difference scheme (\ref{eq:spacedisc}) is employed for two reasons.
+First, it enforces the propagation of wave action to follow the characteristics.
+Second, it is monotone (i.e. guaranteeing $N > 0$ everywhere) and compact (i.e. operating on one triangle only), while sufficiently accurate for nearshore applications.
+Given the action densities $N^n_2$ and $N^n_3$ at vertices 2 and 3 of triangle $\triangle$123,
+the wave action in vertex 1 is readily determined according to
+\begin{eqnarray}
+  &&\left[ \frac{1}{\Delta t} + c_{x,1} \left( e^{(1)}_1 + e^{(2)}_1 \right) + c_{y,1} \left( e^{(1)}_2 + e^{(2)}_2 \right) \right] N_1^n = \nonumber \\
+  &&\frac{N_1^{n-1}}{\Delta t}+\left( c_{x,2} e^{(1)}_1 + c_{y,2} e^{(1)}_2 \right) N^n_2 + \left( c_{x,3} e^{(2)}_1 + c_{y,3} e^{(2)}_2 \right) N^n_3 + F^n \, .
+  \label{eq:waveeq3}
+\end{eqnarray}
+
+The wave directions between faces $\vec{e}_{(1)}$ and $\vec{e}_{(2)}$ enclose all wave energy propagation in between the corresponding directions $\theta_1$ and $\theta_2$ as
+indicated as a shaded sector in Figure~\ref{fig:gsunstruc}.
+This sector is the domain of dependence of Eq. (\ref{eq:waveeq3}) in vertex 1.
+Since, the wave characteristics lie within this directional sector, this ensures that the CFL number
+used will properly capture the propagation of wave action towards vertex 1. So, propagation is not subjected to a CFL stability criterion.
+Next, the term $F^n$ in Eq. (\ref{eq:waveeq3}) is discretized implicitly in the sector considered.
+Since, the approximation in the spectral space and the linearization of the source terms are well explained in Section~\ref{sec:sol}, we shall not pursue them any further.
+Eq. (\ref{eq:waveeq3}) constitute a coupled set of linear, algebraic equations for all spectral bins within the sector considered at vertex 1. The solution is found by means
+of an iterative solver; see Section~\ref{sec:sol} for details.
+
+The update of vertex 1 is completed when all surrounding cells have been treated. This allows waves to transmit from all directions.
+Due to refraction and nonlinear interactions, wave energy shifts in the spectral space from one directional sector to another. This is taken into account properly
+by repeating the whole procedure with
+converging results.
+
+\subsection{The sweeping algorithm}
+
+The solution of each vertex must be updated geographically before proceeding to the next one. For example, referring to Figure~\ref{fig:gsunstruc},
+the value in vertex 1 is determined by its two upwave vertices 2 and 3 only if they are already updated.
+For regular grids, the four-sweep scheme based on a four-direction Gauss-Seidel relaxation is employed as outlined in Section~\ref{sec:sol}.
+The grid points are ordered in a natural manner, e.g. left to right and bottom to top during the first sweep, right to left and bottom to top during the second
+sweep, and so on.
+Hence, the updated values will be used immediately for updating the next unknown.
+However,
+in an unstructured mesh there are no distinct directions. Thus the vertices are ordered by their numbering which for
+an unstructured grid are quite random. As a consequence, the latest obtained solution will be not necessarily used for updating surrounding vertices.
+
+An ordering is proposed such that
+the solution of each vertex will tend to ensure that updated values from the surrounding vertices are used as soon as they are available.
+We introduce a reference point on the boundary where the incoming wave energy is imposed
+and order all the vertices according to their distances to the reference point in ascending order.
+The updates along this ordering of vertices can be interpreted as propagation of spherical wave fronts with a center
+on the upwave boundary through the domain as illustrated in Figure~\ref{fig:wavefronts}.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=wavefronts.eps,height=6cm}
+              }
+      \caption{Ordering of vertices along spherical wave fronts indicated by different color points. The black point in left-bottom corner is chosen as reference point.}
+      \label{fig:wavefronts}
+\end{figure}
+It is expected that this specific ordering should result in a faster convergence than a random ordering of vertices.
+
+An algorithm is employed that consists of simply proceeding through a list of vertices that remain to be updated. This list is sorted according to the ascending distances
+of vertices to the chosen reference point. For a given vertex to be updated,
+we first check if its upwave neighbours has already been
+updated. If this is the case, this vertex is updated and tagged in the list. Otherwise, the considered vertex is placed untagged and the process continues with the next vertex in the list
+of non-updated vertices.
+These updates are swept in two cycles. The first cycle involves a forward sweep from the first vertex in the list to the last. The second cycle moves backward from the last to the first.
+As such, all directions of characteristics can be covered efficiently.
+An iteration is completed when all vertices are updated in both geographic and spectral spaces so that wave energy from all directions has been propagated through geographical space.
+This numerical process is iterated until an {\em a priori} convergence condition is satisfied. Here, the curvature-based stopping criteria
+as outlined in Section~\ref{sec:stop} will be applied.
+
+\section{Interpolation at user-defined locations}
+
+All the quantities deals with in SWAN are located at the vertices. Hence, due to the user-defined locations of the wave parameters, interpolations are required.
+Let parameter $\varphi_j = \varphi(\vec{x}_j)$ and Cartesian coordinates $\vec{x}_j = (x_j, y_j)$, with $j \in \{1,2,3\}$ indicating the vertices of cell $i$, be given.
+The vertices 1, 2 and 3 are ordered in a counterclockwise direction, see Figure~\ref{fig:gsunstruc}. The associated 3 edges are denoted as 12, 23 and 31.
+
+Linear interpolation, with $\vec{x}_0$ inside cell $i$ and $\varphi_0 = \varphi(\vec{x}_0)$, is given by
+\begin{equation}
+  \varphi(\vec{x}) = \varphi_0 + \nabla \varphi \cdot (\vec{x} - \vec{x}_0)
+\end{equation}
+where $\nabla \varphi$ is a constant vector inside cell $i$. We apply Green-Gauss reconstruction, i.e.,
+\begin{equation}
+  \nabla \varphi \approx \frac{1}{A_i} \int_{\triangle i} \nabla \varphi d\Omega = \frac{1}{A_i} \oint_{\partial \triangle i}
+  \varphi \vec{n} d\Gamma \approx \frac{1}{A_i} \sum_e \varphi_e \vec{n}_e
+\end{equation}
+where $A_i$ is the area of cell $i$ and the summation runs over the 3 edges $e \in \{12,23,31\}$ of cell $i$.
+The values $\varphi_e$ at edges are taken as averages:
+\begin{equation}
+   \varphi_{12} = \frac{1}{2} (\varphi_1+\varphi_2)\, , \quad
+   \varphi_{23} = \frac{1}{2} (\varphi_2+\varphi_3)\, , \quad
+   \varphi_{31} = \frac{1}{2} (\varphi_3+\varphi_1)\
+\end{equation}
+Furthermore, $\vec{n}_e$ is the outward pointing normal
+at edge $e$ and is obtained by rotating the edge over 90$^o$ in the clockwise
+direction. Hence,
+\begin{equation}
+  \vec{n}_{12} = R\vec{t}_{12}\, , \quad  R = \left( \begin{array}{ll} 0 & 1 \\ -1 & 0 \end{array} \right) \, , \quad \vec{t}_{12} = \vec{x}_2 - \vec{x}_1
+\end{equation}
+We also need the following identity
+\begin{equation}
+   \vec{n}_{12} + \vec{n}_{23} + \vec{n}_{31} = 0
+\end{equation}
+It is not difficult to show that
+\begin{eqnarray}
+  \nabla \varphi &=& \frac{1}{2A_i} \left [ \vec{n}_{12} (\varphi_1 - \varphi_3) + \vec{n}_{31} (\varphi_1 - \varphi_2) \right ] \nonumber \\
+                 &=& -\frac{1}{2A_i} \left [ \varphi_1 \vec{n}_{23} + \varphi_2 \vec{n}_{31} + \varphi_3 \vec{n}_{12} \right ]
+  \label{eq:gradcell}
+\end{eqnarray}
+or
+\begin{equation}
+  \frac{\partial \varphi}{\partial x} = \frac{1}{2A_i} \left [ \varphi_1 (y_2 - y_3) + \varphi_2 (y_3 - y_1) + \varphi_3 (y_1 - y_2) \right]
+  \label{eq:xgradcell}
+\end{equation}
+and
+\begin{equation}
+  \frac{\partial \varphi}{\partial y} = \frac{1}{2A_i} \left [ \varphi_1 (x_3 - x_2) + \varphi_2 (x_1 - x_3) + \varphi_3 (x_2 - x_1) \right]
+  \label{eq:ygradcell}
+\end{equation}
+The area $A_i$ of cell $i$ is given by $|\vec{t}_{12} \cdot \vec{n}_{13}|/2$. Hence, with
+\begin{equation}
+  \vec{n}_{13} = R\vec{t}_{13} = \left( \begin{array}{l} y_3 - y_1 \\ x_1 - x_3 \end{array} \right)
+\end{equation}
+we have
+\begin{equation}
+  A_i = \frac{1}{2} | (x_2 - x_1)(y_3 - y_1) - (x_3 - x_1)(y_2 - y_1) |
+\end{equation}
+\\[2ex]
+\noindent
+Alternatively, we may interpolate using the following relation
+\begin{equation}
+  \varphi(\vec{x}) = \sum_k \varphi_k \lambda_k(\vec{x}) = \varphi_1 \lambda_1 + \varphi_2 \lambda_2 +\varphi_3 \lambda_3
+\end{equation}
+where $\lambda_k$ is a linear shape function with the following properties:
+\begin{enumerate}
+  \item $\lambda_k$ is linear per cell and
+  \item $\lambda_k(\vec{x}_j) = \delta_{kj}$ with $\delta_{kj}$ is the Kronecker delta.
+\end{enumerate}
+We choose the following shape function
+\begin{equation}
+  \lambda_k(\vec{x}) = a_0^k + a_x^k x + a_y^k y
+\end{equation}
+and the coefficients $a$ follow from solving
+\begin{equation}
+  \left(
+     \begin{array}{lll}
+        1 & x_1 & y_1 \\
+        1 & x_2 & y_2 \\
+        1 & x_3 & y_3
+     \end{array}
+  \right)
+  \left(
+     \begin{array}{lll}
+        a_0^1 & a_0^2 & a_0^3 \\
+        a_x^1 & a_x^2 & a_x^3 \\
+        a_y^1 & a_y^2 & a_y^3
+     \end{array}
+  \right)
+  =
+  \left(
+     \begin{array}{lll}
+        1 & 0 & 0 \\
+        0 & 1 & 0 \\
+        0 & 0 & 1
+     \end{array}
+  \right)
+\end{equation}
+
+\section{Computation of wave-induced force}
+
+{\tt FORCE} is the wave-driven stress, i.e. the force per unit surface driving the wave-driven current, expressed in N/m$^2$, is defined
+as the gradient of the radiation stresses:
+\begin{equation}
+  S_{xx} = \rho g \int \lfloor n \cos^2\theta + n - \frac{1}{2} \rfloor E d\sigma d\theta
+\end{equation}
+\begin{equation}
+  S_{xy} = S_{yx} = \rho g \int n \sin\theta \cos\theta E d\sigma d\theta
+\end{equation}
+\begin{equation}
+  S_{yy} = \rho g \int \lfloor n \sin^2\theta + n - \frac{1}{2} \rfloor E d\sigma d\theta
+\end{equation}
+with $n$ the ratio of group velocity and phase velocity.
+The force is then
+\begin{equation}
+  F_x = -\frac{\partial S_{xx}}{\partial x} - \frac{\partial S_{xy}}{\partial y}
+\end{equation}
+and
+\begin{equation}
+  F_y = -\frac{\partial S_{yx}}{\partial x} - \frac{\partial S_{yy}}{\partial y}
+\end{equation}
+\\[2ex]
+\noindent
+In order to compute the force in all internal vertices of the unstructured mesh, we consider a control volume (CV) as depicted in Figure~\ref{fig:cv}.
+\begin{figure}[htb]
+   \centerline{
+      \epsfig{file=CV.eps,height=7cm}
+              }
+      \caption{Control volume (centroid dual) of vertex is shaded. Some notation is introduced.}
+      \label{fig:cv}
+\end{figure}
+This CV is called centroid dual and is constructed by joining the centroids neighbouring the vertex under consideration. The set of CVs must fill
+the whole computational domain and must also be non-overlapping.
+In the following we use the numbering from Figure~\ref{fig:cv}.
+Let $\varphi$ be one of the
+radiation stresses $S_{xx}$, $S_{xy}$ and $S_{yy}$. The gradient of $\varphi$ is computed as follows:
+\begin{equation}
+  \nabla \varphi \approx \frac{1}{A_{\rm CV}} \sum_e \varphi_e \vec{n}_e
+\end{equation}
+where $A_{\rm CV}$ is the area of the CV and the summation runs over the associated edges $e$ of this CV.
+The values $\varphi_e$ at edges of the centroid dual are taken as averages, i.e. $(\varphi_0+\varphi_1)/2$, $(\varphi_1+\varphi_2)/2$, etc.
+Moreover, the value of the radiation stresses
+inside each triangle is simply the average of the radiation stresses in the associated vertices of the cell. Now, the derivatives of $\varphi$ inside
+CV are
+\begin{equation}
+  \frac{\partial \varphi}{\partial x} = \frac{1}{2A_{\rm CV}} \sum_{i=0}^{n-1} (\varphi_i+\varphi_{i+1})\,(y_{i+1}-y_i)
+  \label{eq:xgradcv}
+\end{equation}
+and
+\begin{equation}
+  \frac{\partial \varphi}{\partial y} = \frac{1}{2A_{\rm CV}} \sum_{i=0}^{n-1} (\varphi_i+\varphi_{i+1})\,(x_i-x_{i+1})
+  \label{eq:ygradcv}
+\end{equation}
+with $n$ the number of surrounding cells of the considered vertex and $\varphi_n = \varphi_0$, $x_n = x_0$ and $y_n = y_0$.
+The area of the CV is given by
+\begin{equation}
+  A_{\rm CV} = \frac{1}{2} \sum_{i=0}^{n-1} (x_i\,y_{i+1} - x_{i+1}\,y_i)
+\end{equation}
+
+\section{Calculation of diffusion-like terms}
+
+There are situations in which the following diffusion-like term need to be computed on unstructured meshes:
+\begin{equation}
+  \nabla \cdot \left ( \kappa \nabla \varphi \right )
+\end{equation}
+in vertices with $\kappa$ a space-varying diffusion coefficient (a tensor) and $\varphi$  a scalar defined in vertices. In SWAN, these are
+\begin{itemize}
+  \item the alleviation of the garden-sprinkler effect; see Eq. (\ref{eq:gsediff}), and
+  \item the computation of the diffraction parameter; see Eq. (\ref{eq3-44}).
+\end{itemize}
+We consider the centroid dual as shown in Figure~\ref{fig:cv}. The calculation consists of 3 steps. First, we compute the gradient of $\varphi$ inside
+each surrounding cell using expressions (\ref{eq:xgradcell}) and (\ref{eq:ygradcell}). Next, this gradient is multiplied with the appropriate diffusion
+coefficient $\kappa$ as given in the centroid. Finally, we compute the gradient of $\kappa \nabla \varphi$ inside the CV according to
+Eqs. (\ref{eq:xgradcv}) and (\ref{eq:ygradcv}).
+
 \chap{The overall solution algorithm} \label{ch:concl}
+This chapter is under preparation.
 
 \newpage
 \markboth{}{}
@@ -3323,10 +4271,6 @@ shallow water, {\it J. Geophys. Res}., {\bf 97}, 15579-15589
 \bibitem{Alv03B}
 Alves, J.H.G.M. and M.L. Banner, 2003: Performance of a saturation-based dissipation-rate source term
 in modelling the fetch-limited evolution of wind waves, {\it J. Phys. Oceanogr}., {\bf 33}, 1274-1298
-
-\bibitem{And98HJK}
-Andorka Gal, J.H., L.H. Holthuijsen, J.C.M. de Jong and A.T.M.M. Kieftenburg, 1998: Wave transformation
-near a quasi-1D coast, {\it 26th Int. Conf. Coastal Engng}., Copenhagen, 150-160
 
 \bibitem{Arc90L}
 Arcilla, A.S. and C.M. Lemos, 1990: {\it Surf-Zone Hydrodynamics}, Centro Internacional de M\'{e}todos
@@ -3400,6 +4344,11 @@ Engineering}, ASCE, 471-490
 Bertotti, L and L. Cavaleri, 1994: Accuracy of wind and wave evaluation in coastal regions, {\it Proc. 24$^{{\rm th}}$ Int.
 Conf. Coastal Engineering}, ASCE, 57-67
 
+\bibitem{Bil03S}
+Bilgili, A. and Smith, K.W., 2003.
+BatTri: a 2-D finite element grid generator, version 11.11.03.
+Available from: $<$http://www-nml.dartmouth.edu/Publications/internal\_reports/NML-03-15/$>$.
+
 \bibitem{Boo87H}
 Booij, N., and L.H. Holthuijsen, 1987, Propagation of ocean waves in discrete spectral wave m{\it odels,
 Journal of Computational Physics}, vol. 68, 307-326.
@@ -3411,10 +4360,6 @@ a gap, {\it Proc. 23rd Int. Conf. Coastal Eng}, Venice 4-9 Oct., 1992, New York,
 \bibitem{Boo96HR}
 Booij, N., L.H. Holthuijsen and R.C. Ris, 1996: The "SWAN" wave model for shallow water, {\it Proc. 25th Int.
 Conf. Coastal Engng.}, Orlando, 668-676
-
-\bibitem{Boo97HDK}
-Booij, N., L.H. Holthuijsen, N. Doorn and A.T.M.M. Kieftenburg, 1997: Diffraction in a spectral wave model,
-{\it Proc. 3rd Int. Symp. Ocean Wave Measurement and Analysis, WAVES'97}, ASCE, 234-255
 
 \bibitem{Boo97HPa}
 Booij, N., L.H. Holthuijsen and R. Padilla-Hernandez, 1997: A nonstationary, parametric coastal wave
@@ -3483,8 +4428,8 @@ CERC, 1973: Shore Protection Manual, U.S. Army Corps of Engineers, Techn. Rep. N
 Chen, Y. and H. Wang, 1983: Numerical model for nonstationary shallow water wave spectral
 transformations, {\it J. Geophys. Res}., {\bf 88}, 9851-9863
 
-\bibitem{Che97G}
-Chen, Y. and R.T. Guza, 1997: Modelling of breaking surface waves in shallow water, {\it J. Geophys. Res}.,
+\bibitem{Che97GE}
+Chen, Y., R.T. Guza, and S. Elgar, 1997: Modelling of breaking surface waves in shallow water, {\it J. Geophys. Res}.,
 102, C11, 25035-25046
 
 \bibitem{Chr94HR}
@@ -3675,6 +4620,10 @@ Holthuijsen, L.H., N. Booij and R.C. Ris, 1993: A spectral wave model for the co
 2nd International Symposium on Ocean Wave Measurement and Analysis}, New Orleans,
 Louisiana, July 25$-$28, 1993: New York, pp. 630$-$641
 
+\bibitem{Hol96BB}
+Holthuijsen, L.H., N. Booij and L. Bertotti, 1996: The propagation of wind errors through
+ocean wave hindcasts, {\it J. Offshore Mech. And Arctic Eng.}, {\bf 118}, 184-189
+
 \bibitem{Hol97BP}
 Holthuijsen, L.H., N. Booij and R. Padilla-Hernandez, 1997: A curvi-linear, third-generation coastal wave
 model, {\it Conf. Coastal Dynamics '97}, Plymouth, 128-136
@@ -3717,9 +4666,6 @@ spectral wave models, {\it Coastal Engineering}, {\bf 49}, 291-305
 \bibitem{Hol05}
 Holthuijsen, L.H., 2005: {\it Waves in oceanic and coastal waters},
 Cambridge University Press, in press.
-
-\bibitem{Hur04V}
-Hurdle, D.P. and G. Ph. van Vledder, 2004. {\it Proc. 23rd Int. Conf. on Offshore Mech. and Arctic. Eng.}
 
 \bibitem{Hsu05OL}
 Hsu, T.-W., S.-H. Ou and J.-M. Liau, 2005: Hindcasting nearshore wind waves using a FEM code for SWAN,
@@ -3834,7 +4780,7 @@ Nelson, R.C., 1987: Design wave heights on very mild slopes: An experimental stu
 Inst. Eng. Aust}., {\bf 29}, 157-161
 
 \bibitem{Nel94}
-Nelson, R.C., 1994: Depth limited wave heights in very flat regions, {\it Coastal Engineering}, {\bf 23}, 43-59
+Nelson, R.C., 1994: Depth limited design wave heights in very flat regions, {\it Coastal Engineering}, {\bf 23}, 43-59
 
 \bibitem{Nel97}
 Nelson, R.C., 1997: Height limits in top down and bottom up wave environments, {\it Coastal Engineering},
@@ -3913,6 +4859,10 @@ Resio, D.T., C.E. Long and C.L. Vincent, 2004: Equilibrium-range constant in win
 Ris, R.C., L.H. Holthuijsen and N. Booij, 1994: A spectral model for waves in the near shore zone, {\it Proc.
 24th Int. Conf. Coastal Engng}, Kobe, Japan, pp. 68-78
 
+\bibitem{Ris96H}
+Ris, R.C. and L.H. Holthuijsen, 1996: Spectral modelling of current wave-blocking.
+{\it Proc. 25$^{{\rm th}}$ Int. Conf. Coastal Engng.}, ASCE, 1247-1254.
+
 \bibitem{Ris97H}
 Ris, R.C. and L.H. Holthuijsen, 1997: Modelling of current induced wave-blocking in a spectral wave
 model, {\it 8$^{{\rm th}}$ International Biennal Conference on  Physics of Estuaries and Coastal Seas}, J.
@@ -3941,6 +4891,10 @@ arbitrary scale third generation wind wave model, {\it Ocean Engng}., {\bf 29}, 
 Rogers, W.E., P.A. Hwang and D.W. Wang, 2003: Investigation of wave growth and decay in the SWAN model:
 three regional-scale applications, {\it J. Phys. Oceanogr.}, {\bf 33}, 366-389.
 
+\bibitem{Rue03WS}
+Ruessink, B.G., D.J.R. Walstra and H.N. Southgate, 2003: Calibration and verification of a parametric wave model
+on barred beaches, {\it Coastal Engineering}, {\bf 48}, 139-149
+
 \bibitem{Sak83KI}
 Sakai, T., M. Koseki and Y. Iwagaki, 1983: Irregular wave refraction due to current, {\it J. of Hydr. Eng.}, ASCE,
 {\bf 109}, 9, 1203-1215
@@ -3956,6 +4910,11 @@ overtopping, {\it Proc. Conf. Coastal Structures}, 79, 2, 941-961
 Shemdin, P., K. Hasselmann, S.V. Hsiao and K. Herterich, 1978: Non$-$linear and linear  bottom interaction
 effects in shallow water, in: Turbulent Fluxes through the Sea Surface, {\it Wave Dynamics and
 Prediction, NATO Conf. Ser}., {\bf V}, 1, 347$-$372
+
+\bibitem{She96}
+Shewchuk, J.R., 1996.
+Triangle: a two-dimensional quality mesh generator and Delaunay triangulator, version 1.3.
+Available from: $<$http://www-2.cs.cmu.edu/$\,\tilde{}\,$quake/triangle.html$>$.
 
 \bibitem{Sny81DEL}
 Snyder, R.L., Dobson, F.W., Elliott, J.A. and R.B. Long, 1981: Array measurement of atmospheric pressure
@@ -4057,6 +5016,10 @@ Mech}., {\bf 232}, 73-98
 P.~Wesseling, An introduction to multigrid methods, John Wiley and Sons,
   Chichester, 1992.
 
+\bibitem{Wes07}
+Van der Westhuysen, A.J., 2007: Advances in the spectral modelling of wind waves in the nearshore, {\it Ph.D. thesis},
+Delft University of Technology, Department of Civil Engineering, The Netherlands
+
 \bibitem{Wes07ZB}
 Van der Westhuysen, A.J., M. Zijlema and J.A. Battjes, 2007: Nonlinear saturation-based whitecapping dissipation
 in SWAN for deep and shallow water, {\it Coast. Engng}., {\bf 54}, 151-170
@@ -4064,6 +5027,9 @@ in SWAN for deep and shallow water, {\it Coast. Engng}., {\bf 54}, 151-170
 \bibitem{Wil65}
 Wilson, B.W., 1965: Numerical prediction of ocean waves in the North Atlantic for December 1959,
 {\it Deutsch. Hydrogr. Z.}, {\bf 18}, 3, p. 114-130
+
+\bibitem{WIS07}
+WISE~Group, 2007. Wave modelling - The state of the art. Progr. Oceanogr., {\bf 75}, 603-674
 
 \bibitem{Whi74}
 Whitham, G.B., 1974: {\it Linear and nonlinear waves}, Wiley, New York, 636 p.
@@ -4117,7 +5083,7 @@ Directional spectra, {\it Coastal Engineering}, {\bf 29}, 101-121
 
 \bibitem{Zij98W}
 Zijlema, M. and Wesseling, P., 1998. Higher-order flux-limiting schemes for the finite volume
-  computation of incompressible flow. Int. J. Comput. Fluid Dyn., 9:89--109.
+  computation of incompressible flow. Int. J. Comput. Fluid Dyn., {\bf 9}, 89-109
 
 \bibitem{Zij05}
 Zijlema, M., 2005: Parallelization of a nearshore wind wave model for distributed memory architectures,
@@ -4126,168 +5092,208 @@ Eds. G. Winter and A. Ecer and J. Periaux and N. Satofuka and P. Fox,
 Elsevier Science B.V., Amsterdam, The Netherlands, 207-214
 
 \bibitem{Zij05W}
-Zijlema, M. and A.J. van der Westhuysen: On convergence behaviour and numerical accuracy in stationary
-SWAN simulation of nearshore wind wave spectra. {\it Coastal Engineering}, {\bf 52}, 237-256.
+Zijlema, M. and A.J. van der Westhuysen, 2005: On convergence behaviour and numerical accuracy in stationary
+SWAN simulation of nearshore wind wave spectra. {\it Coastal Engineering}, {\bf 52}, 237-256
+
+\bibitem{Zij09}
+Zijlema, M., 2009: Parallel, unstructured mesh implementation for SWAN,
+{\it Proc. 31$^{{\rm th}}$ Int. Conf. Coastal Engineering}, ASCE, 470-482
 
 \end{thebibliography}
 
 \begin{theindex}
 \addcontentsline{toc}{chapter}{Index}
-  \item ambient, \hyperpage{2}, \hyperpage{7}, \hyperpage{10--12}, 
-		\hyperpage{29}, \hyperpage{83}
+  \item ambient, \hyperpage{2}, \hyperpage{7}, \hyperpage{11, 12}, 
+		\hyperpage{32}, \hyperpage{103}
 
   \indexspace
 
-  \item bathymetry, \hyperpage{24}, \hyperpage{85}
-  \item bottom, \hyperpage{1--3}, \hyperpage{12, 13}, \hyperpage{15}, 
-		\hyperpage{22--24}, \hyperpage{30}, \hyperpage{80}, 
-		\hyperpage{82}, \hyperpage{85--90}
+  \item bathymetry, \hyperpage{24}, \hyperpage{40}, \hyperpage{83}, 
+		\hyperpage{85}, \hyperpage{105}
+  \item bottom, \hyperpage{1--3}, \hyperpage{13--15}, 
+		\hyperpage{22--24}, \hyperpage{32, 33}, 
+		\hyperpage{48, 49}, \hyperpage{85}, \hyperpage{89, 90}, 
+		\hyperpage{100}, \hyperpage{102}, \hyperpage{105--110}
   \item boundary, \hyperpage{3, 4}, \hyperpage{13}, \hyperpage{15}, 
-		\hyperpage{43}, \hyperpage{57, 58}, \hyperpage{60, 61}, 
-		\hyperpage{63--67}, \hyperpage{84}, \hyperpage{86}
-  \item breaking, \hyperpage{1}, \hyperpage{3}, \hyperpage{12, 13}, 
-		\hyperpage{15--17}, \hyperpage{21}, \hyperpage{23}, 
-		\hyperpage{42}, \hyperpage{54}, \hyperpage{77, 78}, 
-		\hyperpage{80, 81}, \hyperpage{85}, \hyperpage{89}
+		\hyperpage{46}, \hyperpage{65, 66}, \hyperpage{68, 69}, 
+		\hyperpage{71--75}, \hyperpage{77}, \hyperpage{84}, 
+		\hyperpage{86}, \hyperpage{90}, \hyperpage{104, 105}
+  \item breaking, \hyperpage{1}, \hyperpage{3}, \hyperpage{13--17}, 
+		\hyperpage{20, 21}, \hyperpage{23--25}, \hyperpage{45}, 
+		\hyperpage{62}, \hyperpage{97}, \hyperpage{100, 101}, 
+		\hyperpage{104}, \hyperpage{109}
 
   \indexspace
 
-  \item Cartesian, \hyperpage{3}, \hyperpage{10--12}, \hyperpage{62}
+  \item Cartesian, \hyperpage{3}, \hyperpage{10--12}, \hyperpage{70}, 
+		\hyperpage{87}, \hyperpage{89, 90}
   \item co-ordinate, \hyperpage{3}, \hyperpage{7}, \hyperpage{10--12}, 
-		\hyperpage{27}, \hyperpage{48--50}, \hyperpage{64}, 
-		\hyperpage{66}
-  \item coastal, \hyperpage{1, 2}, \hyperpage{15}, \hyperpage{45}, 
-		\hyperpage{71}, \hyperpage{78, 79}, \hyperpage{81}, 
-		\hyperpage{83--85}, \hyperpage{87, 88}
-  \item convergence, \hyperpage{36, 37}, \hyperpage{41}, 
-		\hyperpage{43--47}, \hyperpage{73, 74}, \hyperpage{87}, 
-		\hyperpage{91}
-  \item Courant, \hyperpage{40}
+		\hyperpage{27, 28}, \hyperpage{54--56}, \hyperpage{72}, 
+		\hyperpage{74}
+  \item coastal, \hyperpage{1, 2}, \hyperpage{15}, \hyperpage{42}, 
+		\hyperpage{51}, \hyperpage{79}, \hyperpage{83}, 
+		\hyperpage{98, 99}, \hyperpage{101}, 
+		\hyperpage{103--105}, \hyperpage{107, 108}
+  \item convergence, \hyperpage{38, 39}, \hyperpage{44}, \hyperpage{46}, 
+		\hyperpage{51--54}, \hyperpage{77, 78}, 
+		\hyperpage{81, 82}, \hyperpage{90}, \hyperpage{107}, 
+		\hyperpage{111}
+  \item Courant, \hyperpage{42}
   \item current, \hyperpage{2, 3}, \hyperpage{7}, \hyperpage{10--13}, 
-		\hyperpage{15}, \hyperpage{29}, \hyperpage{32, 33}, 
-		\hyperpage{37, 38}, \hyperpage{40}, \hyperpage{43}, 
-		\hyperpage{49}, \hyperpage{54}, \hyperpage{59}, 
-		\hyperpage{72}, \hyperpage{74}, \hyperpage{80}, 
-		\hyperpage{83}, \hyperpage{87--90}
-  \item curvi-linear, \hyperpage{2, 3}, \hyperpage{48, 49}, 
-		\hyperpage{60}, \hyperpage{66, 67}, \hyperpage{79}, 
-		\hyperpage{83}
+		\hyperpage{15}, \hyperpage{32}, \hyperpage{34}, 
+		\hyperpage{36}, \hyperpage{39, 40}, \hyperpage{43}, 
+		\hyperpage{46--49}, \hyperpage{56}, \hyperpage{61}, 
+		\hyperpage{67}, \hyperpage{80}, \hyperpage{82}, 
+		\hyperpage{92}, \hyperpage{100}, \hyperpage{102, 103}, 
+		\hyperpage{107--111}
+  \item curvi-linear, \hyperpage{2, 3}, \hyperpage{54--56}, 
+		\hyperpage{58}, \hyperpage{68}, \hyperpage{74, 75}, 
+		\hyperpage{83}, \hyperpage{98}, \hyperpage{103}
 
   \indexspace
 
-  \item dam, \hyperpage{16}, \hyperpage{29--31}, \hyperpage{83}, 
-		\hyperpage{90, 91}
-  \item diffraction, \hyperpage{3}, \hyperpage{30--32}, \hyperpage{78}, 
-		\hyperpage{84, 85}
-  \item diffusion, \hyperpage{38--40}
-  \item dissipation, \hyperpage{1}, \hyperpage{3}, \hyperpage{12--16}, 
-		\hyperpage{20, 21}, \hyperpage{23, 24}, \hyperpage{55}, 
-		\hyperpage{77--79}, \hyperpage{82}, \hyperpage{87}, 
-		\hyperpage{89, 90}
+  \item dam, \hyperpage{16}, \hyperpage{32, 33}, \hyperpage{103}, 
+		\hyperpage{111}
+  \item diffraction, \hyperpage{3}, \hyperpage{10}, \hyperpage{32}, 
+		\hyperpage{34, 35}, \hyperpage{94}, \hyperpage{98}, 
+		\hyperpage{104, 105}
+  \item diffusion, \hyperpage{40--43}, \hyperpage{94}
+  \item dissipation, \hyperpage{1}, \hyperpage{3}, \hyperpage{12}, 
+		\hyperpage{14--16}, \hyperpage{20--24}, 
+		\hyperpage{62, 63}, \hyperpage{84}, \hyperpage{97}, 
+		\hyperpage{99}, \hyperpage{102}, \hyperpage{107}, 
+		\hyperpage{109, 110}
 
   \indexspace
 
-  \item filter, \hyperpage{13}, \hyperpage{18}, \hyperpage{32}
-  \item flow, \hyperpage{7}, \hyperpage{59}, \hyperpage{79}, 
-		\hyperpage{84}, \hyperpage{86}, \hyperpage{91}
-  \item force, \hyperpage{33}, \hyperpage{49, 50}, \hyperpage{59--61}, 
-		\hyperpage{66, 67}, \hyperpage{80}
+  \item filter, \hyperpage{13}, \hyperpage{18}, \hyperpage{35}
+  \item flow, \hyperpage{7}, \hyperpage{67}, \hyperpage{99}, 
+		\hyperpage{104}, \hyperpage{106}, \hyperpage{111}
+  \item force, \hyperpage{36}, \hyperpage{56}, \hyperpage{67--69}, 
+		\hyperpage{74, 75}, \hyperpage{85}, \hyperpage{89}, 
+		\hyperpage{92}, \hyperpage{100}
   \item frequency, \hyperpage{7--9}, \hyperpage{11}, \hyperpage{13, 14}, 
-		\hyperpage{16}, \hyperpage{18--22}, \hyperpage{24, 25}, 
-		\hyperpage{28, 29}, \hyperpage{35--37}, \hyperpage{40}, 
-		\hyperpage{43--46}, \hyperpage{53, 54}, 
-		\hyperpage{57, 58}, \hyperpage{77}, \hyperpage{85}, 
-		\hyperpage{91}
-  \item friction, \hyperpage{1}, \hyperpage{3}, \hyperpage{12, 13}, 
-		\hyperpage{15}, \hyperpage{18}, \hyperpage{22, 23}, 
-		\hyperpage{82}, \hyperpage{84, 85}, \hyperpage{87}, 
-		\hyperpage{89, 90}
+		\hyperpage{16}, \hyperpage{18--23}, \hyperpage{25}, 
+		\hyperpage{28}, \hyperpage{30}, \hyperpage{32}, 
+		\hyperpage{37--39}, \hyperpage{43, 44}, \hyperpage{46}, 
+		\hyperpage{48--52}, \hyperpage{59--62}, 
+		\hyperpage{65, 66}, \hyperpage{97}, \hyperpage{105}, 
+		\hyperpage{111}
+  \item friction, \hyperpage{1}, \hyperpage{3}, \hyperpage{13--15}, 
+		\hyperpage{18}, \hyperpage{22, 23}, \hyperpage{102}, 
+		\hyperpage{104, 105}, \hyperpage{107}, 
+		\hyperpage{109, 110}
 
   \indexspace
 
-  \item garden-sprinkler, \hyperpage{39, 40}
+  \item garden-sprinkler, \hyperpage{41, 42}, \hyperpage{94}
+
+  \indexspace
+
+  \item harbour, \hyperpage{3}, \hyperpage{35}
 
   \indexspace
 
   \item initial, \hyperpage{13}, \hyperpage{15}, \hyperpage{28}, 
-		\hyperpage{57, 58}
+		\hyperpage{47}, \hyperpage{65, 66}, \hyperpage{78}
+  \item island, \hyperpage{83, 84}
 
   \indexspace
 
-  \item Jonswap, \hyperpage{57, 58}
+  \item Jonswap, \hyperpage{65, 66}
 
   \indexspace
 
   \item latitude, \hyperpage{11, 12}
-  \item limiter, \hyperpage{36}, \hyperpage{44--47}
+  \item limiter, \hyperpage{38}, \hyperpage{51, 52}, \hyperpage{54}
   \item longitude, \hyperpage{11, 12}
 
   \indexspace
 
-  \item obstacle, \hyperpage{3}, \hyperpage{29--31}, \hyperpage{38, 39}, 
-		\hyperpage{50--52}
+  \item obstacle, \hyperpage{3}, \hyperpage{32--35}, \hyperpage{40, 41}, 
+		\hyperpage{57--59}
   \item ocean, \hyperpage{1}, \hyperpage{7, 8}, \hyperpage{11}, 
-		\hyperpage{29}, \hyperpage{38}, \hyperpage{40}, 
-		\hyperpage{78}, \hyperpage{82--86}, \hyperpage{88--90}
+		\hyperpage{32}, \hyperpage{35}, \hyperpage{42}, 
+		\hyperpage{98}, \hyperpage{101--106}, \hyperpage{108}, 
+		\hyperpage{110, 111}
 
   \indexspace
 
   \item propagation, \hyperpage{1--4}, \hyperpage{10--12}, 
-		\hyperpage{32}, \hyperpage{37}, \hyperpage{39}, 
-		\hyperpage{41, 42}, \hyperpage{48, 49}, \hyperpage{51}, 
-		\hyperpage{71, 72}, \hyperpage{78--81}, \hyperpage{87}, 
-		\hyperpage{89}
+		\hyperpage{34, 35}, \hyperpage{39}, \hyperpage{41--45}, 
+		\hyperpage{47--49}, \hyperpage{55}, \hyperpage{58}, 
+		\hyperpage{79, 80}, \hyperpage{83}, \hyperpage{85}, 
+		\hyperpage{87--90}, \hyperpage{98}, 
+		\hyperpage{100, 101}, \hyperpage{103}, \hyperpage{107}, 
+		\hyperpage{109}
 
   \indexspace
 
-  \item quadruplets, \hyperpage{16, 17}, \hyperpage{25}
+  \item quadruplets, \hyperpage{16}, \hyperpage{25}, \hyperpage{50}
 
   \indexspace
 
-  \item reflection, \hyperpage{3}, \hyperpage{29}, \hyperpage{31}, 
-		\hyperpage{35}, \hyperpage{52}
+  \item recti-linear, \hyperpage{75}, \hyperpage{83}
+  \item reflection, \hyperpage{3}, \hyperpage{32}, \hyperpage{34, 35}, 
+		\hyperpage{37}, \hyperpage{58}
   \item refraction, \hyperpage{1}, \hyperpage{3}, \hyperpage{11}, 
-		\hyperpage{31, 32}, \hyperpage{43}, \hyperpage{57}, 
-		\hyperpage{78, 79}, \hyperpage{84, 85}, \hyperpage{88}, 
-		\hyperpage{90}
+		\hyperpage{34}, \hyperpage{40}, \hyperpage{46}, 
+		\hyperpage{48}, \hyperpage{65}, \hyperpage{89}, 
+		\hyperpage{98, 99}, \hyperpage{104, 105}, 
+		\hyperpage{108}, \hyperpage{111}
+  \item regular, \hyperpage{2}, \hyperpage{4}, \hyperpage{7}, 
+		\hyperpage{15}, \hyperpage{32}, \hyperpage{89}, 
+		\hyperpage{108}, \hyperpage{110, 111}
 
   \indexspace
 
-  \item set-up, \hyperpage{3, 4}, \hyperpage{24}, \hyperpage{33}, 
-		\hyperpage{59}, \hyperpage{67}, \hyperpage{77}
+  \item set-up, \hyperpage{3, 4}, \hyperpage{24}, \hyperpage{36}, 
+		\hyperpage{67}, \hyperpage{75}, \hyperpage{97}
   \item shoaling, \hyperpage{1}, \hyperpage{3}, \hyperpage{15}, 
-		\hyperpage{80, 81}
-  \item SORDUP, \hyperpage{38}, \hyperpage{40}, \hyperpage{71}
-  \item spherical, \hyperpage{3}, \hyperpage{11, 12}
-  \item stability, \hyperpage{21}, \hyperpage{35, 36}, 
-		\hyperpage{39, 40}, \hyperpage{43}, \hyperpage{45, 46}
-  \item stationary, \hyperpage{2, 3}, \hyperpage{7}, \hyperpage{36--38}, 
-		\hyperpage{40}, \hyperpage{44}, \hyperpage{49}, 
-		\hyperpage{58, 59}, \hyperpage{79, 80}, \hyperpage{83}, 
-		\hyperpage{91}
-  \item steepness, \hyperpage{14}, \hyperpage{19--21}, \hyperpage{24}, 
-		\hyperpage{29}
-  \item swell, \hyperpage{14, 15}, \hyperpage{21}, \hyperpage{23}, 
-		\hyperpage{79}, \hyperpage{82}, \hyperpage{90}
+		\hyperpage{100, 101}
+  \item SORDUP, \hyperpage{40}, \hyperpage{42}, \hyperpage{79}
+  \item spherical, \hyperpage{3}, \hyperpage{11, 12}, \hyperpage{90}
+  \item stability, \hyperpage{37, 38}, \hyperpage{42}, \hyperpage{46}, 
+		\hyperpage{52}, \hyperpage{63}, \hyperpage{86}, 
+		\hyperpage{89}
+  \item stationary, \hyperpage{2, 3}, \hyperpage{7}, \hyperpage{38--40}, 
+		\hyperpage{42}, \hyperpage{50}, \hyperpage{55}, 
+		\hyperpage{66, 67}, \hyperpage{98}, \hyperpage{100}, 
+		\hyperpage{103}, \hyperpage{111}
+  \item steepness, \hyperpage{14}, \hyperpage{19, 20}, \hyperpage{24}, 
+		\hyperpage{32}
+  \item swell, \hyperpage{14, 15}, \hyperpage{20}, \hyperpage{22}, 
+		\hyperpage{42, 43}, \hyperpage{99}, \hyperpage{102}, 
+		\hyperpage{110}
 
   \indexspace
 
   \item triads, \hyperpage{16}
+  \item triangular, \hyperpage{78}, \hyperpage{84}, \hyperpage{86--88}
+
+  \indexspace
+
+  \item unstructured, \hyperpage{4}, \hyperpage{83, 84}, \hyperpage{89}, 
+		\hyperpage{92}, \hyperpage{94}, \hyperpage{98}, 
+		\hyperpage{111}
 
   \indexspace
 
   \item WAM, \hyperpage{1}, \hyperpage{13, 14}, \hyperpage{18--20}, 
-		\hyperpage{25}, \hyperpage{35, 36}, \hyperpage{44, 45}, 
-		\hyperpage{57}, \hyperpage{82, 83}, \hyperpage{88, 89}
-  \item WAVEWATCH, \hyperpage{1}, \hyperpage{57}, \hyperpage{89}
-  \item whitecapping, \hyperpage{3}, \hyperpage{12--14}, \hyperpage{16}, 
-		\hyperpage{19--22}, \hyperpage{29}, \hyperpage{82}, 
-		\hyperpage{84}, \hyperpage{89, 90}
+		\hyperpage{26}, \hyperpage{37, 38}, \hyperpage{51}, 
+		\hyperpage{61}, \hyperpage{65}, \hyperpage{101}, 
+		\hyperpage{103}, \hyperpage{108}, \hyperpage{110}
+  \item WAVEWATCH, \hyperpage{1}, \hyperpage{65}, \hyperpage{109}
+  \item whitecapping, \hyperpage{3}, \hyperpage{12}, \hyperpage{14}, 
+		\hyperpage{16}, \hyperpage{19, 20}, \hyperpage{22}, 
+		\hyperpage{32}, \hyperpage{102}, \hyperpage{104}, 
+		\hyperpage{109, 110}
   \item wind, \hyperpage{1--4}, \hyperpage{7}, \hyperpage{12--15}, 
-		\hyperpage{17--22}, \hyperpage{29}, \hyperpage{35}, 
-		\hyperpage{37--42}, \hyperpage{44, 45}, \hyperpage{50}, 
-		\hyperpage{58}, \hyperpage{66}, \hyperpage{77--79}, 
-		\hyperpage{82}, \hyperpage{84--91}
+		\hyperpage{17--22}, \hyperpage{30--32}, \hyperpage{37}, 
+		\hyperpage{39--43}, \hyperpage{45}, \hyperpage{47}, 
+		\hyperpage{50, 51}, \hyperpage{57}, \hyperpage{66}, 
+		\hyperpage{74}, \hyperpage{83}, \hyperpage{89}, 
+		\hyperpage{97--99}, \hyperpage{102--111}
 
 \end{theindex}
 
