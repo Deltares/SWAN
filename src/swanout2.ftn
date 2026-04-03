@@ -1659,6 +1659,7 @@
      &          ACLOC(*)        ,ECOS(MDC)         ,ESIN(MDC)             40.00
       REAL      CG(1), K1(1), K2(1), N(1), ND(1), SIG1(1), SIG2(1)        30.82
       LOGICAL EXCPT                                                       40.80
+      LOGICAL EQREAL                                                      41.54
       REAL, ALLOCATABLE :: ACL(:,:)                                       40.80
 !
       SAVE IENT
@@ -1745,7 +1746,11 @@
 !
 !           EE is energy density in Omega:
 !
-            EE    = ECLL * DSIG / ABS(OMEG2-OMEG1)
+            IF ( .NOT.EQREAL(OMEG1,OMEG2) ) THEN                          41.54
+               EE = ECLL * DSIG / ABS(OMEG2-OMEG1)
+            ELSE                                                          41.54
+               EE = ECLL * DSIG                                           41.54
+            ENDIF                                                         41.54
             IF (ITEST.GE.250 .OR. IOUTES .GE. 40) WRITE (PRTEST, 86)
      &          ID, ISIGM, SIG1(1), K1(1), OMEG1, SIG2(1), K2(1), OMEG2   30.82
   86        FORMAT (' Test SWCMSP/86 ', 2I6, 8(1X,E12.4))
@@ -1776,11 +1781,16 @@
      &                             OMEGA, OMEGB, RUPP, RLOW
   88            FORMAT (' error SWCMSP:', 2I4, 8(1X,E12.4))
               ELSE
+                IF ( .NOT.EQREAL(OMEG1,OMEG2) ) THEN                      41.54
+                   DOMEG = RUPP - RLOW                                    41.54
+                ELSE                                                      41.54
+                   DOMEG = 1.                                             41.54
+                ENDIF                                                     41.54
                 IF (OTYPE.EQ.-2) THEN
                   ACLOC(ID+(IOM-1)*MDC) =
-     &               ACLOC(ID+(IOM-1)*MDC) + EE * (RUPP - RLOW)           40.00
+     &               ACLOC(ID+(IOM-1)*MDC) + EE * DOMEG                   41.54 40.00
                 ELSE
-                  EADD = EE * DDIR * (RUPP - RLOW)                        40.00
+                  EADD = EE * DDIR * DOMEG                                41.54 40.00
                   ACLOC(IOM) = ACLOC(IOM) + EADD
                   ACLOC(IOM+  MSC) = ACLOC(IOM+  MSC) + EADD * ECOS(ID)
                   ACLOC(IOM+2*MSC) = ACLOC(IOM+2*MSC) + EADD * ESIN(ID)

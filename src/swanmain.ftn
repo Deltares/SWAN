@@ -859,6 +859,7 @@
       CALL BUGFIX ('C')
       CALL BUGFIX ('D')
       CALL BUGFIX ('E')
+      VERTXT = TRIM(VERTXT) // '.1'
 !
       CALL OCPINI ('swaninit', .TRUE.,INERR)                              34.01
       IF (INERR.GT.0) RETURN                                              34.01
@@ -868,7 +869,7 @@
  6010 FORMAT (/,20X,'---------------------------------------',
      &        /,20X,'                 SWAN',
      &        /,20X,'SIMULATION OF WAVES IN NEAR SHORE AREAS',
-     &        /,20X,'         VERSION NUMBER ', A,                        40.03
+     &        /,20X,'DELTARES VERSION NUMBER ', A,                        40.03
      &        /,20X,'---------------------------------------',//)
 !
       IF (SCREEN.NE.PRINTF.AND.INODE.EQ.MASTER) WRITE (SCREEN,6020)       40.30
