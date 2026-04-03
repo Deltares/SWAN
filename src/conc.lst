@@ -9,7 +9,7 @@ convergence
 co-ordinate
 Courant
 current
-curvi-linear
+curvilinear
 dam
 diffraction
 diffusion
@@ -31,9 +31,10 @@ longitude
 nautical
 obstacle
 ocean
+plant
 propagation
 quadruplets
-recti-linear
+rectilinear
 reflection
 refraction
 regular
@@ -49,6 +50,7 @@ swell
 triads
 triangular
 unstructured
+vegetation
 WAM
 WAVEWATCH
 whitecapping
