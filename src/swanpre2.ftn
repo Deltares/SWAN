@@ -2849,8 +2849,11 @@
         ELSE
 !         boundary condition on one side of the computational grid
           IF (OPTG.EQ.3) THEN                                             40.80 40.31
-             CALL MSGERR(2,                                               40.80 40.31
+!CJK:03-03-2004:Only a warning must be given, swan must not stop on keyword side
+!CJK request of Arjen L., so error code is reduced to 1
+             CALL MSGERR(1,                                               40.80 40.31
      &          ' keyword SIDE should not be used for curvilinear grid')  40.80 40.31
+!CJK:END:03-03-2004
           END IF                                                          40.31
           CALL IGNORE ('SIDE')
 !         *** specification of side for which boundary   ***
