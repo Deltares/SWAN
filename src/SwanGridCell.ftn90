@@ -11,7 +11,7 @@ subroutine SwanGridCell ( ncells, nverts, xcugrd, ycugrd, kvertc )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2013  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -89,14 +89,21 @@ subroutine SwanGridCell ( ncells, nverts, xcugrd, ycugrd, kvertc )
     real                                  :: dx2      ! second component of covariant base vector a_(1)
     real                                  :: dy1      ! first component of covariant base vector a_(2)
     real                                  :: dy2      ! second component of covariant base vector a_(2)
+    real                                  :: fac      ! factor
     real                                  :: rdet     ! reciproke of determinant
     real                                  :: th1      ! direction of one face pointing to present vertex
     real                                  :: th2      ! direction of another face pointing to present vertex
     real                                  :: thdiff   ! difference between th2 and th1
     real, dimension(2)                    :: vec12    ! translation vector of coordinates: vertex2 - vertex1
     real, dimension(2)                    :: vec13    ! translation vector of coordinates: vertex3 - vertex1
-    real                                  :: xc       ! x-coordinate of the cell-centroid
-    real                                  :: yc       ! y-coordinate of the cell-centroid
+    real                                  :: x1       ! x-coordinate of first vertex of present cell
+    real                                  :: x2       ! x-coordinate of second vertex of present cell
+    real                                  :: x3       ! x-coordinate of third vertex of present cell
+    real                                  :: xc       ! x-coordinate of the cell centroid / circumcenter
+    real                                  :: y1       ! y-coordinate of first vertex of present cell
+    real                                  :: y2       ! y-coordinate of second vertex of present cell
+    real                                  :: y3       ! y-coordinate of third vertex of present cell
+    real                                  :: yc       ! y-coordinate of the cell centroid / circumcenter
     !
     logical                               :: nxtcell  ! indicate whether there is next cell in counterclockwise direction
     !
@@ -150,6 +157,7 @@ subroutine SwanGridCell ( ncells, nverts, xcugrd, ycugrd, kvertc )
        vec13(1) = xcugrd(v(3)) - xcugrd(v(1))
        vec13(2) = ycugrd(v(3)) - ycugrd(v(1))
        carea = 0.5*abs(vec12(1)*vec13(2) - vec13(1)*vec12(2))
+       cell(icell)%attr(CELLAREA) = carea
        !
        ! store local covariant and contravariant base vectors at each vertex
        ! next, store directions of faces pointing to present vertex
@@ -216,9 +224,23 @@ subroutine SwanGridCell ( ncells, nverts, xcugrd, ycugrd, kvertc )
        xc = xc / real(nov)
        yc = yc / real(nov)
        !
-       cell(icell)%attr(CELLAREA) = carea
-       cell(icell)%attr(CELLCX  ) = xc
-       cell(icell)%attr(CELLCY  ) = yc
+       cell(icell)%attr(CELLCX) = xc
+       cell(icell)%attr(CELLCY) = yc
+       !
+       ! store coordinates of circumcenter
+       !
+       x1 = xcugrd(kvertc(1,icell))
+       y1 = ycugrd(kvertc(1,icell))
+       x2 = xcugrd(kvertc(2,icell))
+       y2 = ycugrd(kvertc(2,icell))
+       x3 = xcugrd(kvertc(3,icell))
+       y3 = ycugrd(kvertc(3,icell))
+       fac = ( (x2-x3)*(x3-x1)+(y2-y3)*(y3-y1) )/( (x1-x2)*(y3-y1)-(y1-y2)*(x3-x1) )
+       xc = 0.5 * ( fac*(y1-y2) + x1+x2 )
+       yc = 0.5 * ( fac*(x2-x1) + y1+y2 )
+       !
+       cell(icell)%attr(CELLCCX) = xc
+       cell(icell)%attr(CELLCCY) = yc
        !
        ! store vertices of each face of the cell
        !
