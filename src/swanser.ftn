@@ -1825,15 +1825,20 @@
       RELDIS = -1.
 
 !     loop over the boundary of the computational grid
-      DO IBND = 1, NGRBND
+      DO IBND = 1, NGRBND + 1
         IF (IX2.NE.0) THEN
            IX1 = IX2
            IY1 = IY2
            XP1 = XP2
            YP1 = YP2
         END IF
-        IX2 = KGRBND(2*IBND-1)
-        IY2 = KGRBND(2*IBND)
+        IF (IBND > NGRBND) THEN
+           IX2 = KGRBND(2*1-1)
+           IY2 = KGRBND(2*1)
+        ELSE
+           IX2 = KGRBND(2*IBND-1)
+           IY2 = KGRBND(2*IBND)
+        ENDIF
         IF (IX2.NE.0 .AND. (ABS(IX2-IX1).GT.1 .OR.                        40.51
      &                      ABS(IY2-IY1).GT.1)) IX1 = 0                   40.51
         IF (IX2.GT.0) THEN
@@ -7062,7 +7067,7 @@
 !
       INTEGER   IVAL
       REAL      RVAL
-      CHARACTER FORM*20
+      CHARACTER*(*) FORM
 !
 !  6. Local variables
 !

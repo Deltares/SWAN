@@ -708,6 +708,7 @@
 !  (76) ['DISICE']
 !  (77) [  'AICE']
 !  (78) [  'HICE']
+!  (79) [ 'FHSWE']
 ! OVSNAM(NMOVAR)   short name of output quantity
 !  ( 1) [    'Xp']
 !  ( 2) [    'Yp']
@@ -782,6 +783,7 @@
 !  (76) [  'Sice']
 !  (77) ['  aice']
 !  (78) ['  hice']
+!  (79) ['FHswel']
 ! OVLNAM(NMOVAR)   long name of output quantity
 !  ( 1) [                        'X user coordinate']
 !  ( 2) [                        'Y user coordinate']
@@ -856,6 +858,7 @@
 !  (76) [                      'Sea ice dissipation']
 !  (77) [             'ice concentration (fraction)']
 !  (78) [                            'ice thickness']
+!  (79) [                           'FEWS Hm0 swell']
 ! OVUNIT(NMOVAR)   unit of of output quantity
 !  ( 1) [CALCULAT] =UL
 !  ( 2) [CALCULAT] =UL
@@ -930,6 +933,7 @@
 !  (76) [  'm2/s'] changes to 'W/m2' if INRHOG=1
 !  (77) [     ' ']
 !  (78) [     'm']
+!  (79) [    'UH']
 ! SNAME [        ] name of output point set
 ! UAP   [  'W/m2'] unit of dissipation
 ! UD    [        ] not used
@@ -1049,6 +1053,7 @@
 !  (76)  [  1]   Sice
 !  (77)  [  1]   aice
 !  (78)  [  1]   hice
+!  (79)  [  1]   fhswe
 ! OVEXCV(NMOVAR)   exception value for output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1121,6 +1126,7 @@
 !  (76)  [    -9.] Sice
 !  (77)  [    -9.] aice
 !  (78)  [    -9.] hice
+!  (79)  [   100.] fhswe
 ! OVLEXP(NMOVAR)   lower expected limit of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1193,6 +1199,7 @@
 !  (76)  [     0.] Sice
 !  (77)  [     0.] aice
 !  (78)  [     0.] hice
+!  (79)  [     0.] fhswell
 ! OVLLIM(NMOVAR)   lower limit of validity of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1265,6 +1272,7 @@
 !  (76)  [     0.] Sice
 !  (77)  [     0.] aice
 !  (78)  [     0.] hice
+!  (79)  [     0.] fhswell
 ! OVHEXP(NMOVAR)   upper expected limit of output quantity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1337,6 +1345,7 @@
 !  (76)  [    0.1] Sice
 !  (77)  [    1.0] aice
 !  (78)  [    10.] hice
+!  (79)  [    10.] fhswell
 ! OVULIM(NMOVAR)   upper limit of validity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1409,6 +1418,7 @@
 !  (76)  [  1000.] Sice
 !  (77)  [    1.0] aice
 !  (78)  [   100.] hice
+!  (79)  [   100.] fhswell
 ! SINCQ  [       ] sin of ALCQ
 ! SINPQ  [       ] sin of ALPQ
 ! SPCPOW [      1] power in expression for computation of average frequency
@@ -2200,6 +2210,7 @@
 !                 =2; for command BRE VAR ..., surf breaking according to Nelson
 !                 =3; for command BRE RUE ..., surf breaking according to Ruessink
 !                 =4; for command BRE TG ... , surf breaking according to Thornton and Guza
+!                 =5; for command BRE WESTH ..., surf breaking according to biphase scaling
 ! ITERMX [      ] maximum number of iterations:
 !                 is set equal to MXITST in case of stationary computations
 !                 is set equal to MXITNS in case of nonstationary computations

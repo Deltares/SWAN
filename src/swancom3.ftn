@@ -1105,8 +1105,7 @@
            FPM = GRAV / ( 28.0 * UFRIC )
         ELSE IF (IDRAG.EQ.6) THEN
 !          ECMWF drag formulation
-           CALL SURF_ROUGH_ECMWF(WIND10, UFRIC, GENC0, SPCSIG,
-     &                           KWAVE, CDRAG)
+           CALL SURF_ROUGH_ECMWF(WIND10, UFRIC, GENC0, SPCSIG, KWAVE)
         END IF
 !
 !       *** adapted wind friction velocity and PM-frequency ***
