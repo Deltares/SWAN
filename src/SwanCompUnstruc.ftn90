@@ -1176,18 +1176,6 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
        endif
        !$omp end master
        !
-!PUN       ! exchange array COMPDA with neighbours in parallel run
-!PUN       !
-!PUN       if ( MNPROC>1 ) then
-!TIMG!PUN          call SWTSTA(213)
-!PUN          do j = 1, MCMVAR
-!PUN             ac2loc(:) = real(compda(:,j),SZ)
-!PUN             call UPDATER(ac2loc,dum1,dum2,1)
-!PUN             compda(:,j) = real(ac2loc(:),4)
-!PUN          enddo
-!TIMG!PUN          call SWTSTO(213)
-!PUN       endif
-!PUN       !
        ! info regarding the iteration process and the accuracy
        !
        if ( PNUMS(21) <= 1. ) then

@@ -622,7 +622,7 @@
 !     MOUTPA [  50]  number of output parameters                          40.87
 !
       INTEGER NMOVAR, MOUTPA
-      PARAMETER (NMOVAR = 71, MOUTPA=50)                                  41.15 40.85 40.87 40.64 40.61 40.51 40.21 40.41
+      PARAMETER (NMOVAR = 74, MOUTPA=50)                                  41.15 40.85 40.87 40.64 40.61 40.51 40.21 40.41
 !
 !  7. Local variables
 !
@@ -697,6 +697,7 @@
 !  (69) [  'RADS']
 !  (70) [   'NPL']
 !  (71) [ 'LWAVP']
+!  (72) [ 'FHSWE']
 ! OVSNAM(NMOVAR)   short name of output quantity
 !  ( 1) [    'Xp']
 !  ( 2) [    'Yp']
@@ -2042,6 +2043,7 @@
 !                 =2; for command BRE VAR ..., surf breaking according to Nelson
 !                 =3; for command BRE RUE ..., surf breaking according to Ruessink
 !                 =4; for command BRE TG ... , surf breaking according to Thornton and Guza
+!                 =5; for command BRE WESTH ..., surf breaking according to biphase scaling
 ! ITERMX [      ] maximum number of iterations:
 !                 is set equal to MXITST in case of stationary computations
 !                 is set equal to MXITNS in case of nonstationary computations

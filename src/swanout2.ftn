@@ -697,8 +697,9 @@
       END
 !***********************************************************************
 !                                                                      *
-      SUBROUTINE SWTABP (RTYPE , OQI  , IVTYP, PSNAME, MIP, VOQR, VOQ,    40.31
-     &                   IONOD)                                           40.51
+!NCF      SUBROUTINE SWTABP (RTYPE , OQI  , OQR , IVTYP, PSNAME, MIP, VOQR,
+!NNCF      SUBROUTINE SWTABP (RTYPE , OQI  , IVTYP, PSNAME, MIP, VOQR,         40.31
+     &                   VOQ, IONOD)                                      40.51
 !                                                                      *
 !***********************************************************************
 
@@ -711,6 +712,9 @@
       USE OUTP_DATA                                                       40.13
       USE TIMECOMM                                                        40.41
       USE M_PARALL                                                        40.51
+!NCF      USE swn_outnc, only: swn_outnc_openblockfile,
+!NCF     &                     swn_outnc_appendblock,
+!NCF     &                     swn_outnc_close_on_end
 !PUN      USE SIZES, ONLY: MYPROC, MNPROC
 !
 !
@@ -804,6 +808,7 @@
 !             ='TABP'; Output to paper (with header information)
 !             ='TABS';
 !             ='TABT';
+!NCF!             ='TABC'; NETCDF output
 !
       CHARACTER RTYPE*4, PSNAME*8
 !
@@ -816,6 +821,7 @@
 !     VOQ
 !
       REAL      VOQ(MIP,*)
+!NCF      REAL      OQR(2)
 !
 !  5. Parameter variables
 !
@@ -830,6 +836,7 @@
 !     NUMDEC
 !
       INTEGER NUMDEC
+!NCF      LOGICAL EXIST
 !
 !  8. Subroutines used
 !
@@ -910,10 +917,18 @@
         IF (NREF.EQ.0) THEN                                               30.82
           FILENM = OUTP_FILES(OQI(2))                                     40.31 40.13
           IOSTAT = -1                                                     20.75
+!NCF          INQUIRE(FILE=FILENM, EXIST=EXIST)
           CALL FOR (NREF, FILENM, 'UF', IOSTAT)
           IF (STPNOW()) RETURN                                            34.01
           OQI(1) = NREF                                                   40.31 30.00
           OUTP_FILES(OQI(2)) = FILENM                                     40.41
+!NCF          IF ( RTYPE .EQ. 'TABC' ) THEN
+!NCF            IF (.NOT.EXIST) CLOSE(NREF, STATUS='DELETE')
+!NCF            CALL swn_outnc_openblockfile(FILENM, 1, MIP,
+!NCF     &                                   OVLNAM, VOQ(:,VOQR(1)),
+!NCF     &                                   VOQ(:,VOQR(2)),
+!NCF     &                                   OQI, OQR, IVTYP, OQI(2))
+!NCF          ENDIF
         END IF                                                            30.82
         IF (RTYPE .NE. 'TABD') THEN
           OUTLIN = '    '
@@ -1049,6 +1064,23 @@
 !
 !     ***** printing of the table *****
 !
+!NCF      IF (RTYPE.EQ.'TABC') THEN
+!NCF        DO JVAR = 1, NVAR
+!NCF          IVTYPE = IVTYP(JVAR)                                            40.31
+!NCF          IF (RTYPE.EQ.'TABC') THEN
+!NCF            CALL swn_outnc_appendblock(1, MIP, IVTYPE, OQI(1),
+!NCF     &                                 OQI(2), VOQ(1,VOQR(IVTYPE)),
+!NCF     &                                 OVEXCV(IVTYPE), 1)
+!NCF            IF ( OVSVTY(IVTYPE).EQ.3 ) THEN
+!NCF              CALL swn_outnc_appendblock(1, MIP, IVTYPE, OQI(1),
+!NCF     &                                   OQI(2), VOQ(1,VOQR(IVTYPE)+1),
+!NCF     &                                   OVEXCV(IVTYPE), 2)
+!NCF            ENDIF
+!NCF          ENDIF
+!NCF        ENDDO
+!NCF        CALL swn_outnc_close_on_end(OQI(1), OQI(2))
+!NCF        RETURN
+!NCF      ENDIF
       IF (RTYPE.EQ.'TABS') THEN
         IF (NSTATM.EQ.1) WRITE (NREF, 102) CHTIME, 'date and time'
       ENDIF

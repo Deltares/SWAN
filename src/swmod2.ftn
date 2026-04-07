@@ -174,12 +174,15 @@
 !
 !     40.13: Nico Booij
 !     40.31: Marcel Zijlema
+!     40.51: Andre van der Westhuysen
 !
 !  1. Updates
 !
 !     40.13, July 01: New Module
 !     40.13, Oct. 01: Longer filenames for output requests
 !     40.31, Dec. 03: derive types OPSDAT, ORQDAT added
+!     40.51, Mar. 08: Number of decimals for spectral output increased 
+!                      to improve accuracy of hotfile output
 !
 !  2. Purpose
 !
@@ -214,14 +217,16 @@
       ! formats for output:
       CHARACTER (LEN=40) :: FLT_BLOCK = '(6E12.4)'       ! floating point block
       CHARACTER (LEN=40) :: FLT_TABLE = '(E11.4)'        ! floating point table
-      CHARACTER (LEN=40) :: FIX_SPEC  = '(200(1X,I4))'   ! spectral output
+!     Number of decimals for spectral output increased to improve accuracy of hotfile output
+      CHARACTER (LEN=40) :: FIX_SPEC  = '(200(1X,I6))'   ! spectral output      
 
 !     format for block output per process in case of collecting data
       CHARACTER (LEN=40) :: FLT_BLKP = '(6E17.9)'
 
       INTEGER :: FLD_TABLE = 12       ! field length for fixed-point table
       INTEGER :: DEC_BLOCK =  4       ! number of decimals for fixed-point block
-      INTEGER :: DEC_SPEC  =  4       ! number of decimals for spectral output
+!     Number of decimals for spectral output increased to improve accuracy of hotfile output
+      INTEGER :: DEC_SPEC  =  6       ! number of decimals for spectral output
 
 !     longer filenames for output requests
       CHARACTER (LEN=LENFNM) :: OUTP_FILES(1:MAX_OUTP_REQ)
@@ -479,7 +484,7 @@
 !               4: directional distribution coefficient
 
       TYPE BSPCDAT
-         INTEGER                :: BFILED(20)
+         INTEGER                :: BFILED(20) = 0
          INTEGER, POINTER       :: BSPLOC(:)
          REAL, POINTER          :: BSPDIR(:), BSPFRQ(:)
          TYPE(BSPCDAT), POINTER :: NEXTBSPC

@@ -17,7 +17,7 @@
 \end{center}
 \vfill
 \begin{center}
-{\Large\bf SWAN Cycle III version 40.91ABC}
+{\Large\bf SWAN Cycle III version 40.91AB}
 \end{center}
 
 \cleardoublepage
@@ -114,7 +114,7 @@ Initially, the SWAN cycle 1 was formulated to be able to handle only stationary 
 on a rectangular grid. Later on, SWAN cycle 2 model has been developed. This is considered
 as the second step in the development of SWAN models. Cycle 2 of SWAN is stationary
 and optionally nonstationary. It can compute the wave propagation not only on a regular
-rectangular grid, but also on a curvilinear grid. Previous official versions 30.62, 30.75,
+rectangular grid, but also on a curvi-linear grid. Previous official versions 30.62, 30.75,
 40.01 and 32.10 belong to the cycle 2 of SWAN.
 \\[2ex]
 \noindent
@@ -176,7 +176,7 @@ or in front of reflecting obstacles.
 \nocite{Hol03HB}
 \\[2ex]
 \noindent
-SWAN is stationary and optionally nonstationary and can be applied in Cartesian or curvilinear
+SWAN is stationary and optionally nonstationary and can be applied in Cartesian or curvi-linear
 (recommended only for small scales) or spherical (small scales and large scales) co-ordinates. The
 stationary mode should be used only for waves with a relatively short residence time in the computational
 area under consideration, i.e. the travel time of the waves through the region should be small compared
@@ -2811,9 +2811,9 @@ As safeguard
 against such a situation, the weaker criterion (\ref{eq:stop}) is retained
 in addition to the stricter criterion (\ref{eq:stop3}).
 
-\section{Governing equations in curvilinear co-ordinates} \label{sec:curvi}
+\section{Governing equations in curvi-linear co-ordinates} \label{sec:curvi}
 
-A curvilinear grid is characterized by the co-ordinates of the grid points, i.e.
+A curvi-linear grid is characterized by the co-ordinates of the grid points, i.e.
 \begin{equation}
   x_{i,j}\, , \qquad i=1,...,M \, , j=1,...,N
 \end{equation}
@@ -2823,7 +2823,7 @@ A curvilinear grid is characterized by the co-ordinates of the grid points, i.e.
 The 4-sweep method is unchanged, so in the first sweep action densities in the points $(i-1,j)$ and $(i,j-1)$ are used to compute the action densities
 in the point $(i,j)$. Numerical approximations are obtained by a 2-dimensional Taylor expansion with respect to the point $(x_{i,j},y_{i,j})$.
 \\[2ex]
-The differences in quantities between neighbouring grid points in the curvilinear grid are denoted as follows:
+The differences in quantities between neighbouring grid points in the curvi-linear grid are denoted as follows:
 \begin{equation}
   \Delta x_1 = x_{i,j} - x_{i-1,j} \, , \qquad \Delta y_1 = y_{i,j} - y_{i-1,j}\, , \qquad \Delta F_1 = F_{i,j} - F_{i-1,j}
 \end{equation}
@@ -2851,7 +2851,7 @@ where
 \begin{equation}
   [D] = \Delta y_2 \Delta x_1 - \Delta y_1 \Delta x_2
 \end{equation}
-Thus, in curvilinear co-ordinates the complete propagation terms (including time-derivative, but ignoring dependence on $\sigma$ and $\theta$ temporarily) read:
+Thus, in curvi-linear co-ordinates the complete propagation terms (including time-derivative, but ignoring dependence on $\sigma$ and $\theta$ temporarily) read:
 \begin{eqnarray}
   && \left ( \frac{1}{\Delta t} + (D_{x,1} + D_{x,2})c_{x,i,j}^+ + (D_{y,1}+D_{y,2}) c_{y,i,j}^+ \right ) N_{i,j}^+ \nonumber \\
   && - \frac{N_{i,j}^-}{\Delta t} - D_{x,1} (c_x N)_{i-1,j}^+ - D_{y,1} (c_y N)_{i-1,j}^+ \nonumber \\
@@ -2890,7 +2890,7 @@ assuming that the situation is stationary, and the source term is zero. In this 
   \left [ c_y N \right ]_{i,j-1}^{+} (-\Delta x_1) = 0
 \end{eqnarray}
 
-\section{Computation of force in curvilinear co-ordinates}
+\section{Computation of force in curvi-linear co-ordinates}
 
 {\tt FORCE} is the wave-driven stress, i.e. the force per unit surface driving the wave-driven current, expressed in N/m$^2$, is defined
 as the derivative of the radiation stresses:
@@ -2991,7 +2991,7 @@ a few grid lines in order to have a noticeable effect, see Figure~\ref{fig:obsgr
 \noindent
 After the transmission coefficient has been calculated, it is used in
 the propagation terms of the action balance equation.
-In curvilinear coordinates, the propagation terms
+In curvi-linear coordinates, the propagation terms
 (including time-derivative, but ignoring dependence on
 $\sigma$ and $\theta$ temporarily) read:
 \begin{eqnarray}
@@ -3166,9 +3166,10 @@ spectra) and $k$=0,1 (the zero- and first frequency moments of these spectra). T
 \begin{equation}
   \overline{\sigma}_{i} = \frac{m_{i,1}}{m_{i,0}}
 \end{equation}
-The average frequency for the interpolated spectrum is calculated as
+The average frequency for the interpolated spectrum
+is calculated as
 \begin{equation}
-  \overline{\sigma} = (w_{2} m_{1,1} + w_{1} m_{2,1})/(w_{2} m_{1,0} + w_{1} m_{2,0})
+  \overline{\sigma} = (w_{1} m_{1,1} + w_{2} m_{2,1})/(w_{1} m_{1,0} + w_{2} m_{2,0})
 \end{equation}
 where $w_{1}$ is the relative distance (in space or time) from the interpolated spectrum to the first
 origin spectrum $N_{1}(\sigma,\theta)$ and $w_{2}$ is the same for the second origin spectrum
@@ -3188,12 +3189,12 @@ with $i$=1,2. The average direction is then
 \end{equation}
 The average direction of the interpolated spectrum is calculated as
 \begin{equation}
-  \overline{\theta} = \mbox{atan} [\frac{w_{2} m_{1,y} + w_{1} m_{2,y}}{w_{2} m_{1,x} + w_{1} m_{2,x}}]
+  \overline{\theta} = \mbox{atan} [\frac{w_{1} m_{1,y} + w_{2} m_{2,y}}{w_{1} m_{1,x} + w_{2} m_{2,x}}]
 \end{equation}
 Finally the interpolated spectrum is calculated as follows:
 \begin{equation}
-  N(\sigma,\theta) = w_{2} N_{1} [\overline{\sigma}_{1} \sigma/\overline{\sigma}, \theta -
-  (\overline{\theta} - {\overline{\theta}}_{1} ) ] + w_{1} N _{2} [{\overline{\sigma}}_{2} \sigma /
+  N(\sigma,\theta) = w_{1} N_{1} [\overline{\sigma}_{1} \sigma/\overline{\sigma}, \theta -
+  (\overline{\theta} - {\overline{\theta}}_{1} ) ] + w_{2} N _{2} [{\overline{\sigma}}_{2} \sigma /
   \overline{\sigma}, \theta - (\overline{\theta}-{\overline{\theta}}_{2})]
 \end{equation}
 
@@ -3599,7 +3600,7 @@ boundary. On shorelines inside the area again eq. (\ref{eq:3N}) is used.
 \\[2ex]
 \noindent
 The Poisson equation (\ref{eq:2N}) together with its boundary conditions will be solved
-numerically on a curvilinear grid. The next section discusses the details of the
+numerically on a curvi-linear grid. The next section discusses the details of the
 method, and presents some results of preliminary computations with the above
 model.
 \\[2ex]
@@ -3893,7 +3894,7 @@ they are combined with suitable preconditioners (see Section
 \ref{sec:sum}.
 \subsubsection{Data structure}
 \label{sec:data}
-After the discretization of the Poisson equation in curvilinear
+After the discretization of the Poisson equation in curvi-linear
 co-ordinates, one has to solve the following matrix vector system:
 \begin{equation}
 A x = f,
@@ -3958,7 +3959,7 @@ The boundary conditions for this elliptical partial differential equation are:
   \item at deepest boundary point: set-up is zero.
 \end{itemize}
 The shoreline in SWAN moves as dictated by the wave-induced set-up. The set-up computations are
-available in both the rectilinear and curvilinear grids.
+available in both the recti-linear and curvi-linear grids.
 \nocite{Bot85E}
 
 \chap{Iterative solvers} \label{ch:solver}
@@ -4193,7 +4194,7 @@ Because of this nice property, this solution technique is tailored to unstructur
 \subsection{Definitions}
 
 We distinguish between two types of grids, namely structured and unstructured grids. A two-dimensional structured grid may contain quadrilaterals. These
-can be rectilinear or curvilinear. The number
+can be recti-linear or curvi-linear. The number
 of cells that meet each other in an internal vertex is always 4. In unstructured meshes this restriction is abandoned. Moreover, 2D unstructured grids usually
 consist of triangles or a combination of triangles and quadrilaterals, a so-called hybrid grid. The unstructured meshes that we consider in SWAN consist solely
 of triangles, also called cells. The edges of the triangles are called faces.
@@ -4736,7 +4737,7 @@ Booij, N., L.H. Holthuijsen and R. Padilla-Hernandez, 1997: A nonstationary, par
 model, {\it Conf. Coastal Dynamics '97}, Plymouth, 99-107
 
 \bibitem{Boo97HPb}
-Booij, N., L.H. Holthuijsen and R. Padilla-Hernandez, 1997: Numerical wave propagation on a curvilinear
+Booij, N., L.H. Holthuijsen and R. Padilla-Hernandez, 1997: Numerical wave propagation on a curvi-linear
 grid, {\it Proceedings 3rd International Symposium on Ocean Wave Measurement and Analysis, WAVES '97}, ASCE, 286-294
 
 \bibitem{Boo98HR}
@@ -4995,7 +4996,7 @@ Holthuijsen, L.H., N. Booij and L. Bertotti, 1996: The propagation of wind error
 ocean wave hindcasts, {\it J. Offshore Mech. And Arctic Eng.}, {\bf 118}, 184-189
 
 \bibitem{Hol97BP}
-Holthuijsen, L.H., N. Booij and R. Padilla-Hernandez, 1997: A curvilinear, third-generation coastal wave
+Holthuijsen, L.H., N. Booij and R. Padilla-Hernandez, 1997: A curvi-linear, third-generation coastal wave
 model, {\it Conf. Coastal Dynamics '97}, Plymouth, 128-136
 
 \bibitem{Hol97BRAJ}
@@ -5523,7 +5524,7 @@ Zijlema, M., G.Ph. van Vledder and L.H. Holthuijsen, 2012: Bottom friction and w
   \item current, 2, 3, 7, 10--13, 15, 35, 38, 39, 43, 44, 47, 50--53,
 		60, 65, 70, 71, 73, 77, 90, 92, 102, 110, 112, 113,
 		117--119, 121
-  \item curvilinear, 2, 3, 58--60, 62, 78, 84, 85, 93, 108, 113
+  \item curvi-linear, 2, 3, 58--60, 62, 78, 84, 85, 93, 108, 113
 
   \indexspace
 
@@ -5585,7 +5586,7 @@ Zijlema, M., G.Ph. van Vledder and L.H. Holthuijsen, 2012: Bottom friction and w
 
   \indexspace
 
-  \item rectilinear, 85, 93
+  \item recti-linear, 85, 93
   \item reflection, 3, 4, 35, 37, 39, 41, 62, 63, 116
   \item refraction, 1, 3, 11, 37, 44, 50, 52, 68, 70--73, 75, 99,
 		108, 109, 114, 115, 118, 121

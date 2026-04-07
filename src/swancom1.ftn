@@ -1233,6 +1233,7 @@
 !       this is done in parallel within OpenMP environment                40.31
 !
         IF (ITRIAD.GT.0
+     &      .OR. ISURF.EQ.5                                               41.03
      &                 ) THEN
            DO IP = I1GRD,I2GRD                                            40.31
             COMPDA(IP,JURSEL) = 0.
@@ -1901,16 +1902,7 @@
 !----------------------------------------------------------------------   40.22
 !$OMP END MASTER                                                          40.22
 !
-!MPI!       --- exchange COMPDA at subdomain interfaces
-!MPI!           within distributed-memory environment
-!MPI!
-!TIMG!MPI        CALL SWTSTA(213)
-!MPI        DO J = 1, MCMVAR
-!MPI           CALL SWEXCHG( COMPDA(1,J), KGRPNT )
-!MPI        ENDDO
-!TIMG!MPI        CALL SWTSTO(213)
-!MPI        IF (STPNOW()) RETURN
-!
+
 !----------------------------------------------------------------------   40.22
 !     Synchronize threads before checking accuracy and before             40.22
 !     starting next iteration.                                            40.22
@@ -2971,6 +2963,7 @@
      &  MEMNL4              ,WWINT               ,WWAWG               ,
      &  WWSWG               ,CGO                 ,COMPDA(1,JUSTAR)    ,
      &  COMPDA(1,JZEL)      ,SPCDIR              ,ANYWND              ,
+     &  CAS                 ,                                             41.11
      &  SWMATR(1,1,JDIS0)   ,SWMATR(1,1,JDIS1)   ,
      &  SWMATR(1,1,JGEN0)   ,SWMATR(1,1,JGEN1)   ,                        40.85
      &  SWMATR(1,1,JRED0)   ,SWMATR(1,1,JRED1)   ,                        40.85
@@ -3472,6 +3465,12 @@
      &          ' GAMMA ',E12.4)
          WRITE(PRINTF,7217) PSURF(5)
  7217    FORMAT('                        N      ',E12.4)
+      ELSEIF (ISURF.EQ.5) THEN                                            41.03
+         WRITE(PRINTF,7218) PSURF(1), PSURF(4)
+ 7218    FORMAT(' Surf biphase (2009)  : ALPHA  ',E12.4,
+     &          ' N     ',E12.4)
+         WRITE(PRINTF,7219) PSURF(5)
+ 7219    FORMAT('                        BREF   ',E12.4)
       ELSEIF (ISURF.EQ.6) THEN                                            41.38
          WRITE(PRINTF,7220) PSURF(1), PSURF(5)
  7220    FORMAT(' n-k2d (2012)         : ALPHA  ',E12.4,
@@ -4818,6 +4817,7 @@
 !
 !     AB2                : Sum of E_DSHKD2_DS_DD
 !     ACTOT_DSIG         : Integration term for calculating ACTOT
+!     BIPH               : parameterized biphase of the spectrum
 !     ARR                : auxiliary array
 !     EDRKTOT_SWELL      : Swell-part of EDRKTOT
 !     EMAX               : Maximum energy according calculated HM
@@ -4839,6 +4839,7 @@
 !
       REAL              :: AB2, EMAX, UB2, ETOT_2, KLOC(1), ARR(1)
       REAL              :: WH
+      REAL              :: BIPH
       REAL              :: FRINTF_X_DDIR
       REAL              :: BRCOEF   ! variable breaking coefficient (calc. in BRKPAR)  40.22
 !
@@ -5000,6 +5001,7 @@
 !     --- compute actual maximum wave height based on breaking model
 !
       IF (ISURF .EQ. 1                                                    41.38 41.03
+     &    .OR. ISURF.EQ.5                                                 41.03
      &                                ) THEN
         HM   = PSURF(2) * DEP2(KCGRD(1))                                  40.22
       ELSEIF (ISURF .EQ. 4) THEN                                          41.38
@@ -5039,6 +5041,7 @@
 !     *** update only for first encounter in a sweep                      40.16
 !
       IF ( ITRIAD.GT.0                                                    40.41
+     &     .OR. ISURF.EQ.5                                                41.03
      &                 ) THEN                                             40.41
          IF (( SWPDIR .EQ. 1) .OR.                                        40.16
      &       ( SWPDIR .EQ. 2 .AND. IXCGRD(1) .EQ. 1) .OR.                 40.16
@@ -5051,6 +5054,17 @@
       ELSE                                                                40.41
         URSELL(KCGRD(1)) = 0.                                             40.41
       END IF                                                              40.41
+!
+!     --- calculate Qb when biphase scaling is activated                  41.03
+!
+      IF (ISURF.EQ.5) THEN
+         BIPH = 0.5*PI*(TANH(PTRIAD(4)/URSELL(KCGRD(1)))-1.)
+         IF ( BIPH.LT.0. ) THEN
+            WH = (BIPH/PSURF(5))**PSURF(4)
+            WH = MIN(1.,WH)
+            QB(KCGRD(1)) = WH
+         ENDIF
+      ENDIF
 !
       QB_LOC = QB(KCGRD(1))
 !
@@ -5895,6 +5909,7 @@
      &                     MEMNL4     ,WWINT      ,WWAWG      ,
      &                     WWSWG      ,CGO        ,USTAR      ,
      &                     ZELEN      ,SPCDIR     ,ANYWND     ,
+     &                     CAS        ,                                   41.11
      &                     DISSC0     ,DISSC1     ,GENC0      ,           40.85
      &                     GENC1      ,REDC0      ,REDC1      ,           40.85
      &                     XIS        ,FRCOEF     ,IT         ,           30.00
@@ -6244,6 +6259,7 @@
       REAL  :: WWAWG(*)
       REAL  :: WWSWG(*)
       REAL  :: CGO(MSC,MICMAX)                                            40.22
+      REAL  :: CAS(MDC,MSC,MICMAX)                                        41.11
       REAL  :: USTAR(MCGRD)
       REAL  :: ZELEN(MCGRD)
       REAL  :: DISSC0(1:MDC,1:MSC,1:MDISP)                                40.67
@@ -6393,6 +6409,7 @@
      &                            IDCMIN  ,IDCMAX  ,ISSTOP  ,             40.02
      &                            ETOT    ,IMATDA  ,IMATRA  ,PLWCAP  ,    40.02
      &                            CGO     ,UFRIC   ,                      40.53
+     &                            CAS     ,                               41.11
      &                            DEP2    ,DISSC1  ,DISSC0  )             40.67 40.61 40.12
 !TIMG      CALL SWTSTO(133)                                                    40.23
 !

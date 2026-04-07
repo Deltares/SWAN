@@ -942,11 +942,11 @@
 ! 13. Source text
 !
       VERTXT = BLANK                                                      40.03
-      VERNUM = 40.91
-      WRITE (VERTXT, '(F5.2)') VERNUM                                     40.03
-      CALL BUGFIX ('A')
-      CALL BUGFIX ('B')
-      CALL BUGFIX ('C')
+      VERNUM = 40.918
+!      WRITE (VERTXT, '(F5.2)') VERNUM                                    40.03
+      VERTXT = '40.91AB.8'
+!      CALL BUGFIX ('A')
+!      CALL BUGFIX ('B')
 !
       CALL OCPINI ('swaninit', .TRUE.,INERR)                              34.01
       IF (INERR.GT.0) RETURN                                              34.01
@@ -956,7 +956,7 @@
  6010 FORMAT (/,20X,'---------------------------------------',
      &        /,20X,'                 SWAN',
      &        /,20X,'SIMULATION OF WAVES IN NEAR SHORE AREAS',
-     &        /,20X,'         VERSION NUMBER ', A,                        40.03
+     &        /,20X,'DELTARES VERSION NUMBER ', A,                        40.03 
      &        /,20X,'---------------------------------------',//)
 !
       IF (SCREEN.NE.PRINTF.AND.IAMMASTER) WRITE (SCREEN,6020)             40.95 40.30
@@ -1297,6 +1297,14 @@
       PWCAP(6) = 0.88
       PWCAP(7) = 1.
       PWCAP(8) = 0.75
+!
+!     *** (13): Flag for activation of nonlinear dispersion (not used)    41.11
+!         (14): Coefficient for enhanced current-induced dissipation      41.11
+!         (15): Exponent for doppler shifting factor (must be =1.)        41.11
+!
+      PWCAP(13) = 0.                                                      41.11
+      PWCAP(14) = 0.                                                      41.11
+      PWCAP(15) = 1.0                                                     41.11
 !
 !     PBOT(1)   = 0.005          modified
       PBOT(1)   = 0.0                                                     20.68
@@ -2324,6 +2332,42 @@
       OVLEXP(IVTYPE) = 0.
       OVHEXP(IVTYPE) = 200.
       OVEXCV(IVTYPE) = -9.
+!
+      IVTYPE = 72                                                         40.00
+      OVKEYW(IVTYPE) = 'FHSWE'                                             40.00
+      OVSNAM(IVTYPE) = 'FHswell'
+      OVLNAM(IVTYPE) = 'FEWS Hm0 swell'
+      OVUNIT(IVTYPE) = UH
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 100.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 10.
+      OVEXCV(IVTYPE) = -9.      
+      
+      IVTYPE = 73                                                         40.00
+      OVKEYW(IVTYPE) = 'FTM01'                                             40.00
+      OVSNAM(IVTYPE) = 'FTM01'
+      OVLNAM(IVTYPE) = 'FEWS TM01 swell'
+      OVUNIT(IVTYPE) = UT
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 100.
+      OVEXCV(IVTYPE) = -9.      
+      
+      IVTYPE = 74                                                         40.00
+      OVKEYW(IVTYPE) = 'FDIR'                                             40.00
+      OVSNAM(IVTYPE) = 'FDIR'
+      OVLNAM(IVTYPE) = 'FEWS DIR swell'
+      OVUNIT(IVTYPE) = UDI                                                30.72
+      OVSVTY(IVTYPE) = 2
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 360.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 360.
+      OVEXCV(IVTYPE) = -999.          
 !
 !     various parameters for computation of output quantities             40.00
 !
@@ -3628,9 +3672,9 @@
 !
 !     IGRID    Grid indicator
 !     IXC      Counter for X-coordinate in computational grid (used
-!              in curvilinear case)
+!              in curvi-linear case)
 !     IYC      Counter for Y-coordinate in computational grid (used
-!              in curvilinear case)
+!              in curvi-linear case)
 !     ZERO     If ZERO=0, then value outside the grid is zero, otherwise
 !              the value is extrapolated
 !
@@ -3837,7 +3881,7 @@
       ELSE IF (ABS(STAGX(IGRID)) .LT. 0.01 .AND.                          32.03
      &         ABS(STAGY(IGRID)) .LT. 0.01) THEN                          32.03
 !
-!     Curvilinear and non-staggered input grid:                           32.03
+!     Curvi-linear and non-staggered input grid:                          32.03
 !
         IB1   = IXCGL
         JB1   = IYCGL
@@ -3845,7 +3889,7 @@
         SVALQI = ARRINP(II)
       ELSE
 !
-!     Curvilinear and staggered input grid:                               32.03
+!     Curvi-linear and staggered input grid:                              32.03
 !
         INGRD = .TRUE.
         IF (IXCGL .EQ. 1) THEN
@@ -5010,7 +5054,7 @@
 
 !          --- read values from boundary file, and interpolate in time
 
-           CALL RBFILE ( SPCSIG, SPCDIR,                                  40.31
+               CALL RBFILE ( SPCSIG, SPCDIR,                              40.31
      &                   CURBFL%BFILED, CURBFL%BSPLOC,                    40.31
      &                   CURBFL%BSPDIR, CURBFL%BSPFRQ,                    40.31
      &                   BSPECS, XYTST )                                  40.31
@@ -5380,6 +5424,7 @@
       USE SWCOMM1                                                         40.41
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
+!NCF      use HRextensions, only: swn_hre_timf
 !
       IMPLICIT NONE
 !
@@ -5670,6 +5715,8 @@
               READ (NDSD, END=380, ERR=920)
             ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3N')) THEN             40.05
               READ (NDSD,*)                                               40.05
+!NCF            ELSEIF (NSTATF.AND.(BTYPE.EQ.'NCCF')) THEN
+!NCF              call swn_hre_timf(NDSD, COUNT_IT, TIMCO, TIMF2)
             ELSE                                                          40.05
               READ (NDSD, '(A)', END=380, ERR=920) HEDLIN
               IF (ITEST.GE.90) WRITE (PRINTF, 212) HEDLIN
@@ -5700,8 +5747,8 @@
 !
 !           calculate UFAC for the different nesting cases
             IF (BTYPE(1:3).EQ.'SWN' .AND. NANG.GT.0) THEN
-!           in addition multiply by 180/PI to account for directions in degr
-!           instead of radians (SWAN 2D spectral files)
+!             in addition multiply by 180/PI to account for directions in degr
+!             instead of radians (SWAN 2D spectral files)
               UFAC = 180./ (2.*PI**2)
             ELSE                                                          40.05
               UFAC = 1./ (2.*PI)
@@ -5816,7 +5863,8 @@
 !           test output: which spectrum is processed                      40.00
 !
             IF (ITEST.GE.60) THEN
-              INQUIRE (UNIT=NDSD, NAME=FILENM)                            40.00
+              FILENM=' '
+              IF (NDSD.GT.0) INQUIRE (UNIT=NDSD, NAME=FILENM)             40.00
               WRITE (PRTEST, 188) FILENM, CHTIME, IBOUNC, UFAC
  188          FORMAT
      &   (' read spectrum ', A, '; time=', A, ' nr=', I3, F9.3)           40.00
@@ -5846,6 +5894,7 @@
 !
              CALL RESPEC (BTYPE, NDSD, BFILED, UNFORM, DORDER,            40.00
      &           SPCSIG, SPCDIR, BSPFRQ, BSPDIR, BSPECS(1,1,IBSPEC,2),    40.31 30.90
+!NCF     &           IBSPEC, COUNT_IT,
      &           UFAC, IERR)
              IF (IERR.EQ.9) GOTO 380
             ENDIF
@@ -5878,7 +5927,8 @@
               OPEN (NDSD, FILE=FILENM, FORM='FORMATTED',                  40.05
      &               STATUS='OLD', ERR=930)                               40.05
               COUNT_IT = 1                                                40.05
-            ELSE                                                          40.05
+!NNCF            ELSE                                                          40.05
+!NCF            ELSEIF (NDSD.GT.0) THEN
               OPEN (NDSD, FILE=FILENM, FORM='FORMATTED',
      &               STATUS='OLD', ERR=930)
               DO IHD = 1, BFILED(14)                                      40.03
@@ -5973,8 +6023,9 @@
 !****************************************************************
 !
       SUBROUTINE RESPEC (BTYPE, NDSD, BFILED, UNFORM, DORDER,             40.00
-     &                   SPCSIG, SPCDIR, BSPFRQ, BSPDIR, LSPEC, UFAC,
-     &                   IERR)
+     &                   SPCSIG, SPCDIR, BSPFRQ, BSPDIR, LSPEC,
+!NCF     &           IBSPEC, COUNT_IT,
+     &                   UFAC, IERR)
 !
 !****************************************************************
 !
@@ -5982,6 +6033,7 @@
       USE OCPCOMM2                                                        40.41
       USE OCPCOMM4                                                        40.41
       USE SWCOMM3                                                         40.41
+!NCF      use HRextensions, only: swn_hre_get_bpnt_2d, swn_hre_get_bpnt_1d
 !
       IMPLICIT NONE
 !
@@ -6069,6 +6121,7 @@
 !
       INTEGER,  INTENT(IN) ::  NDSD                                       40.00
       INTEGER,  INTENT(IN) ::  DORDER                                     40.00
+!NCF      INTEGER,  INTENT(IN)    :: IBSPEC, COUNT_IT
       INTEGER,  INTENT(INOUT) ::  IERR                                    40.00
 !
       LOGICAL   UNFORM
@@ -6175,7 +6228,8 @@
       ALLOCATE (BAUX4(MSC))                                               40.31
 
       IF (ITEST.GE.60) THEN
-        INQUIRE (UNIT=NDSD, NAME=FILENM)                                  40.00
+        FILENM=' '
+        IF (NDSD.GT.0) INQUIRE (UNIT=NDSD, NAME=FILENM)                   40.00
         WRITE (PRTEST, 7) FILENM, NANG, NFRE, UFAC, BFILED(18),           40.00
      &  BFILED(19), UNFORM
    7    FORMAT (' Entry RESPEC, reading file:', A, /, 6X,
@@ -6194,11 +6248,16 @@
 !
         DO IFRE=1,NFRE                                                    40.05
 !         1-D spectral input (only function of frequency)
+!NCF          IF (BTYPE.EQ.'NCCF') THEN
+!NCF            call swn_hre_get_bpnt_1d(NDSD, COUNT_IT, IBSPEC, IFRE,
+!NCF     &                               ETOT, ADEG, DD)
+!NCF          ELSE
           IF (IFRE.EQ.1) THEN
             READ (NDSD,*,END=940,ERR=920) ETOT, ADEG, DD
           ELSE
             READ (NDSD,*,END=930,ERR=920) ETOT, ADEG, DD
           ENDIF
+!NCF          END IF
 !
           IF (EQREAL(ETOT,REAL(BFILED(11)))) THEN                         40.41
 !            in case of exception value, no energy
@@ -6286,6 +6345,11 @@
               BAUX1(IANG,IFRE) = BAUX0(IFRE,IANG)                         40.05
             ENDDO                                                         40.05
           ENDDO                                                           40.05
+!NCF        ELSEIF (BTYPE.EQ.'NCCF') THEN
+!NCF!
+!NCF!         Read spectra from netcdf file
+!NCF!
+!NCF          call swn_hre_get_bpnt_2d(NDSD, COUNT_IT, IBSPEC, BAUX1)
         ELSE
 !         format reading (except WW3)
           IF (DORDER.LT.0) THEN                                           40.31
@@ -6405,6 +6469,7 @@
       USE SWCOMM3                                                         40.41
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+!NCF      USE HRExtensions, only: swn_hre_readarray
 !ADC      USE Couple2Swan, ONLY: ADCIRC_ETA2 => SWAN_ETA2,                    41.20
 !ADC     &                       ADCIRC_UU2 => SWAN_UU2,
 !ADC     &                       ADCIRC_VV2 => SWAN_VV2,
@@ -6650,11 +6715,16 @@
 !ADC     &                  * REAL(ADCIRC_Z0(INDX,2))
 !ADC              ENDDO
 !ADC           ELSE
+!NCF      ! A VERY iffy test on whether the opened file is a netcdf file
+!NCF      IF ( IFLNDF(IGR1) < 0 ) THEN
+!NCF          CALL swn_hre_readarray(IFLNDF, ARR, MXG, MYG, IFLTIM, IGR1)
+!NCF      ELSE
            CALL INAR2D( ARR, MXG(IGR1), MYG(IGR1),                        40.31 40.02
      &                  IFLNDF(IGR1),
      &                  IFLNDS(IGR1), IFLIFM(IGR1), IFLFRM(IGR1),
      &                  IFLIDL(IGR1), IFLFAC(IGR1),
      &                  IFLNHD(IGR1), IFLNHF(IGR1))
+!NCF      ENDIF
            IF (STPNOW()) RETURN                                           34.01
 !ADC           ENDIF
         END IF
@@ -6695,10 +6765,16 @@
 !ADC     &                   * REAL(ADCIRC_WY2(INDX,2))
 !ADC               ENDDO
 !ADC             ELSE
+!NCF!        ncfile is opened and the negative ncid is stored in IFLNDF, see
+!NCF!        swanpre1.ftn, line 3600(-ish)
+!NCF      IF ( IFLNDF(IGR2) < 0 ) THEN
+!NCF          CALL swn_hre_readarray(IFLNDF, ARR2, MXG, MYG, IFLTIM, IGR2)
+!NCF      ELSE
              CALL INAR2D( ARR2, MXG(IGR2), MYG(IGR2),                     40.31 40.02
      &                    IFLNDF(IGR2),
      &                    IFLNDS(IGR2), IFLIFM(IGR2), IFLFRM(IGR2),
      &                    IFLIDL(IGR2), IFLFAC(IGR2), IFLNHD(IGR2), 0)
+!NCF      ENDIF
              IF (STPNOW()) RETURN                                         34.01
 !ADC             ENDIF
           END IF

@@ -3493,8 +3493,16 @@
 !                  output locations
 
                IF ( RTYPE(1:3).EQ.'TAB' ) THEN
+!NCF                 IF ( RTYPE.EQ.'TABC') THEN
+
+!NCF!                 --- use "block" intermediate file facility to pass data between cores
+!NCF                  CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%OQR, CORQ%IVTYP,
+!NCF     &                            CORQ%FAC, SNAMPF, MIP, 1, IRQ,
+!NCF     &                            BLKND, XC, YC )
+!NCF                 ELSE
                   CALL SWCOLTAB ( RTYPE, CORQ%OQI, CORQ%IVTYP, MIP, IRQ,
      &                            BLKND, XC, YC, XP, YP )                 40.51 40.41
+!NCF                 ENDIF
                   IF (STPNOW()) RETURN
                END IF
 
