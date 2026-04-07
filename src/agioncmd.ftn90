@@ -7,17 +7,15 @@
 !/    1.2     | 01-sep-2012 | netcdf support in SWAN 40.91
 !/    1.3     | 01-may-2013 | overhauled to simplify maintenance
 !/    1.4     | 11-apr-2014 | bug fixes
-!/                          | reduced memory consumption 
+!/                          | reduced memory consumption
 !/
-!/    copyright 2009-2014 bmtargoss
-!/       no unauthorized use without permission.
 !/
 !  1. purpose :
 !
 !     agioncmd is a module that provides methods to write cf1.5 compliant
 !     netcdf files containing integrated parameters and spectra.
 !     Furthermore, some methods are available to read data from cf-1.5 and
-!     coads compliant files. 
+!     coads compliant files.
 !
 !     For more information:
 !       http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.5
@@ -49,14 +47,14 @@
 !         %points        int        1:npoints
 !         %longitude     r.a        x coordinates points
 !         %latitude      r.a        y coordinates points
-!         %lunit      char       likely unit (meter, degrees)
+!         %lunit         char       likely unit (meter, degrees)
 !         %npoints
 !
 !       spcgrid                     spectral grid
 !         %frequency     r.a        frequency axe
 !         %direction     r.a.       directional axe
-!         %nfreq      int        number of frequencies
-!         %ndir       int        number of directions
+!         %nfreq         int        number of frequencies
+!         %ndir          int        number of directions
 !
 !       nctable          ncttype    struct array from nctablemd.f90
 !         %standard_name char       see remarks a
@@ -138,7 +136,7 @@
         use netcdf
         use nctablemd
         implicit none
-        real, parameter                              :: AGIONCMD_VERSION = 1.4
+        real, parameter                              :: AGIONCMD_VERSION = 1.5
         real, parameter                              :: AGNC_DUMMY = NF90_FILL_FLOAT
         integer(kind=1), parameter                   :: AGNC_FILL_BYTE = -2**7
         integer(kind=2), parameter                   :: AGNC_FILL_SHORT= -2**15
@@ -160,7 +158,7 @@
             character(len=10)                        :: lunit = 'degrees'
             integer                                  :: pnt_dimid, &
                                                         lon_varid, lat_varid, &
-							npoints = 0, ips_varid, &
+                                                        npoints = 0, ips_varid = 0, &
                                                         xdimlen = 0, ydimlen = 0
         end type pntgrid_type
 
@@ -169,7 +167,7 @@
             logical                                  :: relative
             integer                                  :: frq_dimid, frq_varid, &
                                                         dir_dimid, dir_varid, &
-							nfreq = 0, ndir = 0
+                                                        nfreq = 0, ndir = 0
         end type spcgrid_type
 
         type recordaxe_type
@@ -252,7 +250,7 @@
                 do_scale = Escale
             end if
 
-            write(history,'(A,F3.1)'), 'Created with agioncmd version ', AGIONCMD_VERSION
+            write(history,'(a,f3.1)') 'Created with agioncmd version ', AGIONCMD_VERSION
             call nccheck ( nf90_create( ncfile, NF90_NOCLOBBER + NF90_64BIT_OFFSET, ncid) )
             if ( recordaxe%nstatm ) then
                 call nccheck ( nf90_def_dim( ncid, 'time', NF90_UNLIMITED, recordaxe%dimid ) );
@@ -738,13 +736,7 @@
             integer,               intent (   in)                 :: ncid
             type (recordaxe_type), intent (inout)                 :: recordaxe
             logical, optional   ,  intent (   in)                 :: monthly
-
             integer                                               :: t1(6), t2(6), i
-            integer                                               :: ntime1    ! number timesteps already on NetCDF-file
-            integer                                               :: ntime2    ! number of timesteps in recordaxe
-            integer                                               :: length(1) ! number of timesteps to be appended
-            integer                                               :: start(1)  ! start vector for nf90_put_var
-
             if ( recordaxe%varid < 1 ) call agnc_get_recordaxe_ids(ncid, recordaxe%dimid, recordaxe%varid)
 
             ! Some sanity checks
@@ -768,17 +760,8 @@
                 call close_ncfile(ncid)
                 call agnc_set_error( 'Failed to append data to this file. It would result in a irregular record axis');
             end if
-            !
-            ! update times on NetCDF file; only append times not already on file
-            !
-            call nccheck ( nf90_inquire_dimension(ncid, recordaxe%varid, len = ntime1) )
-            ntime2 = recordaxe%ncontent
 
-            if (ntime2 > ntime1) then
-                start(1)  = ntime1 + 1
-                length(1) = ntime2 - ntime1
-                call nccheck ( nf90_put_var(ncid, recordaxe%varid, recordaxe%content(ntime1+1:ntime2), start, length) )
-            endif
+            call nccheck ( nf90_put_var(ncid, recordaxe%varid, recordaxe%content) )
 
         end subroutine agnc_set_recordaxe
 
@@ -927,8 +910,8 @@
             integer, intent ( in )                  :: ncid
             type (recordaxe_type), intent(out)      :: recordaxe
             character(len=nf90_max_name)            :: units, raname, emsg
-            real*8, allocatable, dimension(:)       :: dvalues
-            integer                                 :: factor, dvec(6), unitsLength
+            integer*8, allocatable, dimension(:)    :: dvalues
+            integer                                 :: factor, dvec(6)
 
             ! find time dimid
             call agnc_get_recordaxe_ids(ncid, recordaxe%dimid, recordaxe%varid, recordaxe%ncontent)
@@ -936,18 +919,17 @@
             if ( recordaxe%varid < 0 ) then
                 call agnc_set_error( 'Could not find record axe variable')
             end if
-            call nccheck ( nf90_inquire_attribute(ncid, recordaxe%varid, 'units', len = unitsLength) )
             call nccheck ( nf90_get_att(ncid, recordaxe%varid, 'units', units) )
             call nccheck ( nf90_inquire_variable(ncid, recordaxe%varid, raname) )
             allocate(recordaxe%content(recordaxe%ncontent))
 
             if (raname /= 'run') then
 
-                call agnc_scan_time(units(1:unitsLength), factor, dvec, emsg)
+                call agnc_scan_time(units, factor, dvec, emsg)
                 if ( factor < 0 ) call agnc_set_error(emsg)
 
                 allocate(dvalues(recordaxe%ncontent))
-                call nccheck ( nf90_get_var(ncid, recordaxe%varid, dvalues, (/1/), (/recordaxe%ncontent/) ) )
+                call nccheck ( nf90_get_var(ncid, recordaxe%varid, dvalues) )
                 recordaxe%content = nint(dvalues * dble(factor) + dble(seconds_since_epoch(dvec)),8)
                 deallocate(dvalues)
                 recordaxe%nstatm = .true.
@@ -1200,14 +1182,14 @@
                 cx = minval( (/chunksize, mapgrid%nx-sx+1/) )
                 do sy=1,mapgrid%ny,chunksize
                     cy = minval( (/chunksize, mapgrid%ny-sy+1/) )
-                                    
+
                     vloc = 0.
                     do lxi=1,cx
                         do lyi=1,cy
                             vloc(lxi,lyi) = values((sx + lxi - 1) + (sy + lyi - 2) * mapgrid%nx )
                         end do
                     end do
-                    
+
                     nf90_stat = nf90_put_var(ncid, varid, vloc(1:cx,1:cy), (/sx,sy,ti/), (/cx, cy,1/))
 
                     !
@@ -1377,10 +1359,10 @@
                                 density(ith,ik,ip) = e2d(isp,ip)
                             else
                                 density(ith,ik,ip) = NF90_FILL_FLOAT
-                        end if
+                            end if
+                        end do
                     end do
                 end do
-            end do
             end if
 
             !
@@ -1498,7 +1480,7 @@
                     if (scale_energy(ip) < epsilon(1.) ) scale_energy(ip) = epsilon(1.)
                     do ik=1, spcgrid%nfreq
                         if ( abs(energy(ik,ip) - AGNC_DUMMY) > epsilon(1.)) then
-                        energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
+                            energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
                         else
                             energy(ik,ip) = AGNC_FILL_SHORT
                         end if
@@ -1529,7 +1511,7 @@
                         theta(ik,ip) = nint((theta(ik,ip) - ao_theta) / sf_theta)
                     else
                         theta(ik,ip) = AGNC_FILL_BYTE
-            end if
+                    end if
                     if ( abs(spr(ik,ip) - AGNC_DUMMY) > epsilon(1.) ) then
                         spr(ik,ip) = nint((spr(ik,ip) - ao_spr) / sf_spr)
                     else
@@ -1894,9 +1876,7 @@
             integer,   intent(in)                :: dx,nx
             logical,   intent(in), optional      :: fill_check
             logical                              :: isregular
-            integer*8, dimension(:), allocatable :: dx2
-
-            integer*8 :: delta
+            integer,   dimension(:), allocatable :: dx2
 
             isregular = .false.
             if ( nx > 0 ) then
@@ -1906,8 +1886,7 @@
                 if ( nx > 1 ) then
                     allocate(dx2(nx-1))
                     dx2 = x(2:nx) - x(1:nx-1)
-                    delta = x(2) - x(1)
-                    if ( any( dx2 /= delta ) ) then
+                    if ( any( (dx2 - dx) /= 0 )) then
                         deallocate(dx2)
                         return
                     end if
@@ -2288,12 +2267,12 @@
             character(len=*),      intent( in) :: ustr
             integer,               intent(out) :: factor, dvec(6)
             character(len=*),      intent(out) :: emsg
-            integer                            :: j, slen, nspace, ierr
+            integer                            :: j, slen, nspace
             character                          :: fstr*20, dlim1, dlim2
 
             factor = -1
             emsg   = ' '
-            slen   = len_trim(ustr)
+            slen   = len(trim(ustr))
             j    = index(ustr, 'since')
             if ( j < 1 ) then
                 emsg = 'Keyword "since" not found in unit string '//trim(ustr)
@@ -2341,7 +2320,7 @@
 
             if (nspace > 0 .and. nspace < slen) then
                 j  = j+nspace
-                read(ustr(j:slen),'(I2,A,I2,A,I2)', iostat=ierr) dvec(4), dlim1, dvec(5), dlim2, dvec(6)
+                read(ustr(j:slen),'(I2,A,I2,A,I2)') dvec(4), dlim1, dvec(5), dlim2, dvec(6)
             else
                 ! no time provided
                 dvec(4:6) = 0
