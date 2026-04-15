@@ -11,7 +11,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -49,6 +49,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
 !
     use ocpcomm4
     use SwanGridobjects
+!ADC    USE SIZES, ONLY: MYPROC
 !
     implicit none
 !
@@ -69,6 +70,8 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
     integer                               :: icell     ! loop counter over cells
     integer                               :: icell1    ! sequence number of cell 1 adjacent to present face
     integer                               :: icell2    ! sequence number of cell 2 adjacent to present face
+    integer                               :: icelll    ! sequence number of left cell adjacent to present face
+    integer                               :: icellr    ! sequence number of right cell adjacent to present face
     integer                               :: iface     ! loop counter over faces
     integer, save                         :: ient = 0  ! number of entries in this subroutine
     integer                               :: ivert     ! loop counter over vertices
@@ -85,11 +88,27 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
     integer, dimension(:,:), allocatable  :: iflist1   ! list of index faces stored for vertex 1
     integer, dimension(:,:), allocatable  :: iflist2   ! list of index faces stored for vertex 2
     !
-    real                                  :: carea1    ! area of cell 1 adjacent to present face
-    real                                  :: carea2    ! area of cell 2 adjacent to present face
+    real                                  :: dxb       ! distance between centroid and boundary face
+    real                                  :: dxf       ! distance between circumcenters adjacent to present face
+    real                                  :: dxl       ! distance between face center and circumcenter of left cell
+    real                                  :: dxr       ! distance between face center and circumcenter of right cell
     real                                  :: lengthf   ! length of present face
+    real                                  :: nx        ! x-component of normal to face
+    real                                  :: ny        ! y-component of normal to face
+    real                                  :: xcb       ! x-coordinate of centroid adjacent to boundary face
+    real                                  :: xcf       ! x-coordinate of face center
+    real                                  :: xcl       ! x-coordinate of circumcenter of left cell
+    real                                  :: xcr       ! x-coordinate of circumcenter of right cell
     real                                  :: xdiff     ! difference in x-coordinate between vertex 2 and vertex 1
+    real                                  :: xv1       ! x-coordinate of vertex 1
+    real                                  :: xv2       ! x-coordinate of vertex 2
+    real                                  :: ycb       ! y-coordinate of centroid adjacent to boundary face
+    real                                  :: ycf       ! y-coordinate of face center
+    real                                  :: ycl       ! y-coordinate of circumcenter of left cell
+    real                                  :: ycr       ! y-coordinate of circumcenter of right cell
     real                                  :: ydiff     ! difference in y-coordinate between vertex 2 and vertex 1
+    real                                  :: yv1       ! y-coordinate of vertex 1
+    real                                  :: yv2       ! y-coordinate of vertex 2
     !
     logical                               :: facefound ! true if face is found
     !
@@ -145,7 +164,10 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
        !
        face(iface)%atti(FACEC1 ) = 0
        face(iface)%atti(FACEC2 ) = 0
+       face(iface)%atti(FACECL ) = 0
+       face(iface)%atti(FACECR ) = 0
        face(iface)%atti(FMARKER) = 0
+       face(iface)%atti(FBTYPE ) = 0
        !
     enddo
     !
@@ -166,6 +188,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
        !
        k = cntv1(v1) +1
        if ( k > 10 ) then
+!ADC          PRINT *, "SWAN does not like local vertex ",v1," on core ",MYPROC
           call msgerr ( 4, 'SwanGridFace: more than 10 faces around vertex ' )
           return
        endif
@@ -174,6 +197,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
        !
        k = cntv2(v2) +1
        if ( k > 10 ) then
+!ADC          PRINT *, "SWAN does not like local vertex ",v2," on core ",MYPROC
           call msgerr ( 4, 'SwanGridFace: more than 10 faces around vertex ' )
           return
        endif
@@ -245,6 +269,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
              if ( face(iface)%atti(FACEC1) == 0 ) then
                 face(iface)%atti(FACEC1) = icell
              else
+!ADC                PRINT *, "SWAN does not like local element ",icell," on core ",MYPROC
                 call msgerr ( 4, 'SwanGridFace: not all cells have counterclockwise order of vertices ' )
                 return
              endif
@@ -252,6 +277,7 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
              if ( face(iface)%atti(FACEC2) == 0 ) then
                 face(iface)%atti(FACEC2) = icell
              else
+!ADC                PRINT *, "SWAN does not like local element ",icell," on core ",MYPROC
                 call msgerr ( 4, 'SwanGridFace: not all cells have counterclockwise order of vertices ' )
                 return
              endif
@@ -271,21 +297,106 @@ subroutine SwanGridFace ( nfaces, ncells, nverts, xcugrd, ycugrd, kvertf )
        !
        if (face(iface)%atti(FACEC2) == 0) face(iface)%atti(FMARKER) = 1
        !
-       ! store interpolation factors
+       ! assign left and right cells adjacent to face
+       ! note: the orientation of the normal at face is such that it is
+       !       pointing out of left cell and into right cell
+       !
+       nx = face(iface)%attr(FACENORMX)
+       ny = face(iface)%attr(FACENORMY)
+       !
+       if ( nx > 0. ) then
+          icelll = face(iface)%atti(FACEC1)
+          icellr = face(iface)%atti(FACEC2)
+       else
+          icelll = face(iface)%atti(FACEC2)
+          icellr = face(iface)%atti(FACEC1)
+       endif
+       !
+       face(iface)%atti(FACECL) = icelll
+       face(iface)%atti(FACECR) = icellr
+       !
+       if ( .not. nx > 0. ) then
+          nx = -nx
+          ny = -ny
+       endif
+       !
+       face(iface)%attr(FACENORMX) = nx
+       face(iface)%attr(FACENORMY) = ny
+       !
+       ! store relevant factors meant for discretization
        !
        if ( face(iface)%atti(FMARKER) == 1 ) then
           !
           face(iface)%attr(FACELINPF) = 0.
           !
+          v1     = face(iface)%atti(FACEV1)
+          v2     = face(iface)%atti(FACEV2)
+          icell1 = face(iface)%atti(FACEC1)
+          !
+          ! get coordinates of vertices of the boundary face
+          !
+          xv1 = xcugrd(v1)
+          yv1 = ycugrd(v1)
+          xv2 = xcugrd(v2)
+          yv2 = ycugrd(v2)
+          !
+          ! get coordinates of centroid of boundary cell
+          ! note: do not choose the circumcenter as it may lie outside the boundary cell
+          !
+          xcb = cell(icell1)%attr(CELLCX)
+          ycb = cell(icell1)%attr(CELLCY)
+          !
+          ! compute the shortest distance between the centroid and the boundary face
+          !
+          lengthf = sqrt( (xv2-xv1)*(xv2-xv1) + (yv2-yv1)*(yv2-yv1) )
+          dxb     = abs( (yv1-yv2)*xcb + (xv2-xv1)*ycb + (xv1*yv2-xv2*yv1) ) / lengthf
+          !
+          if ( ycb > min(yv1,yv2) .and. ycb < max(yv1,yv2) ) then
+             if ( xcb > max(xv1,xv2) ) dxb = -dxb                  ! left/west boundary
+          else
+             if ( ycb > max(yv1,yv2) ) dxb = -dxb                  ! lower/south boundary
+          endif
+          !
+          if ( dxb /= 0. ) then
+             face(iface)%attr(FACEDISTC) = 1. / dxb
+          else
+             face(iface)%attr(FACEDISTC) = 0.
+          endif
+          !
        else
           !
-          icell1 = face(iface)%atti(FACEC1)
-          icell2 = face(iface)%atti(FACEC2)
+          icelll = face(iface)%atti(FACECL)
+          icellr = face(iface)%atti(FACECR)
           !
-          carea1 = cell(icell1)%attr(CELLAREA)
-          carea2 = cell(icell2)%attr(CELLAREA)
+          ! get coordinates of circumcenter of left cell
           !
-          face(iface)%attr(FACELINPF) = carea1/(carea1+carea2)
+          xcl = cell(icelll)%attr(CELLCCX)
+          ycl = cell(icelll)%attr(CELLCCY)
+          !
+          ! get coordinates of circumcenter of right cell
+          !
+          xcr = cell(icellr)%attr(CELLCCX)
+          ycr = cell(icellr)%attr(CELLCCY)
+          !
+          ! get coordinates of midface
+          !
+          xcf = face(iface)%attr(FACEMX)
+          ycf = face(iface)%attr(FACEMY)
+          !
+          ! compute the distance between the face center and the circumcenter
+          ! and subsequently, compute the distance between the circumcenters
+          !
+          dxl = sqrt( (xcf-xcl)*(xcf-xcl) + (ycf-ycl)*(ycf-ycl) )
+          dxr = sqrt( (xcf-xcr)*(xcf-xcr) + (ycf-ycr)*(ycf-ycr) )
+          dxf = dxl + dxr
+          !
+          if ( dxf /= 0. ) then
+             face(iface)%attr(FACEDISTC) =  1. / dxf
+             face(iface)%attr(FACELINPF) = dxl / dxf
+          else
+             face(iface)%attr(FACEDISTC) = 0.
+             face(iface)%attr(FACELINPF) = 1.
+          endif
           !
        endif
        !

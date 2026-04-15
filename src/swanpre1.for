@@ -38,6 +38,8 @@
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
 !
+      IMPLICIT NONE
+!
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
@@ -50,7 +52,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -105,10 +107,16 @@
 !     40.38: Annette Kieftenburg
 !     40.08: W. Erick Rogers
 !     40.31: Marcel Zijlema
+!     40.35: Nico Booij
 !     40.41: Marcel Zijlema
 !     40.51: Marcel Zijlema
+!     40.55: Marcel Zijlema
 !     40.80: Marcel Zijlema
 !     40.87: Marcel Zijlema
+!     41.65: Marcel Zijlema
+!     41.71: Gerbrant van Vledder
+!     41.72: Henrique Rapizo
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -216,11 +224,17 @@
 !     40.08, Mar. 03: warning message added for use of curvilinear
 !                     coordinate system
 !     40.31, Dec. 03: removing POOL-mechanism
+!     40.35, Jun. 04: introducing turbulent viscosity model
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.51, Jun. 06: correct input of MDIA
+!     40.55, Dec. 05: introducing vegetation model
 !     40.80, Jun. 07: extension to unstructured grids
 !     40.87, Apr. 08: in keyword QUANTITY more than 1 output parameter at once
 !                     is possible and addition of [fmin] and [fmax]
+!     41.65, Jun. 16: extension frequency and direction dependent tranmission coefficients
+!     41.71, Dec. 18: extension freeboard dependent transmission and reflection
+!     41.75, Jan. 19: adding sea ice
+!     41.72, Nov. 19: add quantity for number of swell partitions
 !
 !  2. Purpose
 !
@@ -278,6 +292,16 @@
 !     POWN      user defined power of redistribution function             40.18
 !     RLAMBDA   Dummy array containing lambda values for quadruplets      40.17
 !
+      INTEGER           :: MPTST,IPP,NLEN,ITRAS,JJ,IGR2,IGRD,MXS,MYS
+      INTEGER           :: IVAL,NUMCOR,MSS,I,J,NVAR,IVTYPE,IFTMAX
+      REAL              :: TRCF,HGT,SLP,BK,OGAM,OBET,REF0,XP,YP
+      REAL              :: GAMR, GAMT                                     41.71
+      REAL              :: ALTMP,FRLOW,FRHIG,GAMMA,TMPDIR,VALX,VALY
+      REAL*8            :: DIFF
+      REAL              :: DEGCNV
+      REAL              :: HH, CC, DD
+      INTEGER           :: NN
+!
       INTEGER, SAVE     :: INCNUM(1:MXINCL) = 0                           40.03
       INTEGER, SAVE     :: INCLEV = 1                                     40.03
 !
@@ -288,14 +312,15 @@
       LOGICAL           :: MORE                                           40.17
       LOGICAL, SAVE     :: LOBST = .FALSE.                                40.31
 !
-      INTEGER        :: LREF, LREFDIFF, LRFRD                             40.31
+      INTEGER        :: LREF, LREFDIFF, LRFRD, LFREE, LQUAY               41.71 40.31
       REAL           :: POWN, DUM                                         40.31 40.18
       REAL           :: FD1, FD2, FD3, FD4                                40.31 40.28
       REAL, ALLOCATABLE :: RLAMBDA(:)                                     40.17
 
       CHARACTER*6  QOVSNM                                                 40.87
       CHARACTER*40 QOVLNM                                                 40.87
-      REAL         QR(9)                                                  40.87
+      REAL         QR(10)                                                 41.72 40.87
+      REAL*8       DVAL                                                   40.87
 
       TYPE(OBSTDAT), POINTER :: OBSTMP                                    40.31
       TYPE(OBSTDAT), SAVE, POINTER :: COBST                               40.31
@@ -316,6 +341,23 @@
       END TYPE AUXT                                                       40.87
       TYPE(AUXT), TARGET  :: FRSTQ                                        40.87
       TYPE(AUXT), POINTER :: CURRQ, TMPQ                                  40.87
+
+      TYPE VEGPT                                                          40.55
+        INTEGER              :: N                                         40.55
+        REAL                 :: H, D, C                                   40.55
+        TYPE(VEGPT), POINTER :: NEXTV                                     40.55
+      END TYPE VEGPT                                                      40.55
+
+      TYPE(VEGPT), TARGET  :: FRSTV                                       40.55
+      TYPE(VEGPT), POINTER :: CURRV, TMPV                                 40.55
+
+      TYPE TRCFPT                                                         41.65
+        REAL                  :: C                                        41.65
+        TYPE(TRCFPT), POINTER :: NEXTFT                                   41.65
+      END TYPE TRCFPT                                                     41.65
+
+      TYPE(TRCFPT), TARGET  :: FRSTFT                                     41.65
+      TYPE(TRCFPT), POINTER :: CURRFT, TMPFT                              41.65
 !
 !  8. Subroutines used
 !
@@ -372,7 +414,7 @@
 ! 13. Source text
 !
       LOGICAL :: FOUND                                                    40.03
-      LOGICAL, SAVE :: RUNMADE = .FALSE.                                  40.03
+!      LOGICAL, SAVE :: RUNMADE = .FALSE.                                 BJXX 40.03
 !
 !     *** The logical variable LOGCOM has a record about which    ***
 !     *** commands have been given to know if all the information ***
@@ -394,8 +436,20 @@
       INTEGER IVOTP(NVOTP), INDX(1)                                       40.87
       DATA IVOTP /10, 11, 13, 15, 16, 17, 18, 19,                         40.87
      &            28, 32, 33, 42, 43, 47, 48    /                         40.87
+      LOGICAL :: SWELLSET = .FALSE.                                       40.88
+      LOGICAL :: WCAPSET  = .FALSE.                                       40.88
 
       CALL STRACE (IENT, 'SWREAD')
+!                                                                         BJXX
+      INCNUM(1:MXINCL) = 0                                                BJXX
+      INCLEV = 1                                                          BJXX
+      LOBST = .FALSE.                                                     BJXX
+      LOGCOM(1:6) = .FALSE.                                               BJXX
+      IENT = 0       ! number of entries to this subr                     BJXX
+      LWINDR = 0     ! if non-zero, there is wind                         BJXX
+      LWINDM = 3     ! type of wind growth formulation                    BJXX
+      SWELLSET = .FALSE.                                                  BJXX
+      WCAPSET  = .FALSE.                                                  BJXX
 !
 !     ***** read command *****
 !
@@ -519,7 +573,7 @@
         CALL ININTG ('ITEST' , ITEST , 'STA', 30)
 !       statements restructured:
         IF (ITEST.GE.30) THEN
-          IF (ERRPTS.EQ.0.AND.INODE.EQ.MASTER) THEN                       40.30 40.13
+          IF (ERRPTS.EQ.0.AND.IAMMASTER) THEN                             40.95 40.30 40.13
             ERRPTS = 16
             OPEN (ERRPTS, FILE='ERRPTS',
      &            STATUS='UNKNOWN', FORM='FORMATTED')
@@ -546,6 +600,8 @@
           IF (.NOT.ALLOCATED(XYTST)) ALLOCATE(XYTST(IPP*NPTSTA))          40.80 40.31
           CALL SWCOPI (IARR,XYTST,IPP*NPTSTA)                             40.80 40.31
           DEALLOCATE(IARR)                                                40.31
+        ELSE
+          IF (.NOT.ALLOCATED(XYTST)) ALLOCATE(XYTST(0))
         ENDIF
         GOTO 100
       ENDIF
@@ -725,7 +781,7 @@
 !
       IF (KEYWIS ('PROP')) THEN                                           40.02
         CALL INKEYW ('STA','    ')                                        40.02
-        IF (KEYWIS ('BSBT')) THEN                                         40.02
+        IF (KEYWIS ('BSBT') .OR. KEYWIS ('BTBS')) THEN                    40.02
           PROPSN = 1                                                      40.02
           PROPSS = 1                                                      40.02
         ELSE IF (KEYWIS ('GSE')) THEN                                     40.02
@@ -813,13 +869,15 @@
         CALL INKEYW ('STA','  ')
         IF (NSTATM.LE.0 .OR. KEYWIS('STAT')) THEN                         40.00
           IF (NSTATM.EQ.-1) NSTATM = 0                                    40.00
-          IF (NSTATM.GT.0) CALL INCTIM (ITMOPT,'TIME',TINIC,'REQ',0.)     40.00
+          IF (NSTATM.GT.0) CALL INCTIM (ITMOPT,'TIME',TINIC,'REQ',0D0)    40.00
           IF (TINIC .LT. TIMCO) THEN                                      40.03
             CALL MSGERR (2, '[time] before current time')                 40.03
             TINIC = TIMCO                                                 40.03
           ENDIF                                                           40.03
           TFINC = TINIC                                                   40.00
           TIMCO = TINIC                                                   40.00
+!COH          CALL DTSTTI(ITMOPT,ELTEXT(1:LENCST),COH_TINIC)                  41.61
+!COH          COH_TFINC = COH_TINIC                                           41.61
           DT = 1.E10                                                      40.00
           RDTIM = 0.                                                      40.00
           NSTATC = 0                                                      40.00
@@ -827,7 +885,7 @@
         ELSE
           CALL IGNORE ('NONST')
           IF (TIMCO .LT. -0.9E10) THEN                                    40.00
-            CALL INCTIM (ITMOPT,'TBEGC',TINIC,'REQ',0.)                   40.03
+            CALL INCTIM (ITMOPT,'TBEGC',TINIC,'REQ',0D0)                  40.03
           ELSE
             CALL INCTIM (ITMOPT,'TBEGC',TINIC,'STA',TIMCO)                40.03
           ENDIF
@@ -835,8 +893,10 @@
             CALL MSGERR (2, 'start time [tbegc] before current time')     40.03
             TINIC = TIMCO                                                 40.03
           ENDIF                                                           40.03
-          CALL ININTV ('DELTC', DT, 'REQ', 0.)                            40.03
-          CALL INCTIM (ITMOPT,'TENDC',TFINC,'REQ',0.)                     40.03
+!COH          CALL DTSTTI(ITMOPT,ELTEXT(1:LENCST),COH_TINIC)                  41.61
+          CALL INITVD ('DELTC', DT, 'REQ', 0D0)                           40.03
+          CALL INCTIM (ITMOPT,'TENDC',TFINC,'REQ',0D0)                    40.03
+!COH          CALL DTSTTI(ITMOPT,ELTEXT(1:LENCST),COH_TFINC)                  41.61
           NSTATC = 1                                                      40.00
 !
 !           *** tfinc must be greater than tinic **
@@ -855,8 +915,8 @@
         ENDIF
         IF (NSTATM.GT.0) CHTIME = DTTIWR(ITMOPT, TIMCO)                   40.00
         NCOMPT = NCOMPT + 1                                               40.41
-        IF (NCOMPT.GT.50) CALL MSGERR (2,                                 40.41
-     &                   'No more than 50 COMPUTE commands are allowed')  40.41
+        IF (NCOMPT.GT.300) CALL MSGERR (2,                                40.41
+     &                  'No more than 300 COMPUTE commands are allowed')  40.41
         RCOMPT(NCOMPT,1) = REAL(NSTATC)                                   40.41
         RCOMPT(NCOMPT,2) = REAL(MTC)                                      40.41
         RCOMPT(NCOMPT,3) = TFINC                                          40.41
@@ -869,6 +929,8 @@
         ELSE
           ITERMX = MXITNS                                                 40.03
         ENDIF
+!       reset asort
+        asort = usort                                                     41.68
         RETURN                                                            30.00
       ENDIF
 !
@@ -878,15 +940,19 @@
 !
 ! ============================================================
 !
-!             |  TRANSm [trcoef]                          |
-! OBSTacle   <                                            |
-!             |       | -> GODA [hgt] [alpha] [beta]       >  &
+!             | -> TRANSm  [trcoef]                       |
+!             |  TRANS1d < [trcoef] >                     |
+!             |  TRANS2d < [trcoef] >                     |
+! OBSTacle   <                                             >  &
+!             |       | -> GODA [hgt] [alpha] [beta]      |
 !             |  DAM <                                    |
 !                     |    DANGremond [hgt] [slope] [Bk]  |
 !                                                                         40.18
 !                        | -> RSPEC        |                              40.18
-!      ( REFLec [reflc] <                   > )   &
+!      ( REFLec [reflc] <                   > )               &
 !                        |    RDIFF [pown] |                              40.13 40.18
+!
+!      ( FREEboard [hgt] [gammat] [gammar] Quay )             &           41.71
 !
 !             LINe < [xp] [yp] >                                          40.18 40.09
 !
@@ -904,16 +970,101 @@
         OBSTMP%RFCOEF(4) = 0.                                             40.31
         OBSTMP%RFCOEF(5) = 0.                                             40.31
         OBSTMP%RFCOEF(6) = 0.                                             40.31
+        OBSTMP%FBCOEF(1) = 0.                                             41.71
+        OBSTMP%FBCOEF(2) = 0.                                             41.71
+        OBSTMP%FBCOEF(3) = 0.                                             41.71
 !
 !       data concerning transmission of energy over/through the obstacle
 !
         CALL INKEYW ('STA', '  ')
-        IF (KEYWIS ('TRANS')) THEN
+        IF (KEYWIS ('TRANS1') .OR. KEYWIS ('TRFREQ')) THEN                41.65
+          ITRAS    = 11
+          IFTMAX   = 0
+          FRSTFT%C = 0.
+          NULLIFY(FRSTFT%NEXTFT)
+          CURRFT => FRSTFT
+ 403      CALL INREAL ('TRCOEF',TRCF,'REP',-1.)
+          IF ( TRCF.NE.-1. ) THEN
+             IF ( TRCF.LT.0. .OR. TRCF.GT.1. ) THEN
+                CALL MSGERR(3,'Transmission coefficient is not allowed')
+                CALL MSGERR(3,'to be greater than 1 or smaller than 0!')
+             END IF
+             IFTMAX = IFTMAX + 1
+             ALLOCATE(TMPFT)
+             TMPFT%C = TRCF
+             NULLIFY(TMPFT%NEXTFT)
+             CURRFT%NEXTFT => TMPFT
+             CURRFT => TMPFT
+             GO TO 403
+          END IF
+          IF ( IFTMAX.EQ.0 ) THEN
+            CALL MSGERR(2,'No frequency dep. transmission coeffs found')
+          ELSE IF ( IFTMAX.NE.MSC ) THEN
+             CALL MSGERR(2,'Number of transmission coeffs not equal to')
+             CALL MSGERR(2,'number of frequencies!')
+             CALL MSGERR(2,'When less, then these coeffs are filled up')
+             CALL MSGERR(2,'with 1.')
+             CALL MSGERR(2,'When more, then these coeffs are ignored')
+          END IF
+          ALLOCATE(OBSTMP%TRCF1D(MSC))
+          OBSTMP%TRCF1D(:) = 1.
+          CURRFT => FRSTFT%NEXTFT
+          DO JJ = 1, MIN(MSC,IFTMAX)
+             OBSTMP%TRCF1D(JJ) = CURRFT%C
+             CURRFT => CURRFT%NEXTFT
+          END DO
+          DEALLOCATE(TMPFT)
+        ELSE IF (KEYWIS ('TRANS2')) THEN                                  41.65
+          ITRAS    = 12
+          IFTMAX   = 0
+          FRSTFT%C = 0.
+          NULLIFY(FRSTFT%NEXTFT)
+          CURRFT => FRSTFT
+ 404      CALL INREAL ('TRCOEF',TRCF,'REP',-1.)
+          IF ( TRCF.NE.-1. ) THEN
+             IF ( TRCF.LT.0. .OR. TRCF.GT.1. ) THEN
+                CALL MSGERR(3,'Transmission coefficient is not allowed')
+                CALL MSGERR(3,'to be greater than 1 or smaller than 0!')
+             END IF
+             IFTMAX = IFTMAX + 1
+             ALLOCATE(TMPFT)
+             TMPFT%C = TRCF
+             NULLIFY(TMPFT%NEXTFT)
+             CURRFT%NEXTFT => TMPFT
+             CURRFT => TMPFT
+             GO TO 404
+          END IF
+          IF ( IFTMAX.EQ.0 ) THEN
+            CALL MSGERR(2,'No spectral dep. transmission coeffs found')
+          ELSE IF ( IFTMAX.NE.MSC*MDC ) THEN
+             CALL MSGERR(2,'Number of transmission coeffs not equal to')
+             CALL MSGERR(2,'number of frequencies multiplied with')
+             CALL MSGERR(2,'number of directions!')
+             CALL MSGERR(2,'When less, then these coeffs are filled up')
+             CALL MSGERR(2,'with 1.')
+             CALL MSGERR(2,'When more, then these coeffs are ignored')
+          END IF
+          ALLOCATE(OBSTMP%TRCF2D(MDC,MSC))
+          OBSTMP%TRCF2D(:,:) = 1.
+          CURRFT => FRSTFT%NEXTFT
+          I = 1
+          J = 0
+          DO JJ = 1, MIN(MSC*MDC,IFTMAX)
+             J = J + 1
+             IF ( J > MSC ) THEN
+                J = 1
+                I = I + 1
+             ENDIF
+             OBSTMP%TRCF2D(I,J) = CURRFT%C
+             CURRFT => CURRFT%NEXTFT
+          END DO
+          DEALLOCATE(TMPFT)
+        ELSE IF (KEYWIS ('TRANS')) THEN
           ITRAS = 0
           CALL INREAL ('TRCOEF', TRCF, 'REQ', 0.)
           IF ((TRCF.LT.0.) .OR. (TRCF.GT.1.)) THEN                        40.14
-            CALL MSGERR(3,'Transmission coeff. [trans] is not allowed ')  40.14
-            CALL MSGERR(3,'to be greater than 1 or smaller than 0!  ')    40.14
+             CALL MSGERR(3,'Transmission coefficient is not allowed')     40.14
+             CALL MSGERR(3,'to be greater than 1 or smaller than 0!')     40.14
           ENDIF                                                           40.14
           OBSTMP%TRCOEF(1) = TRCF                                         40.31
         ELSE IF (KEYWIS ('DAM')) THEN
@@ -955,10 +1106,6 @@
             CALL MSGERR(3,'circle.                                    ')  40.09
           ENDIF                                                           40.09
           CALL INREAL ('REFLC', REF0, 'STA', 1.)                          40.09
-          DUM = REF0*REF0+TRCF*TRCF                                       40.51 40.14
-          IF (ITRAS.EQ.0 .AND. DUM.GT.1.) THEN                            40.51 40.14
-            CALL MSGERR(3,'Kt^2 + Kr^2 > 1 ')                             40.51 40.14
-          ENDIF                                                           40.14
           OBSTMP%RFCOEF(1) = REF0                                         40.31
 !                                                                         40.18
           CALL INKEYW ('REQ', '  ')                                       40.18
@@ -999,8 +1146,6 @@
             LRFRD = 0                                                     40.31 40.28
           ENDIF                                                           40.28
           OBSTMP%RFTYP3 = LRFRD                                           40.31
-!                                                                         40.18
-          CALL INKEYW ('REQ', '  ')                                       40.09
 !                                                                         40.09
           IF ((REF0.LT.0.) .OR. (REF0.GT.1.)) THEN                        40.09
             CALL MSGERR(3,'Reflection coeff. [reflc] is not allowed ')    40.09
@@ -1012,10 +1157,53 @@
         ENDIF                                                             40.09
         OBSTMP%RFTYP1 = LREF                                              40.31
 !
+!       freeboard dependent transmission and reflection (optional)        41.71
+!
+        CALL INKEYW ('REQ', '  ')                                         41.71
+        IF (KEYWIS ('FREE')) THEN                                         41.71
+           LFREE = 1                                                      41.71
+           CALL INREAL ('HGT'   , HGT , 'REQ', 0.)                        41.71
+           CALL INREAL ('GAMMAT', GAMT, 'STA', 1.)                        41.71
+           CALL INREAL ('GAMMAR', GAMR, 'STA', 1.)                        41.71
+           IF ( GAMT.LT.0. .OR. GAMR.LT.0. ) THEN                         41.71
+              CALL MSGERR(3,'shape parameter gamma is not allowed')       41.71
+              CALL MSGERR(3,'to be smaller than 0!')                      41.71
+           ELSEIF ( GAMT.LT.0.1 ) THEN                                    41.71
+              CALL MSGERR(1,'gammat may not be smaller than 0.1')         41.71
+              GAMT = 0.1                                                  41.71
+           ELSEIF ( GAMR.LT.0.1 ) THEN                                    41.71
+              CALL MSGERR(1,'gammar may not be smaller than 0.1')         41.71
+              GAMR = 0.1                                                  41.71
+           ENDIF                                                          41.71
+           OBSTMP%FBCOEF(1) = HGT                                         41.71
+           OBSTMP%FBCOEF(2) = GAMT                                        41.71
+           OBSTMP%FBCOEF(3) = GAMR                                        41.71
+           CALL INKEYW ('STA', ' ')                                       41.71
+           IF (KEYWIS('Q')) THEN                                          41.71
+              LQUAY = 1                                                   41.71
+           ELSE                                                           41.71
+              LQUAY = 0                                                   41.71
+           ENDIF                                                          41.71
+        ELSE                                                              41.71
+           LFREE = 0                                                      41.71
+           LQUAY = 0                                                      41.71
+        ENDIF                                                             41.71
+        OBSTMP%FBTYP1 = LFREE                                             41.71
+        OBSTMP%FBTYP2 = LQUAY                                             41.71
+!
+!       check constant transmission/reflection coefficients
+!       in case of energy conservation
+!
+        IF (LFREE.EQ.0 .AND. ITRAS.EQ.0 .AND. LREF.EQ.1) THEN             41.71 40.51 40.14
+           DUM = TRCF*TRCF + REF0*REF0                                    40.51 40.14
+           IF (DUM.GT.1.) CALL MSGERR(3,'Kt^2 + Kr^2 > 1 ')               40.51 40.14
+        ENDIF                                                             40.14
+!
 !       location of obstacles
 !
 !       *** NUMCOR : Number of corners ***
         NUMCOR = 0
+        CALL INKEYW ('REQ', '  ')
         IF (KEYWIS ('LIN')) THEN
           FRST%X = 0.                                                     40.31
           FRST%Y = 0.                                                     40.31
@@ -1077,7 +1265,14 @@
 !
 !     ------------------------------------------------------------------
 !     HOTFile    write current wave field to file for future use as
-!     initial cond.
+!     initial condition
+!
+! ============================================================================
+!
+!     HOTFile  'FNAME'                                                    40.00
+!
+! ============================================================================
+!
       IF (KEYWIS('REST') .OR. KEYWIS ('BACK') .OR. KEYWIS('HOTF')         40.00
      &    .OR. KEYWIS('SAVE')) THEN                                       40.00
         IF (MXC.LE.0 .AND. OPTG.NE.5) THEN                                40.80
@@ -1099,9 +1294,11 @@
 !
 !   INPgrid                                                                &
 !      BOTtom / WLEVel / CURrent / VX / VY / FRiction / WInd / WX / WY     &
+!      NPLAnts / TURB / MUDL / AICE / HICE                                 &
 !      | REG [xpinp] [ypinp] [alpinp]  [mxinp] [myinp]  [dxinp] [dyinp] |
 !     <  CURVilinear [stagrx] [stagry] [mxinp] [myinp]                   > &
 !      | UNSTRUCtured                                                   |
+!      | REGFromfile 'fname'                                                 |
 !      (NONSTATionary [tbeginp] [deltinp] SEC/MIN/HR/DAY [tendinp])
 !
 ! ============================================================================
@@ -1144,6 +1341,26 @@
 !         air-sea temperature difference                                  40.03
           IGRD = 10
           PSNAME = 'ASTDGRID'
+        ELSE IF (KEYWIS ('NPLA')) THEN                                    40.55
+!         number of plants per square meter                               40.55
+          IGRD = 11                                                       40.55
+          PSNAME = 'NPLAGRID'                                             40.55
+        ELSE IF (KEYWIS ('TURB')) THEN                                    40.35
+!         value of turbulent viscosity                                    40.35
+          IGRD = 12                                                       40.35
+          PSNAME = 'TURBGRID'                                             40.35
+        ELSE IF (KEYWIS ('MUDL')) THEN                                    40.59
+!         fluid mud layer                                                 40.59
+          IGRD = 13                                                       40.59
+          PSNAME = 'MUDLGRID'                                             40.59
+        ELSE IF (KEYWIS ('AICE')) THEN                                    41.75
+!         ice concentration (as a fraction)                               41.75
+          IGRD = 14                                                       41.75
+          PSNAME = 'AICEGRID'                                             41.75
+        ELSE IF (KEYWIS ('HICE')) THEN                                    41.75
+!         ice thickness (in meters)                                       41.75
+          IGRD = 15                                                       41.75
+          PSNAME = 'HICEGRID'                                             41.75
         ELSE
           IGRD = 1
           PSNAME = 'BOTTGRID'
@@ -1159,7 +1376,8 @@
 !
 !   ============================================================================
 !
-!   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates               &
+!   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates/              &
+!              NPLAnts/TURB/MUDL/AICE/HICE                                   &
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])     &
 !        FREE / FORMAT 'form' / [idfm] / UNFORMATTED
@@ -1261,7 +1479,7 @@
 !
 !           --- the computational grid is included in output data         40.80
             IF ( nverts.GT.0 ) THEN                                       40.80
-               ALLOCATE(OPSTMP)                                           40.80
+               CALL CONSTRUCTOR(OPSTMP)                                   BJXX  40.80
                OPSTMP%PSNAME = 'COMPGRID'                                 40.80
                OPSTMP%PSTYPE = 'U'                                        40.80
                OPSTMP%MIP    = nverts                                     40.80
@@ -1293,7 +1511,7 @@
 ! ===========================================================================
 !
 !          / REGular [xpc] [ypc] [alpc] [xlenc] [ylenc] [mxc] [myc] \
-!   CGRID <  CURVilinear [mxc] [myc]  [excval]                       >   &
+!   CGRID <  CURVilinear [mxc] [myc]  [excval] [alpc]                >   &
 !          \ UNSTRUCtured                                           /
 !
 !          / CIRcle               \
@@ -1321,9 +1539,9 @@
           XCLEN = 0.
           YCLEN = 0.
           IF (ITEST.GE.30) THEN                                           40.41
-          CALL MSGERR(1,'there is an unresolved problem with the')        40.08
+          CALL MSGERR(1,'there is an unusual issue with the')             41.53 40.08
           CALL MSGERR(1,'curvilinear mode, so use with caution.')         40.08
-          CALL MSGERR(1,'This problem occurs when the upwind point')      40.08
+          CALL MSGERR(1,'This issue occurs when the upwind point')        40.08
           CALL MSGERR(1,'has not been solved for yet, because it')        40.08
           CALL MSGERR(1,'falls into a different sweep. Normally,')        40.08
           CALL MSGERR(1,'an upwind point will always fall within')        40.08
@@ -1333,6 +1551,8 @@
           CALL MSGERR(1,'the axis of the grid bends about the')           40.08
           CALL MSGERR(1,'direction associated with a particular')         40.08
           CALL MSGERR(1,'directional bin.')                               40.08
+          CALL MSGERR(1,'You may use command SET CURV or enlarge')        41.53
+          CALL MSGERR(1,'parameter [mxitst].')                            41.53
           END IF                                                          40.41
         ELSEIF (KEYWIS('UNSTRUC')) THEN                                   40.80
           OPTG  = 5                                                       40.80
@@ -1369,6 +1589,12 @@
           ALPC = PI2 * (ALTMP - NINT(ALTMP))
           CVLEFT = .TRUE.                                                 40.00
         ENDIF                                                             30.21
+!PUN!
+!PUN        IF (OPTG.NE.5) THEN                                               40.95
+!PUN           CALL MSGERR(4,
+!PUN     &               'Structured grid is not supported in parallel run')  40.95
+!PUN           RETURN                                                         40.95
+!PUN        ENDIF                                                             40.95
 !
         IF (OPTG.EQ.5) GOTO 555                                           40.80
 !
@@ -1411,6 +1637,9 @@
             CALL INREAL ('EXCVAL', EXCFLD(8), 'REQ', 0.)                  30.60
             CALL INREAL ('EXCVAL', EXCFLD(9), 'STA', EXCFLD(8))           30.60
           ENDIF                                                           30.60
+          CALL INREAL ('ALPC',ALPC,'STA',0.)                              41.53
+          ALTMP = ALPC / 360.                                             41.53
+          ALPC = PI2 * (ALTMP - NINT(ALTMP))                              41.53
         ENDIF                                                             30.60
 !
         CALL INKEYW ('STA', 'CIR')                                        20.67
@@ -1522,7 +1751,7 @@
 !
 !       *** the computational grid is included in output data  ***        40.31
         IF ((MXC.GT.0) .AND. (MYC.GT.0) ) THEN                            40.31
-           ALLOCATE(OPSTMP)                                               40.31
+           CALL CONSTRUCTOR(OPSTMP)                                       BJXX  40.31
            OPSTMP%PSNAME = 'COMPGRID'                                     40.31
            IF (OPTG .EQ. 1) THEN                                          40.31
               OPSTMP%PSTYPE = 'F'                                         40.31
@@ -1601,17 +1830,17 @@
 !
 ! =====================================================================
 !
-!             | -> ACCUR [drel] [dhoval] [dtoval] [npnts]            |    40.41 40.03
-!   NUMeric (<                                                        > & 40.41
-!             | STOPC [dabs] [drel] [curvat] [npnts] [dtabs] [curvt] |    40.93 40.41
+!         | -> STOPC [dabs] [drel] [curvat] [npnts] [dtabs] [curvt] |     40.93 40.41
+!   NUM (<                                                           > &  40.41
+!         | ACCUR [drel] [dhoval] [dtoval] [npnts]                  |     40.41 40.03
 !
 !                    | -> STAT  [mxitst] [alfa] |                         40.23
 !                   <                            >  [limiter]   )     &   40.03
 !                    | NONSTat  [mxitns]        |
 !
-!           ( DIRimpl [cdd] [cdlim]  WNUMber                       )  &
+!           ( DIRimpl [cdd] [cdlim]  DEP|WNUM                      )  &
 !
-!           ( REFRLim [frlim] [power]          (NOT documented)    )  &
+!           ( REFRLim [frlim] [power]          (NOT documented)    )  &   41.06
 !
 !           | -> SIGIMpl [css] [eps2] [outp] [niter]               |
 !          (<                                                      >) &
@@ -1619,6 +1848,9 @@
 !           |                                                      |
 !           |    FIL     [diffc]               (NOT documented)    |
 !
+!           ( CTheta [cfl]                                         )  &   41.35
+!
+!           ( CSigma [cfl]                                         )  &   41.35
 !
 !           ( SETUP [eps2] [outp] [niter]                          )      30.82
 !
@@ -1627,25 +1859,7 @@
       IF (KEYWIS ('NUM')) THEN
         CALL INKEYW ('REQ','  ')
 !       *** accuracy and criterion to terminate the iteration ***
-        IF (KEYWIS ('ACCUR')) THEN
-          PNUMS(21) = 0.                                                  40.41
-          CALL INREAL ('DREL'   , PNUMS(1) , 'UNC', 0.)
-          CALL INREAL ('DHOVAL' , PNUMS(15), 'UNC', 0.)                   30.82
-          CALL INREAL ('DTOVAL' , PNUMS(16), 'UNC', 0.)                   30.82
-          CALL INREAL ('NPNTS'  , PNUMS(4) , 'UNC', 0.)
-          CALL INKEYW ('STA', 'STAT')                                     40.03
-          IF (KEYWIS ('STAT')) THEN                                       40.03
-            CALL ININTG ('MXITST' , MXITST   , 'UNC', 0 )                 40.80 40.03
-            CALL INREAL ('ALFA'   , PNUMS(30), 'UNC', 0.)                 40.23
-          ELSE IF (KEYWIS ('ITERMX')) THEN                                40.03
-            CALL ININTG ('MXITST' , MXITST   , 'REQ', 0 )                 40.03
-            MXITNS = MXITST                                               40.03
-            CALL MSGERR (1, '[itermx] is replaced; see user manual')      40.03
-          ELSE IF (KEYWIS ('NONST')) THEN                                 40.03
-            CALL ININTG ('MXITNS' , MXITNS   , 'REQ', 0 )                 40.03
-          ENDIF
-          CALL INREAL ('LIMITER', PNUMS(20), 'UNC', 0.)                   30.70
-        ELSE IF (KEYWIS ('STOPC')) THEN                                   40.41
+        IF (KEYWIS ('STOPC')) THEN                                        40.41
           PNUMS(21) = 1.                                                  40.41
           CALL INREAL ('DABS'   , PNUMS(2) , 'STA', 0.00)                 40.41
           CALL INREAL ('DREL'   , PNUMS(1) , 'STA', 0.01)                 40.41
@@ -1665,6 +1879,24 @@
             CALL ININTG ('MXITNS' , MXITNS   , 'REQ', 0 )                 40.41
           ENDIF                                                           40.41
           CALL INREAL ('LIMITER', PNUMS(20), 'UNC', 0.)                   40.41
+        ELSE IF (KEYWIS ('ACCUR')) THEN
+          PNUMS(21) = 0.                                                  40.41
+          CALL INREAL ('DREL'   , PNUMS(1) , 'UNC', 0.)
+          CALL INREAL ('DHOVAL' , PNUMS(15), 'UNC', 0.)                   30.82
+          CALL INREAL ('DTOVAL' , PNUMS(16), 'UNC', 0.)                   30.82
+          CALL INREAL ('NPNTS'  , PNUMS(4) , 'UNC', 0.)
+          CALL INKEYW ('STA', 'STAT')                                     40.03
+          IF (KEYWIS ('STAT')) THEN                                       40.03
+            CALL ININTG ('MXITST' , MXITST   , 'UNC', 0 )                 40.80 40.03
+            CALL INREAL ('ALFA'   , PNUMS(30), 'UNC', 0.)                 40.23
+          ELSE IF (KEYWIS ('ITERMX')) THEN                                40.03
+            CALL ININTG ('MXITST' , MXITST   , 'REQ', 0 )                 40.03
+            MXITNS = MXITST                                               40.03
+            CALL MSGERR (1, '[itermx] is replaced; see user manual')      40.03
+          ELSE IF (KEYWIS ('NONST')) THEN                                 40.03
+            CALL ININTG ('MXITNS' , MXITNS   , 'REQ', 0 )                 40.03
+          ENDIF
+          CALL INREAL ('LIMITER', PNUMS(20), 'UNC', 0.)                   30.70
         END IF
 !
 !       *** numerical scheme in directional space (standard  ***
@@ -1675,13 +1907,16 @@
           CALL INREAL ('CDD'    , PNUMS(6) , 'UNC', 0.)
           CALL INREAL ('CDLIM'  , PNUMS(17), 'UNC', 0.)                   30.80
           IF (PNUMS(17).LT.0.) IREFR = 1                                  30.80
-          IF (PNUMS(17).GT.0.) IREFR = -1                                 40.02
           IF (EQREAL(PNUMS(17),0.)) THEN                                  30.80
             IREFR = 0                                                     30.80
             CALL MSGERR(0, 'Refraction deactivated')                      40.02
           ENDIF
-          CALL INKEYW ('STA','    ')                                      41.07
-          IF (KEYWIS ('WNUM')) PNUMS(32) = 1.                             41.07
+          CALL INKEYW ('STA', 'WNUM')                                     41.56
+          IF (KEYWIS('DEP')) THEN
+             PNUMS(32) = 0.                                               41.56
+          ELSE IF (KEYWIS('WNUM')) THEN
+             PNUMS(32) = 1.                                               41.07
+          ENDIF
         ENDIF
 !
 !       limit Ctheta if user want so                                      41.06
@@ -1727,6 +1962,23 @@
           CALL INREAL ('DIFFC'  , PNUMS(9), 'UNC', 0.)
 !
         END IF
+!
+!       limit Ctheta if user want so                                      41.35
+!
+        CALL INKEYW ('STA','  ')
+        IF (KEYWIS ('CT')) THEN
+           PNUMS(35) = 1.
+           CALL INREAL ('CFL', PNUMS(36) ,'STA', 0.9)
+        ENDIF
+!
+!       limit Csigma if user want so                                      41.35
+!
+        CALL INKEYW ('STA','  ')
+        IF (KEYWIS ('CS')) THEN
+           PNUMS(33) = 1.
+           CALL INREAL ('CFL', PNUMS(34) ,'STA', 0.9)
+        ENDIF
+!
         CALL INKEYW ('STA','  ')                                          30.82
         IF (KEYWIS('SETUP')) THEN                                         30.82
 !         *** iterative solver        ***                                 30.82
@@ -1793,10 +2045,12 @@
 !
 ! =============================================================
 !
-!   SET  [level]  [nor]  [depmin]  [maxmes]        &
-!        [maxerr]  [grav]  [rho]  [inrhog]         &
-!        [hsrerr]  CARTesian/NAUTical  [pwtail]    &
-!        [froudmax]  [printf]  [prtest]
+!   SET  [level]  [nor]  [depmin]  [maxmes]                &
+!        [maxerr]  [grav]  [rho] [cdcap] [uscap] [inrhog]  &
+!        [hsrerr]  CARTesian/NAUTical  [pwtail] [froudmax] &
+!        [icewind]                                         &
+!        [sort]  [nsweep]  CURV  (not documented)
+!        [printf]  [prtest] (not documented)
 !
 ! =============================================================
 !
@@ -1808,23 +2062,9 @@
          CALL ININTG ('MAXERR', MAXERR, 'UNC', 0)
          CALL INREAL ('GRAV',   GRAV,   'UNC', 0.)
          CALL INREAL ('RHO',    RHO,    'UNC', 0.)
+         CALL INREAL ('CDCAP',  CDCAP,  'UNC', 0.)
+         CALL INREAL ('USCAP',  USCAP,  'UNC', 0.)                        40.88
          CALL ININTG ('INRHOG', INRHOG, 'UNC', 0)
-         IF (INRHOG.EQ.0) THEN                                            30.20
-           OVUNIT(7) = 'm2/s'
-           OVUNIT(9) = 'm2/s'
-           OVUNIT(19) = 'm3/s'
-           OVUNIT(21) = 'm2s'
-           OVUNIT(22) = 'm2'
-           OVUNIT(29) = 'm2'
-         ELSE
-           OVUNIT(7) = 'W/m2'
-           OVUNIT(9) = 'W/m2'
-           OVUNIT(19) = 'W/m'
-           OVUNIT(21) = 'Js/m2'
-           OVUNIT(22) = 'J/m2'
-           OVUNIT(29) = 'J/m2'
-         ENDIF                                                            10.17
-!
          CALL INREAL ('HSRERR', HSRERR, 'UNC', 0.)                        32.01
 !
          CALL INKEYW ('STA',' ')                                          32.01
@@ -1843,8 +2083,19 @@
            PWTAIL(3) = PWTAIL(1) + 1.
          ENDIF
          CALL INREAL ('FROUDMAX', PNUMS(18), 'UNC', 0.)                   30.50
-         CALL ININTG ('PRINTF', PRINTF, 'UNC', 0)
-         CALL ININTG ('PRTEST', PRTEST, 'UNC', 0)
+         CALL INREAL ('ICEWIND' , ICEWIND  , 'UNC', 0.)
+         CALL INREAL ('SORT'    , usort    , 'UNC', 0.)                   41.68 41.48
+         CALL ININTG ('NSWEEP'  , nsweep   , 'UNC', 0 )                   41.68
+         IF (KEYWIS ('CURV')) CCURV = .TRUE.                              41.53
+!        the unit numbers PRINTF and PRTEST should be set in swaninit,
+!        so not documented
+         CALL ININTG ('PRINTF'  , PRINTF   , 'UNC', 0 )
+         CALL ININTG ('PRTEST'  , PRTEST   , 'UNC', 0 )
+         if ( usort.gt.-999. ) then                                       41.68 41.48
+            usort = DEGCNV (usort)
+            ALTMP = usort / 360.
+            usort = PI2 * (ALTMP - NINT(ALTMP))
+         endif
          GOTO 100
       ENDIF
 !
@@ -1861,6 +2112,7 @@
 !         [fswell]                 {for output quantity HSWELL}           40.03
 !         [fmin]  [fmax]           {for integral parameters}              40.87
 !         PROBLEM/FRAME            {for directions and vectors)           40.03
+!         [noswll]                 {for partition output quantities}      41.72
 !
 ! =============================================================
 !
@@ -1882,11 +2134,13 @@
             CALL INREAL ('LEXP' , QR(1) , 'STA',  999. )                  40.87
             CALL INREAL ('HEXP' , QR(2) , 'STA', -999. )                  40.87
             CALL INREAL ('EXCV' , QR(3) , 'STA',  999. )                  40.87
-            CALL INCTIM (ITMOPT, 'REF', QR(4), 'STA', -999.)              40.87
+            CALL INCTIM (ITMOPT, 'REF', DVAL, 'STA', -9.99D2)             40.87
+            QR(4) = REAL(DVAL)                                            40.87
             CALL INREAL ('POWER', QR(5) , 'STA', -999.)                   40.87
             CALL INREAL ('FSWELL', QR(6), 'STA', -999.)                   40.87
             CALL INREAL ('FMIN' , QR(8) , 'STA',  999. )                  40.87
             CALL INREAL ('FMAX' , QR(9) , 'STA', -999. )                  40.87
+            CALL INREAL ('NOSWLL', QR(10), 'STA', -999. )                 41.72
             CALL INKEYW ('STA', ' ')                                      40.87
             IF (KEYWIS('PROBLEM') .OR. KEYWIS('USER')) THEN               40.87
                QR(7) = 0.                                                 40.87
@@ -1896,7 +2150,7 @@
                QR(7) = -999.                                              40.87
             ENDIF                                                         40.87
             GOTO 70                                                       40.87
-         ELSEIF (IVTYPE.NE.99) THEN                                       40.87
+         ELSEIF (IVTYPE.NE.999) THEN                                      40.87
            CALL MSGERR (2, 'unknown quantity ')                           40.03
          ENDIF                                                            40.87
 !
@@ -1921,6 +2175,11 @@
                   IF (QR(5).NE.-999.) OUTPAR(3) = QR(5)                   40.87
                ELSE IF (IVTYPE.EQ.44) THEN
                   IF (QR(6).NE.-999.) OUTPAR(5) = QR(6)                   40.87
+               ELSE IF ((IVTYPE.EQ.100).OR.(IVTYPE.EQ.110).OR.            41.72
+     &                  (IVTYPE.EQ.120).OR.(IVTYPE.EQ.130).OR.            41.72
+     &                  (IVTYPE.EQ.140).OR.(IVTYPE.EQ.150).OR.            41.72
+     &                  (IVTYPE.EQ.160).OR.(IVTYPE.EQ.170) ) THEN         41.72
+                  IF (QR(10).NE.-999.) OUTPAR(51) = QR(10)                41.72
                ENDIF
                IF ( ANY( IVTYPE == IVOTP ) ) THEN                         40.87
                   INDX = MINLOC(IVOTP, IVOTP==IVTYPE)                     40.87
@@ -1953,6 +2212,32 @@
          GOTO 100
       ENDIF
 !
+!CTGA 111003:  Full SWAN ice implementation, and giving SWAN the ability
+!              to recognize and read in the ice parameters from the
+!              control file (traditionally fort.26 for PADCSWAN).
+!
+!     ------------------------------------------------------------------
+!
+!     CICE      Ice-wave interaction
+!
+! ============================================================
+!
+!        |    ADCICE  [wbicethr]
+! CICE  <
+!
+! ============================================================
+      IF (KEYWIS('CICE')) THEN
+        IICE=1
+        CALL INKEYW('STA','ADCICE')
+        IF (KEYWIS('ADCICE')) THEN
+          IICE=2
+          CALL INREAL('WBICETH',WBICETH,'STA',70.0)
+        ELSE
+          CALL WRNKEY
+        ENDIF
+        GOTO 100
+      ENDIF
+!
 !     ------------------------------------------------------------------
 !
 !     BREAK     parameters surf breaking
@@ -1964,11 +2249,12 @@
 !           |    VARiable [alpha] [gammin] [gammax] [gamneg] [coeff1] [coeff2] |
 ! BREaking <                                                                    > &
 !           |    RUEssink [alpha] [a] [b]                                      |
+!           |
+!           |    BKD [alpha] [gamma0] [a1] [a2] [a3]                           |
 !           |                                                                  |
-!           |    TG       [alpha] [gamma] [pown]                               |
-!           |                                                                  |
-!           !    WESTHuys [alpha] [pown] [bref] [shfac]                        |
+!           |    TG [alpha] [gamma] [pown]                                     |
 !
+!       ( DIRectionality [spread] )                                               &
 !
 !       ( FREQDep [power] [fmin] [fmax] ) (fmin and fmax not documented)
 !
@@ -1996,22 +2282,35 @@
         ELSE IF (KEYWIS('TG')) THEN                                       41.03
           ISURF = 4
           CALL INREAL ('ALPHA',  PSURF(1), 'STA', 1.0)
-          CALL INREAL ('GAMMA',  PSURF(2), 'STA', 0.42)
-          CALL INREAL ('POWN' ,  PSURF(4), 'STA', 4.0)
+          CALL INREAL ('GAMMA',  PSURF(4), 'STA', 0.42)
+          CALL INREAL ('POWN' ,  PSURF(5), 'STA', 4.0)
         ELSE IF (KEYWIS('WESTH')) THEN                                    41.09 41.03
           ISURF = 5
           CALL INREAL ('ALPHA',  PSURF(1), 'STA', 0.98)                   41.09
           CALL INREAL ('POWN' ,  PSURF(4), 'STA', 2.5)                    41.09
           CALL INREAL ('BREF' ,  PSURF(5), 'STA', -1.3963)                41.09
           CALL INREAL ('SHFAC',  PSURF(6), 'STA', 500.)                   41.09
+        ELSE IF (KEYWIS('BKD')) THEN                                      41.38
+          ISURF = 6                                                       41.38
+          CALL INREAL ('ALPHA' , PSURF(1) ,'STA', 1.00)                   41.47
+          CALL INREAL ('GAMMA0', PSURF(4) ,'STA', 0.54)                   41.47
+          CALL INREAL ('A1'    , PSURF(5) ,'STA', 7.59)                   41.47
+          CALL INREAL ('A2'    , PSURF(6) ,'STA',-8.06)                   41.47
+          CALL INREAL ('A3'    , PSURF(7) ,'STA', 8.09)                   41.47
         ENDIF
+!
+        CALL INKEYW ('STA', '  ')                                         41.47
+        IF (KEYWIS ('DIR')) THEN                                          41.47
+           IDISRF = 1                                                     41.47
+           CALL INREAL ('SPREAD', PSURF(15), 'STA', 15.)                  41.47
+        END IF                                                            41.47
 !
         CALL INKEYW ('STA', '  ')                                         41.06
         IF (KEYWIS ('FREQD')) THEN                                        41.06
            IFRSRF = 1                                                     41.06
-           CALL INREAL ('POWER', PSURF(11), 'STA', 2.0)                   41.06
-           CALL INREAL ('FMIN' , PSURF(12), 'STA', 0.0)                   41.06
-           CALL INREAL ('FMAX' , PSURF(13), 'STA', 1000.)                 41.06
+           CALL INREAL ('POWER', PSURF(16), 'STA', 2.0)                   41.06
+           CALL INREAL ('FMIN' , PSURF(17), 'STA', 0.0)                   41.06
+           CALL INREAL ('FMAX' , PSURF(18), 'STA', 1000.)                 41.06
         END IF                                                            41.06
         GOTO 100
       ENDIF
@@ -2022,19 +2321,19 @@
 !
 ! =============================================================
 !
-!        | ->KOMen    [cds2] [stpm] [powst] [delta] [powk]                34.00
+!        | -> KOMen   [cds2] [stpm] [powst] [delta] [powk]                34.00
 !        |
-!        |   JANSsen  [cds1]  [delta] [pwtail]
+!        |    JANSsen [cds1]  [delta] [pwtail]
 !        |
-!        |   LHIG     [cflhig]
+!        |    LHIG    [cflhig]
 !        |
-! WCAP  <    BJ       [bjstp] [bjalf]
+! WCAP  <     BJ      [bjstp] [bjalf]
 !        |
-!        |   KBJ      [bjstp] [bjalf] [kconv]
+!        |    KBJ     [bjstp] [bjalf] [kconv]
 !        |                                                                40.30
-!        |   AB       [cds2] [br] [p0] [powst] [powk]                     40.53
+!        |    AB      [cds2] [br] [p0] [powst] [powk]                     40.53
 !        |
-!        |   WESTHuys [cds2] [br] [p0] [powst] [powk] &                   41.11
+!        |    WESTHuy [cds2] [br] [p0] [powst] [powk] &                   41.11
 !        |
 !        |            [nldisp] [cds3] [powfsh]                            41.11
 !
@@ -2044,16 +2343,20 @@
         CALL INKEYW ('STA','KOM')                                         970220
         IF (KEYWIS ('KOM')) THEN
 !         *** whitecapping according to Komen et al. (1984) ***
+
+!         error checking in case user has already selected Babanin physics
+          IF (WCAPSET) CALL MSGERR (4, 'whitecapping is already set')     40.88
           IWCAP = 1
-          CALL INREAL ('CDS2', PWCAP(1), 'UNC', 0.)                       20.73
-          CALL INREAL ('STPM',  PWCAP(2), 'UNC', 0.)                      20.73
-          CALL INREAL ('POWST', PWCAP(9), 'UNC', 0.)                      34.00
+          WCAPSET = .TRUE.                                                40.88
+          CALL INREAL ('CDS2',  PWCAP(1),  'UNC', 0.)                     20.73
+          CALL INREAL ('STPM',  PWCAP(2),  'UNC', 0.)                     20.73
+          CALL INREAL ('POWST', PWCAP(9),  'UNC', 0.)                     34.00
           CALL INREAL ('DELTA', PWCAP(10), 'UNC', 0.)                     34.00
-          CALL INREAL ('POWK', PWCAP(11), 'UNC', 0.)                      34.00
+          CALL INREAL ('POWK',  PWCAP(11), 'UNC', 0.)                     34.00
         ELSE IF ( KEYWIS ('JANS')) THEN
 !         *** whitecapping according to Janssen (1989, 1991) ***
           IWCAP = 2
-          CALL INREAL ('CDS1', PWCAP(3), 'UNC', 0.)                       20.73
+          CALL INREAL ('CDS1',  PWCAP(3), 'UNC', 0.)                      20.73
           CALL INREAL ('DELTA', PWCAP(4), 'UNC', 0.)
 !
 !         Recalculate coefficients that are actually used in the          40.02
@@ -2126,6 +2429,8 @@
 !                   |              [cfc]      (NOT documented)
 !                   |
 !                   |    MADsen    [kn]
+!                   |
+!                   |    RIPples   [S] [D]
 !
 ! ===============================================
 !
@@ -2152,8 +2457,143 @@
         ELSE IF (KEYWIS('MAD')) THEN
           IBOT = 3
           CALL INREAL('KN',PBOT(5),'UNC',0.)
+        ELSE IF (KEYWIS('RIP')) THEN                                      41.51
+          IBOT = 5
+          CALL INREAL('S',PBOT(6),'UNC',0.)
+          CALL INREAL('D',PBOT(7),'UNC',0.)
+          JFRC2  = MCMVAR+1
+          MCMVAR = MCMVAR+1
+          ALOCMP = .TRUE.
         ELSE
           CALL WRNKEY
+        ENDIF
+        GOTO 100
+      ENDIF
+!
+! ==========================================
+!
+!   MUD  [layer]  [rhom]  [viscm]  [rhow]  [viscw]
+!
+! ==========================================
+!
+      IF (KEYWIS ('MUD')) THEN
+        IMUD = 1
+        CALL INREAL('LAYER',PMUD(1),'UNC',0.)
+        CALL INREAL('RHOM' ,PMUD(2),'UNC',0.)
+        CALL INREAL('VISCM',PMUD(3),'UNC',0.)
+        CALL INREAL('RHOW' ,PMUD(4),'UNC',0.)
+        CALL INREAL('VISCW',PMUD(5),'UNC',0.)
+        GOTO 100
+      ENDIF
+!
+! ==========================================
+!
+!   IC4M2 [aice] [c0] [c1] [c2] [c3] [c4] [c5] [c6]
+!
+! ==========================================
+!
+      IF (KEYWIS ('IC4M2')) THEN
+        IICE = 3
+        CALL INREAL('AICE',PIC4M2(1),'REQ',0.)
+        CALL INREAL('C0'  ,PIC4M2(2),'REQ',0.)
+        CALL INREAL('C1'  ,PIC4M2(3),'REQ',0.)
+        CALL INREAL('C2'  ,PIC4M2(4),'REQ',0.)
+        CALL INREAL('C3'  ,PIC4M2(5),'REQ',0.)
+        CALL INREAL('C4'  ,PIC4M2(6),'REQ',0.)
+        CALL INREAL('C5'  ,PIC4M2(7),'REQ',0.)
+        CALL INREAL('C6'  ,PIC4M2(8),'REQ',0.)
+        GOTO 100
+      ENDIF
+!
+! ==========================================
+!
+!   VEGEtation   < [height]  [diamtr]  [nstems]  [drag] >
+!
+! ==========================================
+!
+      IF (KEYWIS ('VEGE')) THEN
+        IVEG  = 1
+        ILMAX = 0
+        FRSTV%H = 0.
+        FRSTV%D = 0.
+        FRSTV%N = 0
+        FRSTV%C = 0.
+        NULLIFY(FRSTV%NEXTV)
+        CURRV => FRSTV
+ 303    CALL INREAL ('HEIGHT',HH,'REP',-1.)
+        IF ( HH.NE.-1. ) THEN
+           IF ( HH.LT.0. ) THEN
+              CALL MSGERR (2,'height is negative')
+              HH = 0.
+           END IF
+           CALL INREAL ('DIAMTR',DD,'REQ', 0.)
+           IF ( DD.LT.0. ) THEN
+              CALL MSGERR (2,'stem diameter is negative')
+              DD = 0.
+           END IF
+           CALL ININTG ('NSTEMS',NN,'REQ', 1 )
+           IF ( NN.LE.0 ) THEN
+              CALL MSGERR (2,'number of stems is negative or zero')
+              NN = 1
+           END IF
+           CALL INREAL ('DRAG'  ,CC,'REQ', 0.)
+           IF ( CC.LT.0. ) THEN
+              CALL MSGERR (2,'drag coefficient is negative')
+              CC = 0.
+           END IF
+           ILMAX = ILMAX+1
+           ALLOCATE(TMPV)
+           TMPV%H = HH
+           TMPV%D = DD
+           TMPV%N = NN
+           TMPV%C = CC
+           NULLIFY(TMPV%NEXTV)
+           CURRV%NEXTV => TMPV
+           CURRV => TMPV
+           GO TO 303
+        END IF
+        IF (ILMAX.EQ.0) CALL MSGERR(2,'No vegetation parameters found')
+        IF (.NOT.ALLOCATED(LAYH  )) ALLOCATE(LAYH  (ILMAX))
+        IF (.NOT.ALLOCATED(VEGDIL)) ALLOCATE(VEGDIL(ILMAX))
+        IF (.NOT.ALLOCATED(VEGNSL)) ALLOCATE(VEGNSL(ILMAX))
+        IF (.NOT.ALLOCATED(VEGDRL)) ALLOCATE(VEGDRL(ILMAX))
+        CURRV => FRSTV%NEXTV
+        DO JJ = 1, ILMAX
+           LAYH  (JJ) = CURRV%H
+           VEGDIL(JJ) = CURRV%D
+           VEGNSL(JJ) = REAL(CURRV%N)
+           VEGDRL(JJ) = CURRV%C
+           CURRV => CURRV%NEXTV
+        END DO
+        DEALLOCATE(TMPV)
+        GOTO 100
+      END IF
+!
+! =================================================================
+!
+!      TURBulence  [ctb]  (CURrent [tbcur])                               40.35
+!
+! =================================================================
+
+      IF (KEYWIS ('TURB')) THEN                                           40.35
+        ITURBV = 1
+        CALL INREAL ('CTB',  PTURBV(1), 'STA', 0.01)                      40.35
+        CALL INKEYW ('STA', ' ')
+        IF (KEYWIS('CUR')) THEN
+          CALL INREAL ('TBCUR', PTURBV(2), 'STA', 0.004)
+          IF (VARTUR) THEN
+            CALL MSGERR (1, 'turbulence is read; option CUR ignored')
+            PTURBV(2) = -1.
+          ELSE
+            VARTUR = .TRUE.                                               40.35
+!           reserve space for storage of turbulence parameter
+            MCMVAR = MCMVAR + 2                                           40.35
+            JTURB2 = MCMVAR - 1                                           40.35
+            JTURB3 = MCMVAR                                               40.35
+            ALOCMP = .TRUE.                                               40.97
+          ENDIF
+        ELSE
+          PTURBV(2) = -1.                                                 40.35
         ENDIF
         GOTO 100
       ENDIF
@@ -2162,19 +2602,37 @@
 !
 !     WIND      parameters uniform wind field
 !
-! ==========================================
+! ==========================================================
 !
-!   WIND  [vel]  [dir]  [astd]                                            40.03
+!   WIND  [vel]  [dir]  [astd]  DRAG  WU|FIT|SWELL                        41.33 40.03
 !
-! ==========================================
+! ==========================================================
 !
       IF (KEYWIS ('WIND')) THEN
         LWINDR = 1                                                        30.10
         IWIND  = LWINDM                                                   30.10
-        VARWI = .FALSE.
-        CALL INREAL('VEL',U10,'REQ',0.)
-        CALL INREAL('DIR',WDIP,'REQ',0.)
-        CALL INREAL('ASTD',CASTD,'STA',0.)                                40.03
+        IF (.NOT.VARWI) THEN
+           VARWI = .FALSE.
+           CALL INREAL('VEL',U10,'REQ',0.)
+           CALL INREAL('DIR',WDIP,'REQ',0.)
+           CALL INREAL('ASTD',CASTD,'STA',0.)                             40.03
+        ELSE
+           U10   = 0.
+           WDIP  = 0.
+           CASTD = 0.
+        ENDIF
+!
+        CALL INKEYW ('STA','  ')                                          41.33
+        IF ( KEYWIS('DRAG') ) THEN                                        41.33
+          CALL INKEYW ('STA','FIT')                                       41.49 41.33
+          IF (KEYWIS ('WU')) THEN                                         41.33
+             IDRAG = 1                                                    41.33
+          ELSE IF (KEYWIS ('FIT')) THEN                                   41.33
+             IDRAG = 2                                                    41.33
+          ELSE IF (KEYWIS ('SWELL')) THEN                                 41.33
+             IDRAG = 3                                                    41.33
+          ENDIF                                                           41.33
+        ENDIF                                                             41.33
 !
 !       *** Convert (if necessary) WDIP from nautical degrees ***         32.01
 !       *** to cartesian degrees                              ***         32.01
@@ -2264,15 +2722,30 @@
 !
 ! ======================================================================================
 !
-!       |   JANSsen [cds1] [delta]                         |              40.02
-! GEN3 <                                                    >     &
-!       | ->KOMen   [cds2] [stpm] [powst] [delta] [powk]   |              34.00
+!       |    JANSsen [cds1] [delta]                        |              40.02
 !       |                                                  |
-!       |   YAN     (NOT documented)                       |
+!       | -> KOMen   [cds2] [stpm]                         |              34.00
+! GEN3 <                                                    > (AGROW [a])
+!       |    YAN     (NOT documented)                      |
 !       |                                                  |
-!       |   WESTHuysen [cds2] [br] [p0] [powst] [powk]     |              40.53
-!
-!  (QUADrupl [iquad] [limiter] [lambda] [cnl4] [csh1] [csh2] [csh3]) (AGROW [a])
+!       |    WESTHuysen [cds2] [br] [p0] [powst] [powk]    |              40.53
+!       |                                                  |
+!       |    (*** old notation ; NOT documented ***)       |
+!       |    BABanin [a1sds] [a2sds] [p1sds] [p2sds]    &  |
+!       |                                                  |
+!       |                          | UP   |                |
+!       |        [cdsv] [feswell] <        > VECTAU TRUE10 |
+!       |                          | DOWN |                |
+!       |                                                  |
+!       |    ST6     [a1sds] [a2sds] [p1sds] [p2sds]    &  |
+!       |                                                  |
+!       |       | -> UP |    |-> HWANG |                   |
+!       |      <         >  <    FAN    > VECTAU|SCATAU &  |
+!       |       | DOWN  |    |   ECMWF |                   |
+!       |                                                  |
+!       |       |    TRUE10                 |              |
+!       |      <                             > DEB [cdfac] |
+!       |       | -> U10Proxy [windscaling] |              |
 !
 ! ======================================================================================
 !
@@ -2285,7 +2758,7 @@
           IF (LWINDR .GT. 0) IWIND = LWINDM                               30.1x
 !         *** whitecapping according to Janssen (1989, 1991) ***
           IWCAP = 2
-          CALL INREAL ('CDS1', PWCAP(3), 'UNC', 0.)                       20.73
+          CALL INREAL ('CDS1',  PWCAP(3), 'UNC', 0.)                      20.73
           CALL INREAL ('DELTA', PWCAP(4), 'UNC', 0.)
 !
 !         Recalculate coefficientes that are actually used in the         40.02
@@ -2318,7 +2791,100 @@
           CALL INREAL ('P0',    PWCAP(10), 'STA', 4.)                     40.53
           CALL INREAL ('POWST', PWCAP(9),  'STA', 0.)                     40.53
           CALL INREAL ('POWK',  PWCAP(11), 'STA', 0.)                     40.53
+        ELSE IF (KEYWIS('BAB')) THEN                                      40.88
+!         "BABanin"=legacy mode of input ; "ST6"=new mode of input
+!         *** wind according to Rogers et al. (JTECH 2012) based on work of
+!             Donelan, Babanin, Tsagareli and others
+          LWINDM = 8
+          IF (LWINDR .GT. 0) IWIND = LWINDM
+!         note: command "GEN3 BABANIN" supports Hwang wind drag only
+          IDRAG = 4
+!         *** whitecapping according to Rogers et al. (JTECH 2012) based on work of
+!             Babanin, Young, Tsagareli, Ardhuin and others
+          IF (WCAPSET) CALL MSGERR (4, 'whitecapping is already set')
+          WCAPSET = .TRUE.
+          IWCAP = 8
+          CALL INREAL ('A1SDS', A1SDS, 'REQ', 0.)
+          CALL INREAL ('A2SDS', A2SDS, 'REQ', 0.)
+          CALL INREAL ('P1SDS', P1SDS, 'REQ', 0.)
+          CALL INREAL ('P2SDS', P2SDS, 'REQ', 0.)
+          ROGERS = .TRUE. ! legacy swell dissipation
+          IF(SWELLSET) CALL MSGERR(4,'swell dissipation is already set')
+          SWELLSET = .TRUE.
+          CALL INREAL ('CDSV'   , CDSV   , 'REQ', 0.)
+          CALL INREAL ('FESWELL', FESWELL, 'REQ', 0.)
+          CALL INKEYW ('REQ', ' ')
+          IF (KEYWIS ('UP')) THEN
+             UPWARDS = .TRUE.
+          ELSE IF (KEYWIS ('DOWN')) THEN
+             UPWARDS = .FALSE.
+          ELSE
+             CALL WRNKEY
+          ENDIF
+          CALL INKEYW ('STA', ' ')
+          IF (KEYWIS('VECTAU')) THEN
+             VECTOR_TAU = .TRUE.
+          ELSE
+             VECTOR_TAU = .FALSE.
+          ENDIF
+          CALL INKEYW ('STA', ' ')
+          IF (KEYWIS('TRUE10')) THEN
+             TRUE_U10 = .TRUE.
+          ENDIF
+        ELSE IF (KEYWIS('ST6')) THEN                                      40.88
+!         "BABanin"=legacy mode of input ; "ST6"=new mode of input
+!         *** wind according to Rogers et al. (JTECH 2012) based on work of
+!             Donelan, Babanin, Tsagareli and others
+          LWINDM = 8
+          IF (LWINDR .GT. 0) IWIND = LWINDM
+!         *** whitecapping according to Rogers et al. (JTECH 2012) based on work of
+!             Babanin, Young, Tsagareli, Ardhuin and others
+          IWCAP = 8
+          CALL INREAL ('A1SDS', A1SDS, 'UNC', 0.)
+          CALL INREAL ('A2SDS', A2SDS, 'UNC', 0.)
+          CALL INREAL ('P1SDS', P1SDS, 'STA', 4.)
+          CALL INREAL ('P2SDS', P2SDS, 'STA', 4.)
+          CALL INKEYW ('STA', 'UP')
+          IF (KEYWIS ('DOWN')) THEN
+             UPWARDS = .FALSE.
+          ELSE
+             CALL IGNORE ('UP')
+             UPWARDS = .TRUE.
+          ENDIF
+          CALL INKEYW ('STA', 'HWANG')
+          IF (KEYWIS('HWANG')) THEN
+             IDRAG = 4
+          ELSE IF (KEYWIS ('FAN')) THEN
+             IDRAG = 5
+          ELSE IF (KEYWIS ('ECMWF')) THEN
+             IDRAG = 6
+          ENDIF
+          CALL INKEYW ('STA', 'VECTAU')
+          IF (KEYWIS('VECTAU')) THEN
+             VECTOR_TAU = .TRUE.
+          ELSE IF (KEYWIS('SCATAU')) THEN
+             VECTOR_TAU = .FALSE.
+          ENDIF
+          CALL INKEYW ('STA', 'U10P')
+          IF (KEYWIS('TRUE10')) THEN
+             TRUE_U10 = .TRUE.
+          ELSEIF (KEYWIS ('U10P')) THEN
+!            **** see notes for WINDSCALING in SdsBabanin.f90 ****
+!            **** applies only to Babanin DBYB wind input     ****
+!            **** applies only when TRUE10 is not used        ****
+             CALL INREAL ( 'WINDSCALING', WNDSCL, 'UNC', 0. )
+          ENDIF
+          CALL INKEYW ('STA', ' ')
+          IF (KEYWIS ('DEB')) THEN
+             CALL INREAL ( 'CDFAC', CDFAC, 'REQ', 1. )
+          ENDIF
         ELSE
+          IF ( IWCAP.EQ.8 .OR. IWIND.EQ.8 ) THEN
+             CALL MSGERR(1,' * We prefer that you use GEN3 BABANIN. * ')
+             CALL MSGERR(1,' * Example:                             * ')
+             CALL MSGERR(1,'GEN3 BABANIN 5.7E-7 8.0E-6 4.0 4.0 1.2 0.006
+     &0 UP AGROW')
+          ELSE
           CALL IGNORE ('KOM')                                             970220
           LWINDM = 3                                                      30.1x
           IF (LWINDR .GT. 0) IWIND = LWINDM                               30.1x
@@ -2326,26 +2892,54 @@
           IWCAP = 1
           CALL INREAL ('CDS2', PWCAP(1), 'UNC', 0.)                       20.73
           CALL INREAL ('STPM', PWCAP(2), 'UNC', 0.)                       20.73
-        ENDIF
-!       ***  parameters nonlinear 4 wave interactions ***
-        CALL INKEYW ('STA', ' ')
-        IF (KEYWIS ('QUAD')) THEN
-          CALL ININTG ('IQUAD', IQUAD, 'UNC', 0)
-!         *** if quadruplets are activated then LIMITER = 0.1 ***
-!         *** the standard value, however, is 1.e20           ***
-          CALL INREAL ('LAMBDA', PQUAD(1), 'UNC', 0.0)                    34.00
-          CALL INREAL ('CNL4', PQUAD(2), 'UNC', 0.0)                      34.00
-          CALL INREAL ('CSH1', PQUAD(3), 'UNC', 0.0)                      34.00
-          CALL INREAL ('CSH2', PQUAD(4), 'UNC', 0.0)                      34.00
-          CALL INREAL ('CSH3', PQUAD(5), 'UNC', 0.0)                      34.00
+          ENDIF
         ENDIF
         CALL INKEYW ('STA', ' ')
         IF (KEYWIS('AGROW')) THEN                                         7/MAR
           CALL INREAL ('A',PWIND(31),'STA',0.0015)
         ELSE                                                              30.60
-          IF (NSTATM.EQ.1 .AND. ICOND.EQ.0) ICOND = 1                          30.70
+          IF (NSTATM.EQ.1 .AND. ICOND.EQ.0) ICOND = 1                     30.70
+        ENDIF
+        IF (IWIND.NE.4) THEN
+           JUSTAR = MCMVAR+1
+           MCMVAR = MCMVAR+1
+           ALOCMP = .TRUE.
         ENDIF
         GOTO 100
+      ENDIF
+!  -------------------------------------------------------------------    40.88
+!           |    ROGers  [cdsv] [feswell]  (NOT DOCUMENTED)               40.88
+!   SSWELL <  -> ARDhuin [cdsv]                                           40.88
+!           |    ZIEger  [b1]                                             40.88
+!  ------------------------------------------------------------------     40.88
+      IF (KEYWIS('SSWELL')) THEN
+         IF (SWELLSET) CALL MSGERR(4,'swell dissipation is already set')
+         SWELLSET = .TRUE.
+         CALL INKEYW ('STA', 'ARD')
+         IF (KEYWIS ('ROG')) THEN
+            ROGERS = .TRUE.
+            CALL INREAL ('CDSV'   , CDSV   , 'STA', 1.2)
+            CALL INREAL ('FESWELL', FESWELL, 'REQ', 0. )
+         ELSE IF (KEYWIS ('ARD')) THEN
+            ARDHUIN = .TRUE.
+            CALL INREAL ('CDSV', CDSV, 'STA', 1.2)
+         ELSE IF (KEYWIS ('ZIE')) THEN
+            ZIEGER = .TRUE.
+            CALL INREAL ('B1', B1Z, 'STA', 0.00025)
+            ! Ref: B1Z=0.0014 was from Young et al. (2013)
+            !      B1Z=0.00025 is from Zieger et al. (2015)
+         ELSE
+            CALL WRNKEY
+         ENDIF
+         GOTO 100
+      ENDIF
+!
+!   ------------------------------------------------------------------    40.88
+!   NEGatinp  [rdcoef]                                                    40.88
+!   ------------------------------------------------------------------    40.88
+      IF (KEYWIS ('NEG')) THEN
+         CALL INREAL('RDCOEF',RDCOEF,'REQ',0.)
+         GOTO 100
       ENDIF
 !     ----------------------------------------------------------------    40.17
 
@@ -2493,14 +3087,11 @@
 !
 ! ===================================================================
 !
-!  QUADrupl [iquad] [limiter] [lambda] [cnl4] [csh1] [csh2] [csh3]        34.00
+!  QUADrupl [iquad] [lambda] [cnl4] [csh1] [csh2] [csh3]                  34.00
 !
 ! ===================================================================
 !
         CALL ININTG ('IQUAD', IQUAD, 'UNC',  0)
-!       *** if quadruplets are activated then LIMITER = 0.1 ***
-!       *** the standard value, however, is 1.e20           ***
-        CALL INREAL ('LIMITER', PNUMS(20), 'STA', 0.1)                    30.70
         CALL INREAL ('LAMBDA', PQUAD(1), 'UNC', 0.0)                      34.00
         CALL INREAL ('CNL4', PQUAD(2), 'UNC', 0.0)                        34.00
         CALL INREAL ('CSH1', PQUAD(3), 'UNC', 0.0)                        34.00
@@ -2515,14 +3106,28 @@
 !
 ! ============================================================
 !
-!  TRIad [trfac] [cutfr] [urcrit] [urslim]                                40.55
+!  TRIad [itriad] [trfac] [cutfr] [a] [b] [p] [urcrit] [urslim]           41.46 40.56
 !
 ! ============================================================
 !
       IF (KEYWIS ('TRI')) THEN
-        ITRIAD = 1                                                        20.81
-        CALL INREAL ('TRFAC', PTRIAD(1), 'UNC', 0.0)
-        CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)                      40.61 40.55 30.82
+        CALL ININTG ('ITRIAD', ITRIAD, 'STA', 1)
+        IF (ITRIAD.EQ.1) THEN
+           CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.8)                   41.44
+           CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)                   40.61 40.56 30.82
+        ELSEIF (ITRIAD.EQ.2) THEN
+           CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.90)                  41.46
+           CALL INREAL ('A'    , PTRIAD(6), 'STA', 0.95)                  41.46
+           CALL INREAL ('B'    , PTRIAD(7), 'STA', 0.0 )                  41.46
+           CALL INREAL ('P'    , PTRIAD(8), 'STA', 0.0 )
+        ELSEIF (ITRIAD.EQ.5) THEN
+           CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.35)                  41.45
+           CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 1.33333333)
+        ELSEIF (ITRIAD.EQ.11) THEN
+!          original LTA (before version 41.01)
+           CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.05)
+           CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)
+        ENDIF
         CALL INREAL ('URCRIT', PTRIAD(4), 'UNC', 0.0)                     40.13
         CALL INREAL ('URSLIM', PTRIAD(5), 'STA', 0.01)                    40.41 40.23 40.13
         GOTO 100
@@ -2621,6 +3226,7 @@
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA                                                       40.31
       USE SwanGriddata                                                    40.80
+      USE HRExtensions
 !
 !
 !
@@ -2635,7 +3241,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2666,6 +3272,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -2693,6 +3300,7 @@
 !     40.31, Dec. 03: removing POOL-mechanism
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Dec. 07: extension to unstructured grids
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -2732,13 +3340,15 @@
 !
 ! 13. SOURCE TEXT
 !
-      INTEGER   IGRID1
+      INTEGER   IGRID1, EXCVTR(NUMGRD), IGRID2
       CHARACTER SNAMEG *8
       LOGICAL   KEYWIS                                                    30.00
+      LOGICAL   ISCURVI
       TYPE(OPSDAT), POINTER :: OPSTMP                                     40.31
       SAVE IENT
       DATA IENT/0/
       CALL STRACE(IENT,'SINPGR')
+      EXCVTR = (/0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0/)
 !
 !     *** user gives coord. corner point input grid               ***
 !     *** Regular or curvilinear grid option  for version 30.21   ***
@@ -2761,16 +3371,26 @@
 !            | VX       |
 !            |          |
 !            | VY       |
-! INPgrid  (<            >) &
+!            |          |
 !            | FRiction |
 !            |          |
 !            | WInd     |
 !            |          |
-!            | WX       |
+! INPgrid  (<  WX        >) &
 !            |          |
 !            | WY       |
 !            |          |
 !            | ASTD     |                                                 40.03
+!            |          |
+!            | NPLAnts  |                                                 40.55
+!            |          |
+!            | TURB     |                                                 40.35
+!            |          |
+!            | MUDLayer |                                                 40.59
+!            |          |
+!            | AICE     |                                                 41.75
+!            |          |
+!            | HICE     |                                                 41.75
 !
 !
 !    | REGular [xpinp] [ypinp] [alpinp] [mxinp] [myinp] [dxinp] [dyinp] |
@@ -2808,6 +3428,11 @@
         CALL INREAL ('STAGRY',STAGRY,'STA', 0.)                           30.60
         STAGX(IGRID1) = STAGRX                                            30.21
         STAGY(IGRID1) = STAGRY                                            30.21
+
+        ALPG(IGRID1)  = 0.0 ! reset as it might now have the same value as bot grid
+        COSPG(IGRID1) = COS(ALPG(IGRID1))
+        SINPG(IGRID1) = SIN(ALPG(IGRID1))
+
         MXG(IGRID1) = MXG(IGRID1) - 1
         MYG(IGRID1) = MYG(IGRID1) - 1
 !       default values changed                                            30.60
@@ -2823,6 +3448,16 @@
           CALL ININTG ('MYINP', MYG(IGRID1),'STA',MYC-1)                  30.80
         ENDIF                                                             32.02
         MYG(IGRID1) = MYG(IGRID1) + 1
+      ELSEIF (KEYWIS('REGF')) THEN
+        IF (ONED) THEN
+           CALL MSGERR (4,
+     &            '1D-grid cannot be read from a netcdf file')
+           RETURN
+        ENDIF
+        IGTYPE(IGRID1) = 1
+        CALL INCSTR ('FNAME', FILENM, 'REQ', ' ')
+        CALL swn_hre_inpgr(IGRID1, IGRID2, FILENM, isCurvi)
+        IF (isCurvi) IGTYPE(IGRID1) = 2
       ELSEIF (KEYWIS('UNSTRUC')) THEN                                     40.80
 !
         IF (ONED) THEN                                                    40.80
@@ -2880,12 +3515,19 @@
       ENDIF
 !
 !     exception values for input variables                                30.60
+!       in case of netcdf this value overrides the one from file
 !
       CALL INKEYW ('STA', ' ')                                            30.60
       IF (KEYWIS ('EXC')) THEN                                            30.60
         CALL INREAL ('EXCVAL', EXCFLD(IGRID1), 'REQ', 0.)                 30.60
         IF (IGRID2.GT.0) EXCFLD(IGRID2) = EXCFLD(IGRID1)                  40.80
       ENDIF                                                               30.60
+      IF ( EXCVTR(IGRID1).NE.0 )
+     &  OVEXCV(EXCVTR(IGRID1)) = EXCFLD(IGRID1)
+      IF ( IGRID2.GT.0 ) THEN
+        IF ( EXCVTR(IGRID2).NE.0 )
+     &    OVEXCV(EXCVTR(IGRID2)) = EXCFLD(IGRID2)
+      ENDIF
 !
       LEDS(IGRID1) = 1
       IF (IGRID2.GT.0) LEDS(IGRID2) = 1                                   40.80
@@ -2900,9 +3542,9 @@
         NSTATM = 1
         IF (IGRID1.EQ.1 .OR. IGRID1.EQ.8) CALL MSGERR (2,
      &        'nonstationary input field not allowed in this case')
-        CALL INCTIM (ITMOPT,'TBEGINP',IFLBEG(IGRID1),'REQ',0.)            40.00
-        CALL ININTV ('DELTINP', IFLINT(IGRID1), 'REQ', 0.)                40.00
-        CALL INCTIM (ITMOPT,'TENDINP',IFLEND(IGRID1),'STA',1.E20)         40.00
+        CALL INCTIM (ITMOPT,'TBEGINP',IFLBEG(IGRID1),'REQ',0D0)           40.00
+        CALL INITVD ('DELTINP', IFLINT(IGRID1), 'REQ', 0D0)               40.00
+        CALL INCTIM (ITMOPT,'TENDINP',IFLEND(IGRID1),'STA',1.D20)         40.00
         IFLDYN(IGRID1) = 1                                                40.00
         IFLTIM(IGRID1) = IFLBEG(IGRID1)                                   40.00
         IF (IGRID2 .GT. 0) THEN
@@ -2913,9 +3555,12 @@
           IFLTIM(IGRID2) = IFLTIM(IGRID1)                                 40.00
         ENDIF
         IF (IFLEND(IGRID1).LT.0.9E20) THEN
-          IF ( MOD(IFIX(IFLEND(IGRID1)-IFLBEG(IGRID1)),
-     &             IFIX(IFLINT(IGRID1))) .NE. 0) CALL MSGERR (1,
-     &             'Interval is not a fraction of the period')
+           IF ( MOD(IFLEND(IGRID1)-IFLBEG(IGRID1),IFLINT(IGRID1)) >
+     &                                         0.01*IFLINT(IGRID1) .AND.
+     &          MOD(IFLEND(IGRID1)-IFLBEG(IGRID1),IFLINT(IGRID1)) <
+     &                                         0.99*IFLINT(IGRID1) )
+     &        CALL MSGERR (1,
+     &             '[deltinp] is not a fraction of the period')
         ENDIF
       ENDIF
       IF ((MXG(IGRID1).EQ.0).OR.(MYG(IGRID1).EQ.0)) GOTO 100
@@ -2923,7 +3568,7 @@
 !
 !     ***** input grid is included in output data                 *****
 !     ***** reference point coincides with origin of output frame *****
-      ALLOCATE(OPSTMP)                                                    40.31
+      CALL CONSTRUCTOR(OPSTMP)                                            BJXX  40.31
       OPSTMP%PSNAME = SNAMEG                                              40.31
       ALLOCATE(OPSTMP%XP(0))                                              40.31
       ALLOCATE(OPSTMP%YP(0))                                              40.31
@@ -2964,15 +3609,16 @@
       IF (ITEST .GE. 50 .OR. INTES .GE. 5) THEN
         IF (OPSTMP%PSTYPE .EQ. 'F') THEN
           WRITE(PRINTF,6021)IGRID1,'F',XQLEN,YQLEN,
-     &    XPG(IGRID1),YPG(IGRID1),ALPG(IGRID1),MXG(IGRID1),MYG(IGRID1)
+     &    XPG(IGRID1),YPG(IGRID1),ALPG(IGRID1),MXG(IGRID1),MYG(IGRID1),
+     &    DXG(IGRID1), DYG(IGRID1)
         ELSE
           WRITE(PRINTF,6022)IGRID1,OPSTMP%PSTYPE,MXG(IGRID1)-1,
      &    MYG(IGRID1)-1,0,0,0.,MXG(IGRID1),MYG(IGRID1)
         ENDIF
  6021   FORMAT (' INP GRID PARAMETERS: ',/,
      &          'IGRID , FRAMTYPE,XLENFR ,YLENFR  XPFR  YPFR    ALPFR',
-     &          '    MXFR MYFR',/,I2,1X,A,4X,
-     &           2(1X,E8.3), 2(1X,E10.3), F7.3, 2(1X,I4))                 40.31 30.60
+     &          '    MXFR MYFR  DXG  DYG',/,I2,1X,A,4X,
+     &           2(1X,E8.3), 2(1X,E10.3), F7.3, 2(1X,I4),2(1X,F24.16))    40.31 30.60
  6022   FORMAT (' INP GRID PARAMETERS: ',/,
      &          'IGRID, FRAMTYPE ,XMAXFR ,YMAXFR XMINFR YMINFR  ALPFR',
      &          '    MXFR MYFR',/,
@@ -3003,22 +3649,6 @@
         IGTYPE(IGRID2)= IGTYPE(IGRID1)                                    30.51
       ENDIF                                                               10.26
 !
-      DO 80 IGRID = IGRID1+1, NUMGRD
-        IF (LEDS(IGRID).EQ.0) THEN
-          XPG(IGRID)   = XPG(IGRID1)
-          YPG(IGRID)   = YPG(IGRID1)
-          ALPG(IGRID)  = ALPG(IGRID1)
-          COSPG(IGRID) = COSPG(IGRID1)
-          SINPG(IGRID) = SINPG(IGRID1)
-          DXG(IGRID)   = DXG(IGRID1)
-          DYG(IGRID)   = DYG(IGRID1)
-          MXG(IGRID)   = MXG(IGRID1)
-          MYG(IGRID)   = MYG(IGRID1)
-          IGTYPE(IGRID)= IGTYPE(IGRID1)                                   30.52
-          LEDS(IGRID)  = 1
-        ENDIF
-  80  CONTINUE
-!
  100  RETURN
 !     end of subroutine SINPGR
       END
@@ -3039,6 +3669,16 @@
       USE SWCOMM4                                                         40.41
       USE M_GENARR                                                        40.31
       USE SwanGriddata                                                    40.80
+      USE HRExtensions, only: swn_hre_readarray
+      USE agioncmd, only: open_ncfile
+!ADC      USE Couple2Swan, ONLY: ADCIRC_ETA2 => SWAN_ETA2,                    41.20
+!ADC     &                       ADCIRC_UU2 => SWAN_UU2,                      41.20
+!ADC     &                       ADCIRC_VV2 => SWAN_VV2,                      41.20
+!ADC     &                       ADCIRC_WX2 => SWAN_WX2,                      41.20
+!ADC     &                       ADCIRC_WY2 => SWAN_WY2,                      41.20
+!ADC     &                       COUPCUR, COUPWIND, COUPWLV                   41.20
+!ADC     &                      ,ADCIRC_Z0 => SWAN_Z0,                        41.20
+!ADC     &                       COUPFRIC                                     41.20
 !
 !
 !
@@ -3053,7 +3693,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3079,7 +3719,12 @@
 !     40.02: IJsbrand Haagsma
 !     40.04: Annette Kieftenburg
 !     40.31: Marcel Zijlema
+!     40.35: Nico Booij
 !     40.41: Marcel Zijlema
+!     40.55: Marcel Zijlema
+!     40.59: Erick Rogers
+!     41.20: Casey Dietrich
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -3092,7 +3737,12 @@
 !     34.01, Feb. 99: Introducing STPNOW
 !     40.02, Oct. 00: Avoided real/int conflict by introducing RPOOL
 !     40.31, Oct. 03: remove POOL construction
+!     40.35, Jun. 04: introducing turbulent viscosity model
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     40.55, Dec. 05: introducing vegetation model
+!     40.59, Aug. 07: introducing fluid mud-induced dissipation model
+!     41.20, Mar. 10: extension to tightly coupled ADCIRC+SWAN model
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -3171,8 +3821,10 @@
 ! 13. Source text
 !
       REAL, ALLOCATABLE :: TARR(:)                                        40.31
-      LOGICAL    KEYWIS, VECTOR                                           30.00
+      LOGICAL    KEYWIS, VECTOR, LOCAL                                    40.95 30.00
       LOGICAL    LOGCOM(6)                                                30.21
+      LOGICAL  NCF
+      INTEGER    newsize
       SAVE  IENT
       DATA  IENT/0/
       CALL STRACE (IENT,'SREDEP')
@@ -3181,7 +3833,8 @@
 !
 !   ============================================================================
 !
-!   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates               &
+!   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates/              &
+!              NPLAnts/TURB/MUDL/AICE/HICE                                   &
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])     &
 !        FREE / FORMAT 'form' / [idfm] / UNFORMATTED
@@ -3197,6 +3850,39 @@
         IGR1 = 2
         IGR2 = 3
         ICUR = 1
+!ADC      ELSE IF (KEYWIS ('ADCCUR')) THEN                                    41.20
+!ADC!       added this possibility for coupling to ADCIRC currents
+!ADC        IGR1 = 2
+!ADC        IGR2 = 3
+!ADC        ICUR = 1
+!ADC        COUPCUR = .TRUE.
+!ADC        IFLFAC(IGR1) = 1.0
+!ADC        IFLNDF(IGR1) = 0
+!ADC        IFLNDS(IGR1) = 22
+!ADC        IFLIDL(IGR1) = 1
+!ADC        IFLIFM(IGR1) = 2
+!ADC        IFLFRM(IGR1) = '(12X,E15.10)'
+!ADC        IFLNHF(IGR1) = 2
+!ADC        IFLDYN(IGR1) = 1
+!ADC        IFLNHD(IGR1) = 1
+!ADC        VECTOR = .TRUE.
+!ADC        NHEDC = 0
+!ADC        IFLFAC(IGR2) = IFLFAC(IGR1)
+!ADC        IFLNDF(IGR2) = IFLNDF(IGR1)
+!ADC        IFLNDS(IGR2) = IFLNDS(IGR1)
+!ADC        IFLIDL(IGR2) = IFLIDL(IGR1)
+!ADC        IFLIFM(IGR2) = IFLIFM(IGR1)
+!ADC        IFLFRM(IGR2) = IFLFRM(IGR1)
+!ADC        IFLNHF(IGR2) = IFLNHF(IGR1)
+!ADC        IFLNHD(IGR2) = NHEDC
+!ADC        IF (.NOT.ALLOCATED(TARR)) THEN
+!ADC           ALLOCATE( TARR(1:nverts) )
+!ADC           TARR = 0.
+!ADC        ENDIF
+!ADC        DO I=1,nverts
+!ADC           TARR(I) = REAL(ADCIRC_UU2(I,1))
+!ADC        ENDDO
+!ADC        GOTO 55
       ELSE IF (KEYWIS ('FR')) THEN
         IGR1   = 4
         VARFR  = .TRUE.
@@ -3204,15 +3890,103 @@
         JFRC2  = MCMVAR - 1                                               40.00
         JFRC3  = MCMVAR                                                   40.00
         ALOCMP = .TRUE.                                                   40.97
+!ADC      ELSE IF (KEYWIS ('ADCFRIC')) THEN                                   41.20
+!ADC!       added this possibility for coupling Madsen friction lengths
+!ADC!       based on ADCIRC Manning's n values
+!ADC        IGR1 = 4
+!ADC        VARFR = .TRUE.
+!ADC        MCMVAR = MCMVAR + 2
+!ADC        JFRC2  = MCMVAR - 1
+!ADC        JFRC3  = MCMVAR
+!ADC        ALOCMP = .TRUE.
+!ADC        COUPFRIC = .TRUE.
+!ADC        IFLFAC(IGR1) = 1.0
+!ADC        IFLNDF(IGR1) = 0
+!ADC        IFLNDS(IGR1) = 23
+!ADC        IFLIDL(IGR1) = 1
+!ADC        IFLIFM(IGR1) = 2
+!ADC        IFLFRM(IGR1) = '(12X,E20.10)'
+!ADC        IFLNHF(IGR1) = 2
+!ADC        IFLDYN(IGR1) = 1
+!ADC        IFLNHD(IGR1) = 1
+!ADC        VECTOR = .FALSE.
+!ADC        NHEDC = 0
+!ADC        IF (.NOT.ALLOCATED(TARR)) THEN
+!ADC           ALLOCATE( TARR(1:nverts) )
+!ADC           TARR = 0.
+!ADC        ENDIF
+!ADC        DO I=1,nverts
+!ADC           TARR(I) = REAL(ADCIRC_Z0(I,1))
+!ADC        ENDDO
+!ADC        GOTO 55
       ELSE IF (KEYWIS ('WI')) THEN
         LWINDR = 2                                                        30.10
         IWIND  = LWINDM                                                   30.10
         IGR1   = 5
         IGR2   = 6
         VARWI  = .TRUE.
+!ADC      ELSE IF (KEYWIS ('ADCWIND')) THEN                                   41.20
+!ADC!       added this possibility for coupling to ADCIRC wind speeds
+!ADC        LWINDR = 2
+!ADC        IWIND  = LWINDM
+!ADC        IGR1 = 5
+!ADC        IGR2 = 6
+!ADC        VARWI = .TRUE.
+!ADC        COUPWIND = .TRUE.
+!ADC        IFLFAC(IGR1) = 1.0
+!ADC        IFLNDF(IGR1) = 0
+!ADC        IFLNDS(IGR1) = 22
+!ADC        IFLIDL(IGR1) = 1
+!ADC        IFLIFM(IGR1) = 2
+!ADC        IFLFRM(IGR1) = '(12X,E15.10)'
+!ADC        IFLNHF(IGR1) = 2
+!ADC        IFLDYN(IGR1) = 1
+!ADC        IFLNHD(IGR1) = 1
+!ADC        VECTOR = .TRUE.
+!ADC        NHEDC = 0
+!ADC        IFLFAC(IGR2) = IFLFAC(IGR1)
+!ADC        IFLNDF(IGR2) = IFLNDF(IGR1)
+!ADC        IFLNDS(IGR2) = IFLNDS(IGR1)
+!ADC        IFLIDL(IGR2) = IFLIDL(IGR1)
+!ADC        IFLIFM(IGR2) = IFLIFM(IGR1)
+!ADC        IFLFRM(IGR2) = IFLFRM(IGR1)
+!ADC        IFLNHF(IGR2) = IFLNHF(IGR1)
+!ADC        IFLNHD(IGR2) = NHEDC
+!ADC        IF (.NOT.ALLOCATED(TARR)) THEN
+!ADC           ALLOCATE( TARR(1:nverts) )
+!ADC           TARR = 0.
+!ADC        ENDIF
+!ADC        DO I=1,nverts
+!ADC           TARR(I) = REAL(ADCIRC_WX2(I,1))
+!ADC        ENDDO
+!ADC        GOTO 55
       ELSE IF (KEYWIS ('WL')) THEN                                        20.38
         IGR1   = 7
         VARWLV = .TRUE.                                                   20.38
+!ADC      ELSE IF (KEYWIS ('ADCWL')) THEN                                     41.20
+!ADC!       added this possibility for coupling to ADCIRC water levels
+!ADC        IGR1 = 7
+!ADC        VARWLV = .TRUE.
+!ADC        COUPWLV = .TRUE.
+!ADC        IFLFAC(IGR1) = 1.0
+!ADC        IFLNDF(IGR1) = 0
+!ADC        IFLNDS(IGR1) = 23
+!ADC        IFLIDL(IGR1) = 1
+!ADC        IFLIFM(IGR1) = 2
+!ADC        IFLFRM(IGR1) = '(12X,E20.10)'
+!ADC        IFLNHF(IGR1) = 2
+!ADC        IFLDYN(IGR1) = 1
+!ADC        IFLNHD(IGR1) = 1
+!ADC        VECTOR = .FALSE.
+!ADC        NHEDC = 0
+!ADC        IF (.NOT.ALLOCATED(TARR)) THEN
+!ADC           ALLOCATE( TARR(1:nverts) )
+!ADC           TARR = 0.
+!ADC        ENDIF
+!ADC        DO I=1,nverts
+!ADC           TARR(I) = REAL(ADCIRC_ETA2(I,1))
+!ADC        ENDDO
+!ADC        GOTO 55
       ELSE IF (KEYWIS ('COOR')) THEN                                      30.21
         IGR1   = 8                                                        30.21
         IGR2   = 9                                                        30.21
@@ -3233,6 +4007,59 @@
           JASTD3 = MCMVAR                                                 40.03
           ALOCMP = .TRUE.                                                 40.97
         ENDIF                                                             40.03
+      ELSE IF (KEYWIS ('NPLA')) THEN                                      40.55
+!       number of plants per square meter
+        IGR1   = 11
+        VARNPL = .TRUE.                                                   40.55
+        IF (JNPLA2.LE.1) THEN                                             40.55
+          MCMVAR = MCMVAR + 2                                             40.55
+          JNPLA2 = MCMVAR - 1                                             40.55
+          JNPLA3 = MCMVAR                                                 40.55
+          ALOCMP = .TRUE.                                                 40.97
+        ENDIF                                                             40.55
+      ELSE IF (KEYWIS ('TURB')) THEN                                      40.35
+!       turbulent viscosity                                               40.35
+        IGR1   = 12                                                       40.35
+        VARTUR = .TRUE.                                                   40.35
+        IF (JTURB2.LE.1) THEN                                             40.35
+          MCMVAR = MCMVAR + 2                                             40.35
+          JTURB2 = MCMVAR - 1                                             40.35
+          JTURB3 = MCMVAR                                                 40.35
+          ALOCMP = .TRUE.                                                 40.97
+        ENDIF                                                             40.35
+      ELSE IF (KEYWIS ('MUDL')) THEN                                      40.59
+!       fluid mud layer
+        IGR1   = 13
+        VARMUD = .TRUE.                                                   40.59
+        IMUD   = 1                                                        40.59
+        IF (JMUDL2.LE.1) THEN                                             40.59
+          MCMVAR = MCMVAR + 3                                             40.59
+          JMUDL1 = MCMVAR - 2                                             40.59
+          JMUDL2 = MCMVAR - 1                                             40.59
+          JMUDL3 = MCMVAR                                                 40.59
+          ALOCMP = .TRUE.                                                 40.97
+        ENDIF                                                             40.59
+      ELSE IF (KEYWIS ('AICE')) THEN                                      41.75
+!       ice concentration (fraction)                                      41.75
+        IGR1   = 14                                                       41.75
+        VARAICE = .TRUE.                                                  41.75
+        IF (JAICE2.LE.1) THEN                                             41.75
+          MCMVAR = MCMVAR + 2                                             41.75
+          JAICE2 = MCMVAR - 1                                             41.75
+          JAICE3 = MCMVAR                                                 41.75
+          ALOCMP = .TRUE.                                                 41.75
+        ENDIF                                                             41.75
+
+      ELSE IF (KEYWIS ('HICE')) THEN                                      41.75
+!       ice thickness (in meters)                                         41.75
+        IGR1   = 15                                                       41.75
+        VARHICE = .TRUE.                                                  41.75
+        IF (JHICE2.LE.1) THEN                                             41.75
+          MCMVAR = MCMVAR + 2                                             41.75
+          JHICE2 = MCMVAR - 1                                             41.75
+          JHICE3 = MCMVAR                                                 41.75
+          ALOCMP = .TRUE.                                                 41.75
+        ENDIF                                                             41.75
       ELSE
         CALL  WRNKEY
       ENDIF
@@ -3248,9 +4075,16 @@
         VECTOR = .FALSE.
       ENDIF
 !
+      LOCAL = .FALSE.                                                     40.95
+!PUN      IF ( IGTYPE(IGR1).EQ.3 ) THEN                                       40.95
+!PUN         LOCAL = .TRUE.                                                   40.95
+!PUN      ELSE                                                                40.95
+!PUN         LOCAL = .FALSE.                                                  40.95
+!PUN      ENDIF                                                               40.95
+!
       CALL REPARM (IFLNDF(IGR1), IFLNDS(IGR1), IFLIDL(IGR1),              40.00
      &             IFLIFM(IGR1), IFLFRM(IGR1), IFLNHF(IGR1),              40.00
-     &             IFLDYN(IGR1), IFLNHD(IGR1), VECTOR, NHEDC)             40.00
+     &             IFLDYN(IGR1), IFLNHD(IGR1), VECTOR, LOCAL, NHEDC)      40.95 40.00
       IF (STPNOW()) RETURN                                                34.01
 !
       IF (ITEST.GE.60) WRITE (PRTEST, 35) IGR1, IFLNDF(IGR1),
@@ -3286,11 +4120,21 @@
          ALLOCATE( TARR(MXG(IGR1)*MYG(IGR1)) )                            40.41
          TARR = 0.                                                        40.41
       END IF                                                              40.41
+      NCF    = INDEX( FILENM, '.NC'  ).NE.0 .OR.
+     &         INDEX (FILENM, '.nc'  ).NE.0
+      IF ( NCF ) THEN
+          call open_ncfile(FILENM, 'read', IFLNDF(IGR1))
+          IFLNDF(IGR1) = IFLNDF(IGR1) * -1
+          CALL swn_hre_readarray(IFLNDF, TARR, MXG, MYG, IFLTIM, IFLFAC,
+     &         IGR1, FILENM)
+      ELSE
       CALL INAR2D( TARR        , MXG(IGR1), MYG(IGR1), IFLNDF(IGR1),      40.31 40.02
      &             IFLNDS(IGR1), IFLIFM(IGR1), IFLFRM(IGR1),
      &             IFLIDL(IGR1), IFLFAC(IGR1),
      &             IFLNHD(IGR1), IFLNHF(IGR1))
+      END IF
       IF (STPNOW()) RETURN                                                34.01
+  55  CONTINUE                                                            41.20
       IF (IGR1.EQ.1) THEN                                                 40.31
          IF (.NOT.ALLOCATED(DEPTH)) ALLOCATE(DEPTH(MXG(IGR1)*MYG(IGR1)))  40.31
          CALL SWCOPR( TARR, DEPTH, MXG(IGR1)*MYG(IGR1) )                  40.31
@@ -3301,7 +4145,7 @@
          IF (.NOT.ALLOCATED(FRIC)) ALLOCATE(FRIC(MXG(IGR1)*MYG(IGR1)))    40.31
          CALL SWCOPR( TARR, FRIC, MXG(IGR1)*MYG(IGR1) )                   40.31
       ELSE IF (IGR1.EQ.5) THEN                                            40.31
-         IF (.NOT.ALLOCATED(WXI)) ALLOCATE(WXI(MXG(IGR1)*MYG(IGR1)))      40.31
+         IF (.NOT.ASSOCIATED(WXI)) ALLOCATE(WXI(MXG(IGR1)*MYG(IGR1)))     40.31
          CALL SWCOPR( TARR, WXI, MXG(IGR1)*MYG(IGR1) )                    40.31
       ELSE IF (IGR1.EQ.7) THEN                                            40.31
          IF (.NOT.ALLOCATED(WLEVL)) ALLOCATE(WLEVL(MXG(IGR1)*MYG(IGR1)))  40.31
@@ -3311,6 +4155,21 @@
       ELSE IF (IGR1.EQ.10) THEN                                           40.31
          IF (.NOT.ALLOCATED(ASTDF)) ALLOCATE(ASTDF(MXG(IGR1)*MYG(IGR1)))  40.31
          CALL SWCOPR( TARR, ASTDF, MXG(IGR1)*MYG(IGR1) )                  40.31
+      ELSE IF (IGR1.EQ.11) THEN                                           40.55
+         IF (.NOT.ALLOCATED(NPLAF)) ALLOCATE(NPLAF(MXG(IGR1)*MYG(IGR1)))  40.55
+         CALL SWCOPR( TARR, NPLAF, MXG(IGR1)*MYG(IGR1) )                  40.55
+      ELSE IF (IGR1.EQ.12) THEN                                           40.35
+         IF (.NOT.ALLOCATED(TURBF)) ALLOCATE(TURBF(MXG(IGR1)*MYG(IGR1)))  40.35
+         CALL SWCOPR( TARR, TURBF, MXG(IGR1)*MYG(IGR1) )                  40.35
+      ELSE IF (IGR1.EQ.13) THEN                                           40.59
+         IF (.NOT.ALLOCATED(MUDLF)) ALLOCATE(MUDLF(MXG(IGR1)*MYG(IGR1)))  40.59
+         CALL SWCOPR( TARR, MUDLF, MXG(IGR1)*MYG(IGR1) )                  40.59
+      ELSE IF (IGR1.EQ.14) THEN                                           41.75
+         IF (.NOT.ALLOCATED(AICEF)) ALLOCATE(AICEF(MXG(IGR1)*MYG(IGR1)))  41.75
+         CALL SWCOPR( TARR, AICEF, MXG(IGR1)*MYG(IGR1) )                  41.75
+      ELSE IF (IGR1.EQ.15) THEN                                           41.75
+         IF (.NOT.ALLOCATED(HICEF)) ALLOCATE(HICEF(MXG(IGR1)*MYG(IGR1)))  41.75
+         CALL SWCOPR( TARR, HICEF, MXG(IGR1)*MYG(IGR1) )                  41.75
       END IF                                                              40.31
       DEALLOCATE(TARR)                                                    40.31
       IF (IGR2.GT.0) THEN
@@ -3319,16 +4178,38 @@
            ALLOCATE( TARR(MXG(IGR2)*MYG(IGR2)) )                          40.41
            TARR = 0.                                                      40.41
         END IF                                                            40.41
+!ADC        IF ( IGR2.EQ.3 .AND. COUPCUR ) THEN                               41.20
+!ADC           DO I = 1, nverts                                               41.20
+!ADC              TARR(I) = REAL(ADCIRC_VV2(I,1))                             41.20
+!ADC           ENDDO                                                          41.20
+!ADC        ELSE IF ( IGR2.EQ.6 .AND. COUPWIND ) THEN                         41.20
+!ADC           DO I = 1, nverts                                               41.20
+!ADC              TARR(I) = REAL(ADCIRC_WY2(I,1))                             41.20
+!ADC           ENDDO                                                          41.20
+!ADC        ELSE                                                              41.20
+        IF ( NCF ) THEN
+          IFLNDF(IGR2) = IFLNDF(IGR1)
+          CALL swn_hre_readarray(IFLNDF, TARR, MXG, MYG, IFLTIM, IFLFAC,
+     &         IGR2, '')
+        ELSE
         CALL INAR2D( TARR        , MXG(IGR2), MYG(IGR2), IFLNDF(IGR2),    40.31 40.02
      &               IFLNDS(IGR2), IFLIFM(IGR2), IFLFRM(IGR2),
      &               IFLIDL(IGR2), IFLFAC(IGR2),
      &               IFLNHD(IGR2), 0)
+        END IF
         IF (STPNOW()) RETURN                                              34.01
+!ADC        ENDIF                                                             41.20
         IF (IGR2.EQ.3) THEN                                               40.31
            IF (.NOT.ALLOCATED(UYB)) ALLOCATE(UYB(MXG(IGR2)*MYG(IGR2)))    40.31
            CALL SWCOPR( TARR, UYB, MXG(IGR2)*MYG(IGR2) )                  40.31
         ELSE IF (IGR2.EQ.6) THEN                                          40.31
-           IF (.NOT.ALLOCATED(WYI)) ALLOCATE(WYI(MXG(IGR2)*MYG(IGR2)))    40.31
+           newsize = MXG(IGR2)*MYG(IGR2)
+           IF (.NOT.ASSOCIATED(WYI)) THEN
+              ALLOCATE(WYI(newsize))
+           ELSE IF (SIZE(WYI) .ne. newsize) THEN
+              !DEALLOCATE(WYI)  ! causes unexpected heap error
+              ALLOCATE(WYI(newsize))
+           ENDIF
            CALL SWCOPR( TARR, WYI, MXG(IGR2)*MYG(IGR2) )                  40.31
         ELSE IF (IGR2.EQ.9) THEN                                          40.31
            CALL SWCOPR( TARR, YCGRID, MXG(IGR2)*MYG(IGR2) )               40.31
@@ -3377,7 +4258,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3544,7 +4425,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3612,11 +4493,14 @@
 !     IX    :     loop counter                                            40.31
 !     IY    :     loop counter                                            40.31
 !     MCGRDL:     number of wet grid points in own subdomain              40.31
+!JAC!     MCOLR :     flag to indicate multi-colouring                        40.31
+!JAC!                 of subdomains (.TRUE.) or not (.FALSE.)                 40.31
 !     MSGSTR:     string to pass message to call MSGERR                   40.41
 !
       INTEGER IENT, INDX, IX, IY, MCGRDL                                  40.31
       INTEGER ISTAT, IF1, IL1                                             40.41
       INTEGER, ALLOCATABLE :: IARR(:)                                     40.31
+!JAC      LOGICAL   MCOLR                                                     40.31
       CHARACTER*20 NUMSTR, CHARS(1)                                       40.41
       CHARACTER*80 MSGSTR                                                 40.41
 !
@@ -3631,6 +4515,7 @@
 !     NUMSTR : Converts integer/real to string                            40.41
 !     STRACE           Tracing routine for debugging                      40.31
 !     SWDECOMP                                                            40.31
+!JAC!     SWBLKCOL                                                            40.31
 !     SWCOPI                                                              40.31
 !TIMG!     SWTSTA                                                              40.31
 !TIMG!     SWTSTO                                                              40.31
@@ -3664,6 +4549,7 @@
 !
       IF (ONED) THEN                                                      30.81
         IF(.NOT.ALLOCATED(KGRBGL)) ALLOCATE(KGRBGL(4))                    40.31
+!JAC        IF(.NOT.ALLOCATED(IARR)) ALLOCATE(IARR(4))                        40.31
         CALL CGBOUN ( KGRPGL, KGRBGL )                                    40.31 40.04
       ELSE                                                                30.81
         IF(.NOT.ALLOCATED(IARR)) ALLOCATE(IARR(2*MCGRD))                  40.31
@@ -3753,7 +4639,16 @@
       IF(ALLOCATED(IARR)) DEALLOCATE(IARR)                                40.31
 
 !TIMG      CALL SWTSTO(212)                                                    40.31
+!JAC
+!JAC!     --- Colour subdomains with red, yellow, green and black             40.31
+!JAC
+!JAC      MCOLR = .FALSE.                                                     40.31
+!JAC!TIMG      CALL SWTSTA(215)                                                    40.31
+!JAC      CALL SWBLKCOL ( MCOLR, KGRPNT )                                     40.31
+!JAC!TIMG      CALL SWTSTO(215)                                                    40.31
+!JAC      IF (STPNOW()) RETURN                                                40.31
 
+      ISTAT = 0
       IF(.NOT.ALLOCATED(AC2)) ALLOCATE(AC2(MDC,MSC,MCGRD),STAT=ISTAT)     40.41 40.31
       IF ( ISTAT.NE.0 ) THEN                                              40.41
          CHARS(1) = NUMSTR(ISTAT,RNAN,'(I6)')                             40.41
@@ -3806,7 +4701,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3926,16 +4821,8 @@
                   XOFFS  = XCGRID(IX,IY)                                  30.72
                   YOFFS  = YCGRID(IX,IY)                                  30.72
                   LXOFFS = .TRUE.
-                  IF (EQREAL(EXCFLD(8),0.)) THEN                          40.51
-                     XCGRID(IX,IY) = 1.E-5                                40.51
-                  ELSE
-                     XCGRID(IX,IY) = 0.
-                  END IF
-                  IF (EQREAL(EXCFLD(9),0.)) THEN                          40.51
-                     YCGRID(IX,IY) = 1.E-5                                40.51
-                  ELSE
-                     YCGRID(IX,IY) = 0.
-                  END IF
+                  XCGRID(IX,IY) = 0.
+                  YCGRID(IX,IY) = 0.
                 ELSE
                   XCGRID(IX,IY) = REAL(XCGRID(IX,IY) - DBLE(XOFFS))       30.72
                   YCGRID(IX,IY) = REAL(YCGRID(IX,IY) - DBLE(YOFFS))       30.72
@@ -3962,6 +4849,9 @@
           ENDIF                                                           30.60
   61    CONTINUE                                                          30.72
   62  CONTINUE                                                            30.72
+!
+      EXCFLD(8) = REAL(EXCFLD(8) - DBLE(XOFFS))
+      EXCFLD(9) = REAL(EXCFLD(9) - DBLE(YOFFS))
 !
       IF (MCGRD.LE.1) CALL MSGERR (3, 'No valid grid points found')       30.60
       IF (ITEST.GE.60) WRITE(PRINTF,*)
@@ -4026,7 +4916,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4229,9 +5119,9 @@
         DO IXC = 1, MXC                                                   30.81
           IF (KGRPNT(IXC,1).GT.1) THEN                                    30.81
             KGRBND(1) = IXC                                               30.81
-            GOTO 81                                                       30.81
+            CYCLE                                                         30.81
           END IF                                                          30.81
-  81    ENDDO                                                             30.81
+        ENDDO                                                             30.81
         IF (KGRBND(1) .LT. 0) THEN                                        40.13 30.81
           CALL MSGERR(3,'No valid gridpoint defined')                     40.13 30.81
         END IF                                                            40.13 30.81
@@ -4240,9 +5130,9 @@
         DO IXC = MXC, 1, -1                                               30.81
           IF (KGRPNT(IXC,1).GT.1) THEN                                    30.81
             KGRBND(3) = IXC                                               30.81
-            GOTO 91                                                       30.81
+            CYCLE                                                         30.81
           END IF                                                          30.81
-  91    ENDDO                                                             30.81
+        ENDDO                                                             30.81
         NGRBND = 2                                                        30.81
       ELSE                                                                30.81
         ALLOCATE(KGRPNTNEW(MXC,MYC))
@@ -4391,7 +5281,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4501,7 +5391,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4673,7 +5563,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4830,6 +5720,8 @@
       USE TIMECOMM                                                        40.41
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+!PUN      USE SIZES                                                           40.95
+      use HRextensions, only: swn_hre_initva
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -4843,7 +5735,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4929,8 +5821,9 @@
       LOGICAL SINGLEHOT, PTNSUBGRD                                        40.62
       LOGICAL    KEYWIS, LERR                                             40.31 40.00
       CHARACTER  RLINE *80                                                40.00
+      CHARACTER  RPROJID*16, RPROJNR*4, RVERTXT*20, RCHTIME*20            41.42
       INTEGER IID, IUNITAC                                                40.41
-      REAL    ACTMP(MDC), DIRTMP(MDC)                                     40.41
+      REAL    ACTMP(MDC), DIRTMP(MDC), ACLOC(MDC,MSC)                     41.42 40.41
       LOGICAL EQREAL                                                      40.41
 !
       SAVE       IENT
@@ -4950,9 +5843,10 @@
 !               |
 !               |  PAR  [hs] [per] [dir] [dd]
 !               |
-!               |            | -> MULTiple |                              40.62
-!               |  HOTStart <               >  'fname'                    40.62 40.00
-!               |            |    SINGle   |                              40.62
+!               |            | -> MULTiple |             | -> FREE        41.42 40.62
+!               |  HOTStart <               >  'fname'  <                 41.42 40.62 40.00
+!               |            |    SINGle   |             | UNFormatted    41.42 40.62
+!               |            |    NETCdf   |
 !
 ! ============================================================
 !
@@ -5067,7 +5961,7 @@
           JXMAX = MXCGL                                                   40.62
           JYMAX = MYCGL                                                   40.62
           CALL IGNORE ('SING')                                            40.62
-        ELSE                                                              40.62
+        ELSEIF (KEYWIS ('MULT')) THEN                                     40.62
           SINGLEHOT = .FALSE.                                             40.62
           JXMAX = MXC                                                     40.62
           JYMAX = MYC                                                     40.62
@@ -5082,89 +5976,223 @@
            WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                        40.31
   33       FORMAT('-',I3.3)                                               40.31
         END IF                                                            40.31
+!PUN        IF (.NOT.SINGLEHOT) FILENM= TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)  40.95
         NREF   = 0
         IOSTAT = 0
-        CALL FOR (NREF, FILENM, 'OF', IOSTAT)
-        IF (STPNOW()) RETURN                                              34.01
- 100    READ (NREF, 102) RLINE
- 102    FORMAT (A)                                                        40.00
-        IF (RLINE(1:4).NE.'SWAN') CALL MSGERR (3, FILENM//
+        CALL INKEYW ('STA', 'FREE')                                       41.42
+        IF (KEYWIS ('UNF') .OR. KEYWIS('BIN')) THEN                       41.42
+         CALL FOR (NREF, FILENM, 'OU', IOSTAT)
+         IF (STPNOW()) RETURN
+         READ (NREF) RVERTXT
+         READ (NREF) RPROJID, RPROJNR
+         READ (NREF) ISTAT
+         IF (ISTAT.EQ.1) THEN
+           READ (NREF) IIOPT
+           IF (ITEST.GE.50) WRITE (PRTEST, 122) IIOPT
+!          in stationary mode, warning
+           IF (NSTATM.EQ.0) CALL MSGERR (1,
+     &                  'Time info in hotfile ignored')
+         ELSE
+           IIOPT = -1
+           IF (NSTATM.EQ.1) CALL MSGERR (1,
+     &                  'No time info in hotfile')
+         ENDIF
+         READ (NREF) IOPTG
+         IF (IOPTG.NE.OPTG) THEN
+           CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')
+           WRITE (PRINTF, 55) OPTG, IOPTG
+  55       FORMAT (1X, 'gridtype = ',I1, ' gridtype on file = ',I1)
+         ENDIF
+         READ (NREF) NUMPTS
+         IF (NUMPTS.NE.NPTOT) THEN
+           CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')
+           WRITE (PRINTF, 123) NPTOT, NUMPTS
+         ENDIF
+         IF (ITEST.GE.50) WRITE (PRTEST, 124) NUMPTS
+         DO IP = 1, NUMPTS
+           READ (NREF) XX, YY
+         ENDDO
+         READ (NREF) NUMFRE
+         IF (NUMFRE.NE.MSC) CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')
+         IF (ITEST.GE.50) WRITE (PRTEST, 126) NUMFRE
+         DO IP = 1, NUMFRE
+           READ (NREF) FF
+         ENDDO
+         READ (NREF) NUMDIR
+         IF (NUMDIR.NE.MDC) CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')
+         IF (ITEST.GE.50) WRITE (PRTEST, 128) NUMDIR
+         DO IP = 1, NUMDIR
+           READ (NREF) DIRTMP(IP)
+         ENDDO
+         IF (ABS(DIRTMP(1)*PI/180.-SPCDIR(1,1)).GT.0.5*DDIR)
+     &      IID = NINT(REAL(MDC)*(DIRTMP(1)-ALPC)/360.)
+!
+!        reading of heading is completed, read time if nonstationary
+!
+         IF (IIOPT.GE.0) THEN
+           READ (NREF) RCHTIME
+           CALL DTRETI (RCHTIME, IIOPT, TIMCO)
+           WRITE (PRINTF, 210) RCHTIME
+         ENDIF
+!
+         IF (OPTG.NE.5) THEN
+!
+!        --- structured grid
+!
+          DO JX = 1, JXMAX
+            IF (SINGLEHOT) THEN
+               IX = JX-MXF+1
+            ELSE
+               IX = JX
+            ENDIF
+            DO JY = 1, JYMAX
+              IF (SINGLEHOT) THEN
+                 IY = JY-MYF+1
+              ELSE
+                 IY = JY
+              ENDIF
+              PTNSUBGRD = .TRUE.
+              IF ( SINGLEHOT .AND.
+     &          (MXF.GT.JX .OR. MXL.LT.JX .OR.MYF.GT.JY .OR. MYL.LT.JY))
+     &           PTNSUBGRD = .FALSE.
+!
+              IF (SINGLEHOT) THEN
+                 IF (IAMMASTER) READ (NREF) IINDX
+                 CALL SWBROADC (IINDX,1,SWINT)
+              ELSE
+                 READ (NREF) IINDX
+              ENDIF
+              INDX = KGRPNT(IX,IY)
+              IF (INDX.EQ.1 .AND. PTNSUBGRD) THEN
+                IF (IINDX.NE.1) THEN
+                   CALL MSGERR (2,
+     &                'valid spectrum for non-existing grid point')
+                   WRITE (PRINTF, *) IX-1, IY-1
+                ENDIF
+              ELSE
+                IF (IINDX.EQ.1) THEN
+                  IF (PTNSUBGRD) THEN
+                     DO IS = 1, MSC
+                       DO ID = 1, MDC
+                          AC2(ID,IS,INDX) = 0.
+                       ENDDO
+                     ENDDO
+                     IF (ITEST.GE.150) WRITE (PRTEST, 222) IX-1, IY-1
+                  ENDIF
+                ELSE
+                  IF (SINGLEHOT) THEN
+                     IF (IAMMASTER) READ (NREF) ACLOC(:,:)
+                     CALL SWBROADC (ACLOC,MDC*MSC,SWREAL)
+                     IF (PTNSUBGRD) AC2(:,:,INDX) = ACLOC(:,:)
+                  ELSE
+                     READ (NREF) AC2(:,:,INDX)
+                  ENDIF
+                ENDIF
+              ENDIF
+            ENDDO
+          ENDDO
+         ELSE
+!
+!        --- unstructured grids
+!
+           DO K = 1, nverts
+              READ (NREF) AC2(:,:,K)
+           ENDDO
+         ENDIF
+        ELSEIF (KEYWIS ('NETC') ) THEN
+!
+! Read from netcdf
+!
+            call IGNORE('NETC')
+            call swn_hre_initva(FILENM, KGRPNT, AC2)
+            IF ( STPNOW() ) RETURN
+        ELSE                                                              41.42
+         CALL IGNORE ('FREE')                                             41.42
+         CALL FOR (NREF, FILENM, 'OF', IOSTAT)
+         IF (STPNOW()) RETURN                                             34.01
+         READ (NREF, 102) RLINE
+ 102     FORMAT (A)                                                       40.00
+         IF (RLINE(1:4).NE.'SWAN') CALL MSGERR (3, FILENM//
      &        ' is not a correct hotstart file')
- 110    READ (NREF, 102) RLINE
-        IF (RLINE(1:1).EQ.COMID .OR. RLINE(1:1).EQ.'!') GOTO 110          40.13
-        IF (EQCSTR(RLINE,'TIME')) THEN
-          READ (NREF, *) IIOPT
-          IF (ITEST.GE.50) WRITE (PRTEST, 122) IIOPT                      40.03
- 122      FORMAT (' time coding option:', I2)
-          READ (NREF, 102) RLINE
-!         in stationary mode, warning
-          IF (NSTATM.EQ.0) CALL MSGERR (1,
+ 110     READ (NREF, 102) RLINE
+         IF (RLINE(1:1).EQ.COMID .OR. RLINE(1:1).EQ.'!') GOTO 110         40.13
+         IF (EQCSTR(RLINE,'TIME')) THEN
+           READ (NREF, *) IIOPT
+           IF (ITEST.GE.50) WRITE (PRTEST, 122) IIOPT                     40.03
+ 122       FORMAT (' time coding option:', I2)
+           READ (NREF, 102) RLINE
+!          in stationary mode, warning
+           IF (NSTATM.EQ.0) CALL MSGERR (1,
      &                  'Time info in hotfile ignored')                   40.03
-        ELSE
-          IIOPT = -1
-          IF (NSTATM.EQ.1) CALL MSGERR (1,
+         ELSE
+           IIOPT = -1
+           IF (NSTATM.EQ.1) CALL MSGERR (1,
      &                  'No time info in hotfile')                        40.03
-        ENDIF
-        IF (EQCSTR(RLINE,'LOCA') .OR. EQCSTR(RLINE,'LONLAT')) THEN        40.13
-          READ (NREF, *) NUMPTS
-          IF (NUMPTS.NE.NPTOT) THEN                                       40.80 40.62
-            CALL MSGERR (2,
-     &      'grid on hotstart file differs from one in CGRID command')    40.00
-            WRITE (PRINTF, 123) NPTOT, NUMPTS                             40.80 40.62
- 123        FORMAT (1X, I6, ' points in comp.grid; on file:', I6)         40.03
-          ENDIF
-          IF (ITEST.GE.50) WRITE (PRTEST, 124) NUMPTS                     40.03
- 124      FORMAT (1X, I6, '  output locations')
-          DO IP = 1, NUMPTS
-            READ (NREF, *)
-          ENDDO
-          READ (NREF, 102) RLINE
-        ENDIF
-        IF (EQCSTR(RLINE(2:5),'FREQ')) THEN                               40.03
-          READ (NREF, *) NUMFRE
-          IF (NUMFRE.NE.MSC) CALL MSGERR (2,
-     &    'grid on hotstart file differs from one in CGRID command')      40.00
-          IF (ITEST.GE.50) WRITE (PRTEST, 126) NUMFRE                     40.03
- 126      FORMAT (1X, I6, '  frequencies')
-          DO IP = 1, NUMFRE
-            READ (NREF, *)
-          ENDDO
-          READ (NREF, 102) RLINE
-        ENDIF
-        IF (EQCSTR(RLINE(2:4),'DIR')) THEN                                40.03
-          READ (NREF, *) NUMDIR
-          IF (NUMDIR.NE.MDC) CALL MSGERR (2,
-     &    'grid on hotstart file differs from one in CGRID command')      40.00
-          IF (ITEST.GE.50) WRITE (PRTEST, 128) NUMDIR                     40.03
- 128      FORMAT (1X, I6, '  directions')
-          DO IP = 1, NUMDIR
-            READ (NREF, *) DIRTMP(IP)                                     40.41
-          ENDDO
-          IF (.NOT.EQREAL(DIRTMP(1)*PI/180.,SPCDIR(1,1)))                 40.41
-     &       IID = NINT(REAL(MDC)*(DIRTMP(1)-ALPC)/360.)                  40.41
-          READ (NREF, 102) RLINE
-        ENDIF
-        READ (NREF, *) NQUA
-        IF (NQUA.NE.1) CALL MSGERR (2,'NQUA>1: incorrect hotstart file')  40.00
-        READ (NREF, 102) RLINE
-        IF (ITEST.GE.50) WRITE (PRTEST, 130) RLINE                        40.03
- 130    FORMAT (1X, 'quantity: ', A)
-        READ (NREF, 102) RLINE                                            40.00
-        IF (EQCSTR(RLINE(3:3),'S')) IUNITAC = 1                           40.41
-        READ (NREF, 102) RLINE                                            40.00
+         ENDIF
+         IF (EQCSTR(RLINE,'LOCA') .OR. EQCSTR(RLINE,'LONLAT')) THEN       40.13
+           READ (NREF, *) NUMPTS
+           IF (NUMPTS.NE.NPTOT) THEN                                      40.80 40.62
+             CALL MSGERR (2,
+     &       'grid on hotstart file differs from one in CGRID command')   40.00
+             WRITE (PRINTF, 123) NPTOT, NUMPTS                            40.80 40.62
+ 123         FORMAT (1X, I8, ' points in comp.grid; on file:', I8)        40.03
+           ENDIF
+           IF (ITEST.GE.50) WRITE (PRTEST, 124) NUMPTS                    40.03
+ 124       FORMAT (1X, I8, '  output locations')
+           DO IP = 1, NUMPTS
+             READ (NREF, *)
+           ENDDO
+           READ (NREF, 102) RLINE
+         ENDIF
+         IF (EQCSTR(RLINE(2:5),'FREQ')) THEN                              40.03
+           READ (NREF, *) NUMFRE
+           IF (NUMFRE.NE.MSC) CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')     40.00
+           IF (ITEST.GE.50) WRITE (PRTEST, 126) NUMFRE                    40.03
+ 126       FORMAT (1X, I6, '  frequencies')
+           DO IP = 1, NUMFRE
+             READ (NREF, *)
+           ENDDO
+           READ (NREF, 102) RLINE
+         ENDIF
+         IF (EQCSTR(RLINE(2:4),'DIR')) THEN                               40.03
+           READ (NREF, *) NUMDIR
+           IF (NUMDIR.NE.MDC) CALL MSGERR (2,
+     &     'grid on hotstart file differs from one in CGRID command')     40.00
+           IF (ITEST.GE.50) WRITE (PRTEST, 128) NUMDIR                    40.03
+ 128       FORMAT (1X, I6, '  directions')
+           DO IP = 1, NUMDIR
+             READ (NREF, *) DIRTMP(IP)                                    40.41
+           ENDDO
+           IF (ABS(DIRTMP(1)*PI/180.-SPCDIR(1,1)).GT.0.5*DDIR)            40.41
+     &        IID = NINT(REAL(MDC)*(DIRTMP(1)-ALPC)/360.)                 40.41
+           READ (NREF, 102) RLINE
+         ENDIF
+         READ (NREF, *) NQUA
+         IF (NQUA.NE.1) CALL MSGERR(2,'NQUA>1: incorrect hotstart file')  40.00
+         READ (NREF, 102) RLINE
+         IF (ITEST.GE.50) WRITE (PRTEST, 130) RLINE                       40.03
+ 130     FORMAT (1X, 'quantity: ', A)
+         READ (NREF, 102) RLINE                                           40.00
+         IF (EQCSTR(RLINE(3:3),'S')) IUNITAC = 1                          40.41
+         READ (NREF, 102) RLINE                                           40.00
 !
-!       reading of heading is completed, read time if nonstationary
+!        reading of heading is completed, read time if nonstationary
 !
-        IF (IIOPT.GE.0) THEN
-          READ (NREF, 102) RLINE                                          40.00
-          CALL DTRETI (RLINE(1:18), IIOPT, TIMCO)                         40.00
-          WRITE (PRINTF, 210) RLINE(1:18)
- 210      FORMAT (' initial condition read for time: ', A)
-        ENDIF
+         IF (IIOPT.GE.0) THEN
+           READ (NREF, 102) RLINE                                         40.00
+           CALL DTRETI (RLINE(1:18), IIOPT, TIMCO)                        40.00
+           WRITE (PRINTF, 210) RLINE(1:18)
+ 210       FORMAT (' initial condition read for time: ', A)
+         ENDIF
 !
-        IF (OPTG.NE.5) THEN                                               40.80
+         IF (OPTG.NE.5) THEN                                              40.80
 !
-!       --- structured grid                                               40.80
+!        --- structured grid                                              40.80
 !
           DO 290 JX = 1, JXMAX                                            40.62
             IF (SINGLEHOT) THEN                                           40.62
@@ -5231,9 +6259,9 @@
               ENDIF
  280        CONTINUE
  290      CONTINUE
-        ELSE                                                              40.80
+         ELSE                                                             40.80
 !
-!          --- unstructured grids                                         40.80
+!        --- unstructured grids                                           40.80
 !
            DO K = 1, nverts
               READ (NREF, 102) RLINE
@@ -5271,7 +6299,8 @@
  225             FORMAT (' spectrum in vertex:', I6, '  factor=', E12.4)
               ENDIF
            ENDDO
-        ENDIF                                                             40.80
+         ENDIF                                                            40.80
+        ENDIF                                                             41.42
         CLOSE (NREF)
       ELSE
 !       default initial wave state, will be computed later by subr SWINCO
@@ -5298,6 +6327,8 @@
       USE SWCOMM4                                                         40.41
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+!PUN      USE SIZES                                                           40.95
+!ADC      USE Couple2Swan, ONLY: SwanHotStartUnit                             41.20
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -5311,7 +6342,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -5341,6 +6372,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.20: Casey Dietrich
 !
 !  1. Updates
 !
@@ -5353,10 +6385,11 @@
 !                     parallel computing
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Jun. 07: extension to unstructured grids
+!     41.20, Mar. 10: extension to tightly coupled ADCIRC+SWAN model
 !
 !  2. Purpose
 !
-!     backup current state of the wave field to a file
+!     backup current state of the wave field to a file (specified in FILENM)
 !
 !  4. Argument variables
 !
@@ -5384,87 +6417,156 @@
       INTEGER  KGRPNT(MXC,MYC)
       CHARACTER (LEN=8) :: CRFORM = '(2F14.4)'                            40.41
       LOGICAL  EQREAL                                                     40.41
+      LOGICAL  KEYWIS                                                     41.42
       SAVE     IENT
       DATA     IENT /0/
       CALL STRACE (IENT, 'BACKUP')
 !
 !     ==================================================================
 !
-!     HOTFile  'FNAME'                                                    40.00
+!                       | -> FREE                                         41.42
+!     HOTFile  'fname' <                                                  41.42 40.00
+!                       | UNFormatted                                     41.42
 !
 !     ==================================================================
 !
       CALL INCSTR ('FNAME', FILENM, 'REQ', ' ')
+!ADC      IF ( SwanHotStartUnit.EQ.67 ) THEN                                  41.20
+!ADC         FILENM = "swan.67"
+!ADC         SwanHotStartUnit = 68
+!ADC      ELSE
+!ADC         FILENM = "swan.68"
+!ADC         SwanHotStartUnit = 67
+!ADC      ENDIF
 !     --- append node number to FILENM in case of parallel computing      40.31
       IF ( PARLL ) THEN                                                   40.31
          ILPOS = INDEX ( FILENM, ' ' )-1                                  40.31
          WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                          40.31
   33     FORMAT('-',I3.3)                                                 40.31
       END IF                                                              40.31
+!PUN      FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                       40.95
       NREF   = 0
       IOSTAT = 0
-      CALL FOR (NREF, FILENM, 'UF', IOSTAT)
-      IF (STPNOW()) RETURN                                                34.01
-      WRITE (NREF, 102) 'SWAN   1', 'SWAN standard file, with version'
-      IF (NSTATM.EQ.1) THEN
-        WRITE (NREF, 102) 'TIME', 'time-dependent data'
- 102    FORMAT (A, T41, A)                                                40.00
-        WRITE (NREF, 103) ITMOPT, 'time coding option'                    40.03
- 103    FORMAT (I6, T41, A)                                               40.00
-      ENDIF
-      IF (KSPHER.EQ.0) THEN                                               40.13
-        WRITE (NREF, 102) 'LOCATIONS', 'locations in x-y-space'
-        CRFORM = '(2F14.4)'                                               40.41
-      ELSE                                                                40.13
-        WRITE (NREF, 102) 'LONLAT', 'locations on the globe'              40.13
-        CRFORM = '(2F12.6)'                                               40.41
-      ENDIF                                                               40.13
-      IF (OPTG.NE.5) THEN                                                 40.80
-         WRITE (NREF, 103) MXC*MYC, 'number of locations'
+      CALL INKEYW ('STA', 'FREE')                                         41.42
+      IF (KEYWIS ('UNF') .OR. KEYWIS('BIN')) THEN                         41.42
+       CALL FOR (NREF, FILENM, 'UU', IOSTAT)
+       IF (STPNOW()) RETURN
+       WRITE (NREF) VERTXT
+       WRITE (NREF) PROJID, PROJNR
+       WRITE (NREF) NSTATM
+       IF (NSTATM.EQ.1) WRITE (NREF) ITMOPT
+       WRITE (NREF) OPTG
+       IF (OPTG.NE.5) THEN
+         WRITE (NREF) MXC*MYC, MXC, MYC
+         DO IX = 1, MXC
+            DO IY = 1, MYC
+               IF ( EQREAL(XCGRID(IX,IY), EXCFLD(8)) .AND.
+     &              EQREAL(YCGRID(IX,IY), EXCFLD(9)) ) THEN
+                  WRITE (NREF) EXCFLD(8)+XOFFS, EXCFLD(9)+YOFFS
+               ELSE
+                  WRITE (NREF) XCGRID(IX,IY)+XOFFS, YCGRID(IX,IY)+YOFFS
+               ENDIF
+            ENDDO
+         ENDDO
+       ELSE
+         WRITE (NREF) nverts
+         DO K = 1, nverts
+            WRITE (NREF) xcugrd(K)+XOFFS, ycugrd(K)+YOFFS
+         ENDDO
+       ENDIF
+       WRITE (NREF) MSC
+       DO IS = 1, MSC
+         WRITE (NREF) SPCSIG(IS)/PI2
+       ENDDO
+       WRITE (NREF) MDC
+       DO ID = 1, MDC
+         WRITE (NREF) SPCDIR(ID,1)*180./PI
+       ENDDO
+!
+!      writing of heading is completed, write time if nonstationary
+!
+       IF (NSTATM.EQ.1) WRITE (NREF) CHTIME
+!
+       IF (OPTG.NE.5) THEN
+         DO IX = 1, MXC
+            DO IY = 1, MYC
+               INDX = KGRPNT(IX,IY)
+               WRITE (NREF) INDX
+               IF (INDX.NE.1) WRITE (NREF) AC2(:,:,INDX)
+            ENDDO
+         ENDDO
+       ELSE
+         DO K = 1, nverts
+            WRITE(NREF) AC2(:,:,K)
+         ENDDO
+       ENDIF
+      ELSE                                                                41.42
+       CALL IGNORE ('FREE')                                               41.42
+       CALL FOR (NREF, FILENM, 'UF', IOSTAT)
+       IF (STPNOW()) RETURN                                               34.01
+       WRITE (NREF, 102) 'SWAN   1', 'Swan standard file, version'
+       IF (NSTATM.EQ.1) THEN
+         WRITE (NREF, 102) 'TIME', 'time-dependent data'
+ 102     FORMAT (A, T41, A)                                               40.00
+         WRITE (NREF, 103) ITMOPT, 'time coding option'                   40.03
+ 103     FORMAT (I6, T41, A)                                              40.00
+       ENDIF
+       IF (KSPHER.EQ.0) THEN                                              40.13
+         WRITE (NREF, 102) 'LOCATIONS', 'locations in x-y-space'
+         CRFORM = '(2F14.4)'                                              40.41
+       ELSE                                                               40.13
+         WRITE (NREF, 102) 'LONLAT', 'locations on the globe'             40.13
+         CRFORM = '(2F12.6)'                                              40.41
+       ENDIF                                                              40.13
+       IF (OPTG.NE.5) THEN                                                40.80
+         WRITE (NREF, 104) MXC*MYC, MXC, MYC, 'number of locations'
+ 104     FORMAT (I8, 2I6, T41, A)
          DO IX = 1, MXC
            DO IY = 1, MYC
              IF ( EQREAL(XCGRID(IX,IY), EXCFLD(8)) .AND.                  40.41
      &            EQREAL(YCGRID(IX,IY), EXCFLD(9)) ) THEN                 40.41
-               WRITE (NREF, FMT=CRFORM) EXCFLD(8), EXCFLD(9)              40.41
+               WRITE (NREF, FMT=CRFORM) DBLE(EXCFLD(8)) + DBLE(XOFFS),
+     &                                  DBLE(EXCFLD(9)) + DBLE(YOFFS)
              ELSE
              WRITE (NREF, FMT=CRFORM) DBLE(XCGRID(IX,IY)) + DBLE(XOFFS),
      &                                DBLE(YCGRID(IX,IY)) + DBLE(YOFFS)   40.00
              ENDIF                                                        40.41
            ENDDO
          ENDDO
-      ELSE                                                                40.80
-         WRITE (NREF, 103) nverts, 'number of locations'                  40.80
+       ELSE                                                               40.80
+         WRITE (NREF, 105) nverts, 'number of locations'                  40.80
+ 105     FORMAT (I8, T41, A)
          DO K = 1, nverts                                                 40.80
             WRITE (NREF, FMT=CRFORM) DBLE(xcugrd(K)) + DBLE(XOFFS),       40.80
      &                               DBLE(ycugrd(K)) + DBLE(YOFFS)        40.80
          ENDDO                                                            40.80
-      ENDIF                                                               40.80
-      WRITE (NREF, 102) 'RFREQ', 'relative frequencies in Hz'             40.00
-      WRITE (NREF, 103) MSC, 'number of frequencies'                      40.00
-      DO 120 IS = 1, MSC
-        WRITE (NREF, 114) SPCSIG(IS)/PI2
- 114    FORMAT (F10.4)
- 120  CONTINUE
-      WRITE (NREF, 102) 'CDIR', 'spectral Cartesian directions in degr'   40.00
-      WRITE (NREF, 103) MDC, 'number of directions'
-      DO 130 ID = 1, MDC
-        WRITE (NREF, 124) SPCDIR(ID,1)*180./PI                            30.82
- 124    FORMAT (F10.4)
- 130  CONTINUE
-      WRITE (NREF, 132) 1
- 132  FORMAT ('QUANT', /, I6, T41, 'number of quantities in table')       40.00
-      WRITE (NREF, 102) 'AcDens', 'action densities'
-      WRITE (NREF, 102) 'm2s/Hz/deg', 'unit'                              40.31 40.00
-      WRITE (NREF, 102) '0.',     'exception value'                       40.00
+       ENDIF                                                              40.80
+       WRITE (NREF, 102) 'RFREQ', 'relative frequencies in Hz'            40.00
+       WRITE (NREF, 103) MSC, 'number of frequencies'                     40.00
+       DO 120 IS = 1, MSC
+         WRITE (NREF, 114) SPCSIG(IS)/PI2
+ 114     FORMAT (F10.4)
+ 120   CONTINUE
+       WRITE (NREF, 102) 'CDIR', 'spectral Cartesian directions in degr'  40.00
+       WRITE (NREF, 103) MDC, 'number of directions'
+       DO 130 ID = 1, MDC
+         WRITE (NREF, 124) SPCDIR(ID,1)*180./PI                           30.82
+ 124     FORMAT (F10.4)
+ 130   CONTINUE
+       WRITE (NREF, 132) 1
+ 132   FORMAT ('QUANT', /, I6, T41, 'number of quantities in table')      40.00
+       WRITE (NREF, 102) 'AcDens', 'action densities'
+       WRITE (NREF, 102) 'm2s/Hz/deg', 'unit'                             40.31 40.00
+       WRITE (NREF, 102) '0.',     'exception value'                      40.00
 !
-!     writing of heading is completed, write time if nonstationary
+!      writing of heading is completed, write time if nonstationary
 !
-      IF (NSTATM.EQ.1) THEN
-        WRITE (NREF, 202) CHTIME                                          40.00
- 202    FORMAT (A18, T41, 'date and time')
-      ENDIF
+       IF (NSTATM.EQ.1) THEN
+         WRITE (NREF, 202) CHTIME                                         40.00
+ 202     FORMAT (A18, T41, 'date and time')
+       ENDIF
 !
-      IF (OPTG.NE.5) THEN                                                 40.80
+       IF (OPTG.NE.5) THEN                                                40.80
          DO 290 IX = 1, MXC
            DO 280 IY = 1, MYC
              INDX = KGRPNT(IX,IY)
@@ -5475,12 +6577,13 @@
              ENDIF
  280       CONTINUE
  290     CONTINUE
-      ELSE                                                                40.80
+       ELSE                                                               40.80
          DO K = 1, nverts                                                 40.80
             CALL WRSPEC (NREF, AC2(1,1,K))                                40.80
          ENDDO                                                            40.80
-      ENDIF                                                               40.80
- 220  FORMAT (A6)                                                         40.08
+       ENDIF                                                              40.80
+ 220   FORMAT (A6)                                                        40.08
+      ENDIF                                                               41.42
       CLOSE (NREF)
       RETURN
 !     end of subr BACKUP

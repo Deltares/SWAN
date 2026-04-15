@@ -11,7 +11,7 @@ module SwanGridobjects
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -99,15 +99,17 @@ module SwanGridobjects
     integer, parameter :: CELLV2   = 6      ! second vertex number of present cell
     integer, parameter :: CELLV3   = 7      ! third vertex number of present cell
     !
-    integer, parameter :: MAXCELLATTR = 3   ! maximum number of attributes of type real
+    integer, parameter :: MAXCELLATTR = 5   ! maximum number of attributes of type real
                                             ! in data structure of cells
     integer, parameter :: CELLAREA = 1      ! area of cell
     integer, parameter :: CELLCX   = 2      ! x-component of cell centroid
     integer, parameter :: CELLCY   = 3      ! y-component of cell centroid
+    integer, parameter :: CELLCCX  = 4      ! x-component of cell circumcenter
+    integer, parameter :: CELLCCY  = 5      ! y-component of cell circumcenter
     !
     ! parameters for faces
     !
-    integer, parameter :: MAXFACEATTI = 6   ! maximum number of attributes of type integer
+    integer, parameter :: MAXFACEATTI = 9   ! maximum number of attributes of type integer
                                             ! in data structure of faces
     integer, parameter :: FACEID  = 1       ! identification number
     integer, parameter :: FMARKER = 2       ! boundary marker for faces
@@ -122,18 +124,25 @@ module SwanGridobjects
                                             !  - the first cell lies left of translation vector
                                             !    (second vertex - first vertex) and the second cell
                                             !    consequently lies right of this vector
+    integer, parameter :: FACECL  = 7       ! left cell number containing present face
+    integer, parameter :: FACECR  = 8       ! right cell number containing present face
+                                            ! - the ordering is such that the normal to face is
+                                            !   always pointing from left to right
+    integer, parameter :: FBTYPE  = 9       ! boundary type given at boundary face
     !
-    integer, parameter :: MAXFACEATTR = 6   ! maximum number of attributes of type real
+    integer, parameter :: MAXFACEATTR = 7   ! maximum number of attributes of type real
                                             ! in data structure of faces
     integer, parameter :: FACELEN   = 1     ! length of face
     integer, parameter :: FACENORMX = 2     ! x-component of normal to present face
     integer, parameter :: FACENORMY = 3     ! y-component of normal to present face
     integer, parameter :: FACEMX    = 4     ! x-component of midpoint of present face
     integer, parameter :: FACEMY    = 5     ! y-component of midpoint of present face
-    integer, parameter :: FACELINPF = 6     ! the interpolation factor when interpolating two quantities
-                                            ! in cell centroids adjacent to face j according to
-                                            ! q_face = q_m + face(j)%attr(FACELINPF) (q_n - q_m),
-                                            ! where m = face(j)%atti(FACEC1) and n = face(j)%atti(FACEC2)
+    integer, parameter :: FACEDISTC = 6     ! the distance between two circumcenters that lie on either
+                                            ! side of face
+    integer, parameter :: FACELINPF = 7     ! the interpolation factor when interpolating two quantities
+                                            ! in cell circumcenters adjacent to face j according to
+                                            ! q_face = q_r + face(j)%attr(FACELINPF) (q_l - q_r),
+                                            ! where l = face(j)%atti(FACECL) and r = face(j)%atti(FACECR)
 !
 !   Module variables
 !

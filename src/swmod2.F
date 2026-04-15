@@ -25,7 +25,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -82,10 +82,10 @@
 !     ETOT1  : First moment of the energy density
 !     ETOT2  : Second moment of the energy density
 !     ETOT4  : Fourth moment of the energy density
-!     KM_WAM : Mean average wavenumber according to the WAM-formulation
-!     KM01   : Mean average wavenumber according to first order moment
-!     SIGM_10: Mean frequency according to zeroth order moment
-!     SIGM01 : Mean frequency according to first order moment
+!     KM_WAM : Mean wavenumber according to the WAM-formulation
+!     KM01   : Mean wavenumber according to first and zeroth order moments
+!     SIGM_10: Mean frequency according to zeroth and first order moments
+!     SIGM01 : Mean frequency according to first and zeroth order moments
 !
       REAL, SAVE    :: ACTOT
       REAL, SAVE    :: EDRKTOT
@@ -95,11 +95,13 @@
       REAL, SAVE    :: ETOT4
       REAL, SAVE    :: KM_WAM
       REAL, SAVE    :: KM01
+      REAL, SAVE    :: SIGM_WAM
       REAL, SAVE    :: SIGM_10
       REAL, SAVE    :: SIGM01
 !
 !$OMP THREADPRIVATE(ACTOT, EDRKTOT, EKTOT, ETOT1, ETOT2, ETOT4,
-!$OMP&              KM_WAM, KM01, SIGM_10, SIGM01)
+!$OMP&              KM_WAM, KM01, SIGM_WAM,
+!$OMP&              SIGM_10, SIGM01)
 !
 !     SIGPOW : contains powers of relative frequencies
 !              second dimension indicates power of sigma
@@ -114,7 +116,7 @@
 !
 !     SSFILL :
 !     SINTGRL: Calculating integral paramters
-!     WCAP   : Calculating whitecapping source term
+!     SWCAP  : Calculating whitecapping source term
 !
 ! 10. Error messages
 !
@@ -146,7 +148,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -204,6 +206,10 @@
 
       INTEGER, PARAMETER :: MAX_OUTP_REQ = 250 ! max. number of output requests
 
+      INTEGER, PARAMETER :: POS_FHSWE = 79 ! pos. for extra output of FHSWELL
+      INTEGER, PARAMETER :: POS_FTM01 = 80 ! pos. for extra output of FTM01
+      INTEGER, PARAMETER :: POS_FDIR  = 81 ! pos. for extra output of FDIR
+
       CHARACTER (LEN=1)  :: OUT_COMMENT = '%' ! comment sign for heading lines
 
       LOGICAL            :: LCOMPGRD
@@ -212,7 +218,7 @@
       CHARACTER (LEN=40) :: FLT_BLOCK = '(6E12.4)'       ! floating point block
       CHARACTER (LEN=40) :: FLT_TABLE = '(E11.4)'        ! floating point table
 !     Number of decimals for spectral output increased to improve accuracy of hotfile output
-      CHARACTER (LEN=40) :: FIX_SPEC  = '(200(1X,I6))'   ! spectral output
+      CHARACTER (LEN=40) :: FIX_SPEC  = '(200(1X,I6))'   ! spectral output      
 
 !     format for block output per process in case of collecting data
       CHARACTER (LEN=40) :: FLT_BLKP = '(6E17.9)'
@@ -246,13 +252,17 @@
          CHARACTER (LEN=4)      :: RQTYPE   ! type (BLK, TAB, SPC ...)
          CHARACTER (LEN=8)      :: PSNAME   ! name of point set
          INTEGER                :: OQI(4)   ! integer coefficients
-         REAL                   :: OQR(2)   ! real coefficients
+         REAL*8                 :: OQR(2)   ! real coefficients
          INTEGER, POINTER       :: IVTYP(:) ! type of output variable
          REAL, POINTER          :: FAC(:)   ! multiplication factor of block output
          TYPE(ORQDAT), POINTER  :: NEXTORQ
       END TYPE ORQDAT
 
       TYPE(ORQDAT), SAVE, TARGET  :: FORQ
+      LOGICAL                     :: LORQ=.FALSE.                         BJXX
+                                                                          BJXX
+      LOGICAL, SAVE :: SwanBndStruc_done =.FALSE.                         BJXX
+      LOGICAL, SAVE :: RUNMADE           =.FALSE.                         BJXX
 !
 !  8. Subroutines and functions used
 !
@@ -278,6 +288,98 @@
 !
 ! 13. Source text
 !
+      INTERFACE CONSTRUCTOR                                               BJXX
+      MODULE PROCEDURE CONSTRUCTOR_OPS                                    BJXX
+      MODULE PROCEDURE CONSTRUCTOR_ORQ                                    BJXX
+      END INTERFACE                                                       BJXX
+                                                                          BJXX
+      INTERFACE DESTRUCTOR                                                BJXX
+      MODULE PROCEDURE DESTRUCTOR_OPS                                     BJXX
+      MODULE PROCEDURE DESTRUCTOR_ORQ                                     BJXX
+      END INTERFACE                                                       BJXX
+                                                                          BJXX
+      CONTAINS                                                            BJXX
+                                                                          BJXX
+      SUBROUTINE CONSTRUCTOR_OPS(OPS)                                     BJXX
+      TYPE(OPSDAT), POINTER :: OPS                                        BJXX
+      ALLOCATE(OPS)                                                       BJXX
+      OPS%PSTYPE = ''                                                     BJXX
+      OPS%PSNAME = ''                                                     BJXX
+      OPS%OPI(2) = 0                                                      BJXX
+      OPS%OPR(5) = 0.0                                                    BJXX
+      OPS%MIP    = 0                                                      BJXX
+      NULLIFY(OPS%XP)                                                     BJXX
+      NULLIFY(OPS%YP)                                                     BJXX
+      NULLIFY(OPS%XQ)                                                     BJXX
+      NULLIFY(OPS%YQ)                                                     BJXX
+      NULLIFY(OPS%NEXTOPS)                                                BJXX
+      END SUBROUTINE CONSTRUCTOR_OPS                                      BJXX
+                                                                          BJXX
+      SUBROUTINE CONSTRUCTOR_ORQ(ORQ)                                     BJXX
+      TYPE(ORQDAT), POINTER :: ORQ                                        BJXX
+      ALLOCATE(ORQ)                                                       BJXX
+      ORQ%RQTYPE = ''                                                     BJXX
+      ORQ%PSNAME = ''                                                     BJXX
+      ORQ%OQI    = 0                                                      BJXX
+      ORQ%OQR    = 0.0                                                    BJXX
+      NULLIFY(ORQ%IVTYP)                                                  BJXX
+      NULLIFY(ORQ%FAC)                                                    BJXX
+      NULLIFY(ORQ%NEXTORQ)                                                BJXX
+      END SUBROUTINE CONSTRUCTOR_ORQ                                      BJXX
+                                                                          BJXX
+      RECURSIVE SUBROUTINE DESTRUCTOR_OPS(OPS)                            BJXX
+      TYPE(OPSDAT) :: OPS                                                 BJXX
+      INTEGER :: ISTAT                                                    BJXX
+      OPS%PSTYPE = ''                                                     BJXX
+      OPS%PSNAME = ''                                                     BJXX
+      OPS%OPI = 0                                                         BJXX
+      OPS%OPR = 0.0                                                       BJXX
+      OPS%MIP = 0                                                         BJXX
+      IF (ASSOCIATED(OPS%XP)) THEN                                        BJXX
+          DEALLOCATE(OPS%XP, STAT = ISTAT)                                BJXX
+          NULLIFY(OPS%XP)                                                 BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(OPS%YP)) THEN                                        BJXX
+          DEALLOCATE(OPS%YP, STAT = ISTAT)                                BJXX
+          NULLIFY(OPS%YP)                                                 BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(OPS%XQ)) THEN                                        BJXX
+          DEALLOCATE(OPS%XQ, STAT = ISTAT)                                BJXX
+          NULLIFY(OPS%XQ)                                                 BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(OPS%YQ)) THEN                                        BJXX
+          DEALLOCATE(OPS%YQ, STAT = ISTAT)                                BJXX
+          NULLIFY(OPS%YQ)                                                 BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(OPS%NEXTOPS)) THEN                                   BJXX
+          CALL DESTRUCTOR_OPS(OPS%NEXTOPS)                                BJXX
+          DEALLOCATE(OPS%NEXTOPS, STAT = ISTAT)                           BJXX
+          NULLIFY(OPS%NEXTOPS)                                            BJXX
+      ENDIF                                                               BJXX
+      END SUBROUTINE DESTRUCTOR_OPS                                       BJXX
+                                                                          BJXX
+      RECURSIVE SUBROUTINE DESTRUCTOR_ORQ(ORQ)                            BJXX
+      TYPE(ORQDAT) :: ORQ                                                 BJXX
+      INTEGER :: ISTAT                                                    BJXX
+      ORQ%RQTYPE = ''                                                     BJXX
+      ORQ%PSNAME = ''                                                     BJXX
+      ORQ%OQI    = 0                                                      BJXX
+      ORQ%OQR    = 0.0                                                    BJXX
+      IF (ASSOCIATED(ORQ%IVTYP)) THEN                                     BJXX
+          DEALLOCATE(ORQ%IVTYP, STAT = ISTAT)                             BJXX
+          NULLIFY(ORQ%IVTYP)                                              BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(ORQ%FAC)) THEN                                       BJXX
+          DEALLOCATE(ORQ%FAC, STAT = ISTAT)                               BJXX
+          NULLIFY(ORQ%FAC)                                                BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(ORQ%NEXTORQ)) THEN                                   BJXX
+          CALL DESTRUCTOR_ORQ(ORQ%NEXTORQ)                                BJXX
+          DEALLOCATE(ORQ%NEXTORQ, STAT = ISTAT)                           BJXX
+          NULLIFY(ORQ%NEXTORQ)                                            BJXX
+      ENDIF                                                               BJXX
+      END SUBROUTINE DESTRUCTOR_ORQ                                       BJXX
+                                                                          BJXX
       END MODULE OUTP_DATA
 
       MODULE M_SNL4
@@ -294,7 +396,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -315,12 +417,10 @@
 !  0. Authors
 !
 !     40.17: IJsbrand Haagsma
-!     40.41: Marcel Zijlema
 !
 !  1. Updates
 !
 !     Feb. 01: New Module
-!     Aug. 04: added linked list for RIAM
 !
 !  2. Purpose
 !
@@ -360,15 +460,6 @@
       REAL, PUBLIC, SAVE, ALLOCATABLE :: CNL4_2(:)
       REAL, PUBLIC, SAVE, ALLOCATABLE :: LAMBDA(:)
 
-      TYPE RIAMDAT
-         INTEGER                :: II(3), JJ(3)
-         REAL                   :: SSS, DI(3), DJ(3)
-         TYPE(RIAMDAT), POINTER :: NEXTRIAM
-      END TYPE RIAMDAT
-
-      TYPE(RIAMDAT), SAVE, TARGET  :: FRIAM
-      TYPE(RIAMDAT), SAVE, POINTER :: CURRIAM
-
 !  8. Subroutines and functions used
 !
 !     ---
@@ -407,7 +498,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -489,13 +580,15 @@
 !               4: directional distribution coefficient
 
       TYPE BSPCDAT
-         INTEGER                :: BFILED(20)
+         INTEGER                :: BFILED(20) = 0
          INTEGER, POINTER       :: BSPLOC(:)
          REAL, POINTER          :: BSPDIR(:), BSPFRQ(:)
          TYPE(BSPCDAT), POINTER :: NEXTBSPC
       END TYPE BSPCDAT
 
       TYPE(BSPCDAT), SAVE, TARGET :: FBNDFIL
+      TYPE(BSPCDAT), SAVE, POINTER :: CUBFL                               BJXX
+      LOGICAL, SAVE :: LBFILS = .FALSE.                                   BJXX
 
       TYPE BSDAT
          INTEGER                :: NBS
@@ -505,6 +598,8 @@
       END TYPE BSDAT
 
       TYPE(BSDAT), SAVE, TARGET :: FBS
+      TYPE(BSDAT), SAVE, POINTER :: CUBS                                  BJXX
+      LOGICAL, SAVE :: LBS    = .FALSE.                                   BJXX
 
       TYPE BGPDAT
          INTEGER                :: BGP(6)
@@ -513,6 +608,7 @@
 
       TYPE(BGPDAT), SAVE, TARGET  :: FBGP
       TYPE(BGPDAT), SAVE, POINTER :: CUBGP
+      LOGICAL, SAVE :: LBGP   = .FALSE.                                   BJXX
 
 !  8. Subroutines and functions used
 !
@@ -536,6 +632,96 @@
 !
 ! 13. Source text
 !
+      INTERFACE CONSTRUCTOR                                               BJXX
+      MODULE PROCEDURE CONSTRUCTOR_BSPCDAT                                BJXX
+      MODULE PROCEDURE CONSTRUCTOR_BSDAT                                  BJXX
+      MODULE PROCEDURE CONSTRUCTOR_BGPDAT                                 BJXX
+      END INTERFACE CONSTRUCTOR                                           BJXX
+                                                                          BJXX
+      INTERFACE DESTRUCTOR                                                BJXX
+      MODULE PROCEDURE DESTRUCTOR_BSPCDAT                                 BJXX
+      MODULE PROCEDURE DESTRUCTOR_BSDAT                                   BJXX
+      MODULE PROCEDURE DESTRUCTOR_BGPDAT                                  BJXX
+      END INTERFACE DESTRUCTOR                                            BJXX
+                                                                          BJXX
+      CONTAINS                                                            BJXX
+                                                                          BJXX
+      SUBROUTINE CONSTRUCTOR_BSPCDAT(BSPC)                                BJXX
+      TYPE(BSPCDAT), POINTER :: BSPC                                      BJXX
+      ALLOCATE(BSPC)                                                      BJXX
+      BSPC%BFILED = 0                                                     BJXX
+      NULLIFY(BSPC%BSPLOC)                                                BJXX
+      NULLIFY(BSPC%BSPDIR)                                                BJXX
+      NULLIFY(BSPC%BSPFRQ)                                                BJXX
+      NULLIFY(BSPC%NEXTBSPC)                                              BJXX
+      END SUBROUTINE CONSTRUCTOR_BSPCDAT                                  BJXX
+                                                                          BJXX
+      SUBROUTINE CONSTRUCTOR_BSDAT(BS)                                    BJXX
+      TYPE(BSDAT), POINTER :: BS                                          BJXX
+      ALLOCATE(BS)                                                        BJXX
+      BS%NBS    = 0                                                       BJXX
+      BS%FSHAPE = 0                                                       BJXX
+      BS%DSHAPE = 0                                                       BJXX
+      BS%SPPARM = 0.0                                                     BJXX
+      NULLIFY(BS%NEXTBS)                                                  BJXX
+      END SUBROUTINE CONSTRUCTOR_BSDAT                                    BJXX
+                                                                          BJXX
+      SUBROUTINE CONSTRUCTOR_BGPDAT(BGP)                                  BJXX
+      TYPE(BGPDAT), POINTER :: BGP                                        BJXX
+      ALLOCATE(BGP)                                                       BJXX
+      BGP%BGP = 0                                                         BJXX
+      NULLIFY(BGP%NEXTBGP)                                                BJXX
+      END SUBROUTINE CONSTRUCTOR_BGPDAT                                   BJXX
+                                                                          BJXX
+      RECURSIVE SUBROUTINE DESTRUCTOR_BSPCDAT(BSPC)                       BJXX
+      TYPE(BSPCDAT) :: BSPC                                               BJXX
+      INTEGER :: ISTAT                                                    BJXX
+      BSPC%BFILED = 0                                                     BJXX
+      IF (ASSOCIATED(BSPC%BSPLOC)) THEN                                   BJXX
+          DEALLOCATE(BSPC%BSPLOC, STAT = ISTAT)                           BJXX
+          NULLIFY(BSPC%BSPLOC)                                            BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(BSPC%BSPDIR)) THEN                                   BJXX
+          DEALLOCATE(BSPC%BSPDIR, STAT = ISTAT)                           BJXX
+          NULLIFY(BSPC%BSPDIR)                                            BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(BSPC%BSPFRQ)) THEN                                   BJXX
+          DEALLOCATE(BSPC%BSPFRQ, STAT = ISTAT)                           BJXX
+          NULLIFY(BSPC%BSPFRQ)                                            BJXX
+      ENDIF                                                               BJXX
+      IF (ASSOCIATED(BSPC%NEXTBSPC)) THEN                                 BJXX
+          CALL DESTRUCTOR_BSPCDAT(BSPC%NEXTBSPC)                          BJXX
+          DEALLOCATE(BSPC%NEXTBSPC, STAT = ISTAT)                         BJXX
+          NULLIFY(BSPC%NEXTBSPC)                                          BJXX
+      ENDIF                                                               BJXX
+      END SUBROUTINE DESTRUCTOR_BSPCDAT                                   BJXX
+                                                                          BJXX
+      RECURSIVE SUBROUTINE DESTRUCTOR_BSDAT(BS)                           BJXX
+      TYPE(BSDAT) :: BS                                                   BJXX
+      INTEGER :: ISTAT                                                    BJXX
+      BS%NBS    = 0                                                       BJXX
+      BS%FSHAPE = 0                                                       BJXX
+      BS%DSHAPE = 0                                                       BJXX
+      BS%SPPARM = 0.0                                                     BJXX
+      IF (ASSOCIATED(BS%NEXTBS)) THEN                                     BJXX
+          CALL DESTRUCTOR_BSDAT(BS%NEXTBS)                                BJXX
+          DEALLOCATE(BS%NEXTBS, STAT = ISTAT)                             BJXX
+          NULLIFY(BS%NEXTBS)                                              BJXX
+      ENDIF                                                               BJXX
+      END SUBROUTINE DESTRUCTOR_BSDAT                                     BJXX
+                                                                          BJXX
+      RECURSIVE SUBROUTINE DESTRUCTOR_BGPDAT(BGP)                         BJXX
+      TYPE(BGPDAT) :: BGP                                                 BJXX
+      INTEGER :: ISTAT                                                    BJXX
+      BGP%BGP = 0                                                         BJXX
+      IF (ASSOCIATED(BGP%NEXTBGP)) THEN                                   BJXX
+          CALL DESTRUCTOR_BGPDAT(BGP%NEXTBGP)                             BJXX
+          DEALLOCATE(BGP%NEXTBGP, STAT = ISTAT)                           BJXX
+          NULLIFY(BGP%NEXTBGP)                                            BJXX
+      ENDIF                                                               BJXX
+      NULLIFY(BGP%NEXTBGP)                                                BJXX
+      END SUBROUTINE DESTRUCTOR_BGPDAT                                    BJXX
+                                                                          BJXX
       END MODULE M_BNDSPEC
 
       MODULE M_OBSTA
@@ -552,7 +738,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -603,12 +789,17 @@
 !  7. Local variables
 !
 !     FOBSTAC : first obstacle in list of obstacles
+!     FBCOEF  : freeboard dependent coefficients
+!     FBTYP1  : freeboard type: freeboard or not
+!     FBTYP2  : freeboard type: includes quay or not
 !     NCRPTS  : number of corner points in obstacle
 !     NEXTOBST: pointer to next obstacle in list
 !     RFCOEF  : reflection coefficients
 !     RFTYP1  : reflection type: standard (REFL)
 !     RFTYP2  : reflection type: diffusive/specular (RDIFF/RSPEC)
 !     RFTYP3  : reflection type: frequency-dependent (RFD)
+!     TRCF1D  : frequency dependent transmission coefficients
+!     TRCF2D  : frequency and direction dependent transmission coefficients
 !     TRCOEF  : transmission coefficients
 !     TRTYPE  : transmission type
 !     XCRP    : x-coordinate of corner point
@@ -617,8 +808,11 @@
       TYPE OBSTDAT
          INTEGER                :: TRTYPE
          REAL                   :: TRCOEF(3)
+         REAL, POINTER          :: TRCF1D(:), TRCF2D(:,:)
          INTEGER                :: RFTYP1, RFTYP2, RFTYP3
          REAL                   :: RFCOEF(6)
+         INTEGER                :: FBTYP1, FBTYP2
+         REAL                   :: FBCOEF(3)
          INTEGER                :: NCRPTS
          REAL, POINTER          :: XCRP(:), YCRP(:)
          TYPE(OBSTDAT), POINTER :: NEXTOBST
@@ -664,7 +858,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -685,10 +879,12 @@
 !  0. Authors
 !
 !     40.31: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
 !     Oct. 03: New Module
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -707,6 +903,9 @@
 !     UXB   , UYB
 !     WXI   , WYI
 !     WLEVL , ASTDF
+!     NPLAF, TURBF
+!     MUDLF
+!     AICEF, HICEF
 !
 !  4. Modules used
 !
@@ -725,12 +924,17 @@
 !  7. Local variables
 !
 !     AC2   : Contains action density at present time step
+!     AICEF : input field containing ice concentration (fraction)
 !     ASTDF : input field of air-sea temperature difference
 !     DEPTH : input field of depth
 !     FRIC  : input field of friction
+!     HICEF : input field containing ice thickness (meters)
 !     KGRBND: array containing all boundary points
 !             (+ 2 extra zeros as area separator for all separated areas)
 !     KGRPNT: array containing indirect addresses for grid points
+!     LAYH  : layer thickness for vegetation model
+!     MUDLF : input field containing fluid mud layer
+!     NPLAF : input field containing number of plants per square meter
 !     SPCDIR: (*,1); spectral directions (radians)
 !             (*,2); cosine of spectral directions
 !             (*,3); sine of spectral directions
@@ -738,8 +942,12 @@
 !             (*,5); cosine*sine of spectral directions
 !             (*,6); sine^2 of spectral directions
 !     SPCSIG: Relative frequencies in computational domain in sigma-space
+!     TURBF : input field containing turbulent viscosity
 !     UXB   : input field of contravariant U-velocity
 !     UYB   : input field of contravariant V-velocity
+!     VEGDIL: vegetation diameter for each layer and grid point
+!     VEGDRL: drag coefficient for each layer and grid point
+!     VEGNSL: number of plants / m2 for each layer and grid point
 !     WLEVL : input field of water level
 !     WXI   : input field of wind U-velocity (contravariant)
 !     WYI   : input field of wind V-velocity (contravariant)
@@ -754,8 +962,17 @@
       REAL   , SAVE, ALLOCATABLE :: SPCSIG(:)  , SPCDIR(:,:)
       REAL   , SAVE, ALLOCATABLE :: DEPTH(:) , FRIC(:)
       REAL   , SAVE, ALLOCATABLE :: UXB(:)   , UYB(:)
-      REAL   , SAVE, ALLOCATABLE :: WXI(:)   , WYI(:)
+      REAL   , SAVE, POINTER     :: WXI(:) => NULL(), WYI(:) => NULL()
       REAL   , SAVE, ALLOCATABLE :: WLEVL(:) , ASTDF(:)
+      REAL   , SAVE, ALLOCATABLE :: MUDLF(:)
+      REAL   , SAVE, ALLOCATABLE :: NPLAF(:) , TURBF(:)
+      REAL   , SAVE, ALLOCATABLE :: AICEF(:) , HICEF(:)
+      REAL   , SAVE, ALLOCATABLE :: LAYH(:), VEGDIL(:), VEGDRL(:),
+     &                              VEGNSL(:)
+!ESMF!
+!ESMF!     added to save Sin exponential growth term for coupling
+!ESMF      LOGICAL, SAVE :: SAVE_SINBAC
+!ESMF      REAL   , SAVE, ALLOCATABLE :: SINBAC(:,:,:)
 
 !  8. Subroutines and functions used
 !
@@ -795,7 +1012,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -844,19 +1061,33 @@
 !
 !  6. Parameter variables
 !
+!JAC!     IBLACK  : integer used to colour subdomains 'black' for
+!JAC!               determining sequence of sweeps (=4,1,2,3)
+!JAC!     IGREEN  : integer used to colour subdomains 'green' for
+!JAC!               determining sequence of sweeps (=3,4,1,2)
 !     IHALOX  : width of halo area in x-direction
 !     IHALOY  : width of halo area in y-direction
+!JAC!     IRED    : integer used to colour subdomains 'red' for
+!JAC!               determining sequence of sweeps (=1,2,3,4)
+!JAC!     IYELOW  : integer used to colour subdomains 'yellow' for
+!JAC!               determining sequence of sweeps (=2,3,4,1)
 !     MASTER  : rank of master process
 !
       INTEGER MASTER
+!JAC      INTEGER IRED, IYELOW, IGREEN, IBLACK
       INTEGER IHALOX, IHALOY
-      PARAMETER (MASTER = 1,
-     &           IHALOX = 3, IHALOY = 3)
+      PARAMETER (MASTER = 1
+!JAC     &          ,IRED   = 1, IYELOW = 2,
+!JAC     &           IGREEN = 3, IBLACK = 4,
+!JAC     &           IHALOX = 1, IHALOY = 1
+     &          ,IHALOX = 3, IHALOY = 3
+     &          )
 !
 !  7. Local variables
 !
 !     *** variables for parallel process with MPI:
 !
+!     IAMMASTER: indicate whether this CPU is master or not
 !     INODE   : rank of present node
 !     NPROC   : number of nodes
 !     PARLL   : flag to denote run as parallel (.TRUE.) or not (.FALSE.)
@@ -869,10 +1100,20 @@
       INTEGER INODE, NPROC
       INTEGER SWINT, SWREAL
       INTEGER SWMAX, SWMIN, SWSUM
-      LOGICAL PARLL
+      LOGICAL IAMMASTER, PARLL
 !
+#ifndef SWANEXE
+!COH!     *** variables for coupling with COHERENS
+!COH!
+!COH!     COMM    : communicator for the wave subgroup
+!COH!
+!COH      INTEGER COMM
+      INTEGER COMM
+!COH!
+#endif
 !     *** information related to global domain and subdomains
 !
+!JAC!     IBCOL   : integer indicating the color of own subdomain
 !     IBLKAD  : administration array for subdomain interfaces
 !               contents:
 !               pos. 1                     number of neighbouring subdomains
@@ -922,6 +1163,7 @@
 !     XGRDGL  : x-coordinate of computational grid in global domain
 !     YGRDGL  : y-coordinate of computational grid in global domain
 !
+!JAC      INTEGER IBCOL
       INTEGER MCGRDGL, MXCGL, MYCGL
       INTEGER MXF, MXL, MYF, MYL
       INTEGER NGRBGL, NBGGL
@@ -974,7 +1216,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1057,7 +1299,14 @@
 ! 13. Source text
 !
       END MODULE M_DIFFR
-!MPI!/impi
-!MPI!/impi      MODULE MPI
-!MPI!/impi      INCLUDE 'mpif.h'
-!MPI!/impi      END MODULE MPI
+
+!/impi!D3D#ifdef USE_MPI
+!/impi
+!/impi      MODULE MPI
+!/impi      INCLUDE 'mpif.h'
+!/impi      END MODULE MPI
+!PUN!/impi
+!PUN!/impi      MODULE MPI
+!PUN!/impi      INCLUDE 'mpif.h'
+!PUN!/impi      END MODULE MPI
+!/impi!D3D#endif

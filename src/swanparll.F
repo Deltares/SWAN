@@ -14,6 +14,7 @@
 !     SWREDUCI
 !     SWREDUCR
 !     SWSTRIP
+!JAC!     SWORB
 !     SWPARTIT
 !     SWBLADM
 !     SWDECOMP
@@ -25,6 +26,7 @@
 !     SWCOLTAB
 !     SWCOLSPC
 !     SWCOLBLK
+!JAC!     SWBLKCOL
 !
 !****************************************************************
 !
@@ -32,7 +34,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -50,7 +54,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -72,11 +76,13 @@
 !
 !     40.30: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!COH!     41.61: Homayoon Komijani
 !
 !  1. Updates
 !
 !     40.30, Jan. 03: New subroutine
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!COH!     41.61, Aug. 14: coupling with COHERENS
 !
 !  2. Purpose
 !
@@ -111,9 +117,11 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_COMM_RANK    Get rank of processes in MPI communication context
-!MPI!     MPI_COMM_SIZE    Get number of processes in MPI communication context
-!MPI!     MPI_INIT         Enroll in MPI
+#ifdef USE_MPI
+!     MPI_COMM_RANK    Get rank of processes in MPI communication context
+!     MPI_COMM_SIZE    Get number of processes in MPI communication context
+!     MPI_INIT         Enroll in MPI
+#endif
 !     MSGERR           Writes error message
 !     TXPBLA           Removes leading and trailing blanks in string
 !
@@ -135,53 +143,74 @@
       MAXERR = 1
       ITRACE = 0
 
-!MPI!     --- enroll in MPI
-!MPI
-!MPI      CALL MPI_INIT ( IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+!     --- enroll in MPI
+
+#ifdef SWANEXE
+      CALL MPI_INIT ( IERR )
+#else
+!COH      IERR = MPI_SUCCESS                                                  41.61
+      IERR = MPI_SUCCESS
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
 !     --- initialize common variables
 
       INODE = 0
       NPROC = 1
 
-!MPI!     --- get node number INODE
-!MPI
-!MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, INODE, IERR )
+#ifdef USE_MPI
+!     --- get node number INODE
+
+#ifdef SWANEXE
+      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, INODE, IERR )
+#else
+!COH      CALL MPI_COMM_RANK ( COMM, INODE, IERR )
+      CALL MPI_COMM_RANK ( COMM, INODE, IERR )
+#endif
+#endif
       INODE = INODE + 1
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         CHARS(2) = INTSTR(INODE)
-!MPI         CALL TXPBLA(CHARS(2),IF2,IL2)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)//
-!MPI     &            ' and node number is '//CHARS(2)(IF2:IL2)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
-!MPI
-!MPI!     --- determine total number of processes
-!MPI
-!MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROC, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         CHARS(2) = INTSTR(INODE)
-!MPI         CALL TXPBLA(CHARS(2),IF2,IL2)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)//
-!MPI     &            ' and node number is '//CHARS(2)(IF2:IL2)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         CHARS(2) = INTSTR(INODE)
+         CALL TXPBLA(CHARS(2),IF2,IL2)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)//
+     &            ' and node number is '//CHARS(2)(IF2:IL2)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+
+!     --- determine total number of processes
+
+#ifdef SWANEXE
+      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROC, IERR )
+#else
+!COH      CALL MPI_COMM_SIZE ( COMM, NPROC, IERR )
+      CALL MPI_COMM_SIZE ( COMM, NPROC, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         CHARS(2) = INTSTR(INODE)
+         CALL TXPBLA(CHARS(2),IF2,IL2)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)//
+     &            ' and node number is '//CHARS(2)(IF2:IL2)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
 !     --- determine whether this is a parallel run or not
 
@@ -191,13 +220,19 @@
          PARLL = .FALSE.
       END IF
 
-!MPI!     --- define MPI constants for communication within SWAN
-!MPI
-!MPI      SWINT  = MPI_INTEGER
-!MPI      SWREAL = MPI_REAL
-!MPI      SWMAX  = MPI_MAX
-!MPI      SWMIN  = MPI_MIN
-!MPI      SWSUM  = MPI_SUM
+!     --- am I master?
+
+      IAMMASTER = INODE.EQ.MASTER
+
+#ifdef USE_MPI
+!     --- define MPI constants for communication within SWAN
+
+      SWINT  = MPI_INTEGER
+      SWREAL = MPI_REAL
+      SWMAX  = MPI_MAX
+      SWMIN  = MPI_MIN
+      SWSUM  = MPI_SUM
+#endif
 
       RETURN
       END
@@ -207,8 +242,14 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
+#ifndef SWANEXE
+!COH      USE M_PARALL, ONLY: COMM                                            41.61
+      USE M_PARALL, ONLY: COMM
+#endif
 !
       IMPLICIT NONE
 !
@@ -224,7 +265,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -246,11 +287,13 @@
 !
 !     40.30: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!COH!     41.61: Homayoon Komijani
 !
 !  1. Updates
 !
 !     40.30, Jan. 03: New subroutine
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!COH!     41.61, Aug. 14: coupling with COHERENS
 !
 !  2. Purpose
 !
@@ -274,10 +317,12 @@
 !
 !  8. Subroutines used
 !
-!MPI!     MPI_ABORT        Abort MPI if severe error occurs
-!MPI!     MPI_BARRIER      Blocks until all nodes have called this routine
-!MPI!     MPI_INITIALIZED  Indicates whether MPI_Init has been called
-!MPI!     MPI_FINALIZE     Cleans up the MPI state and exits
+#ifdef USE_MPI
+!     MPI_ABORT        Abort MPI if severe error occurs
+!     MPI_BARRIER      Blocks until all nodes have called this routine
+!     MPI_INITIALIZED  Indicates whether MPI_Init has been called
+!     MPI_FINALIZE     Cleans up the MPI state and exits
+#endif
 !
 !  9. Subroutines calling
 !
@@ -289,36 +334,50 @@
 !
 ! 12. Structure
 !
-!MPI!     if MPI has been initialized
-!MPI!        synchronize nodes
-!MPI!        if severe error
-!MPI!           abort MPI
-!MPI!        else
-!MPI!           close MPI
-!MPI!
+!     if MPI has been initialized
+!        synchronize nodes
+!        if severe error
+!           abort MPI
+!        else
+!           close MPI
+!
 ! 13. Source text
 !
-!MPI      CALL MPI_INITIALIZED ( PARALMPI, IERR )
-!MPI      IF ( PARALMPI ) THEN
-!MPI
-!MPI         CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
-!MPI
-!MPI         IF ( LEVERR.GE.4 ) THEN
-!MPI
-!MPI!        --- in case of a severe error abort all MPI processes
-!MPI
-!MPI            CALL MPI_ABORT ( MPI_COMM_WORLD, LEVERR, IERR )
-!MPI
-!MPI         ELSE
-!MPI
-!MPI!        --- otherwise stop MPI operations on this computer
-!MPI
-!MPI            CALL MPI_FINALIZE ( IERR )
-!MPI
-!MPI         END IF
-!MPI
-!MPI      END IF
-!MPI
+#ifdef USE_MPI
+      CALL MPI_INITIALIZED ( PARALMPI, IERR )
+      IF ( PARALMPI ) THEN
+
+#ifdef SWANEXE
+         CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
+#else
+!COH         CALL MPI_BARRIER ( COMM, IERR )
+         CALL MPI_BARRIER ( COMM, IERR )
+#endif
+
+         IF ( LEVERR.GE.4 ) THEN
+
+!        --- in case of a severe error abort all MPI processes
+
+#ifdef SWANEXE
+            CALL MPI_ABORT ( MPI_COMM_WORLD, LEVERR, IERR )
+#else
+!COH            CALL MPI_ABORT ( COMM, LEVERR, IERR )
+            CALL MPI_ABORT ( COMM, LEVERR, IERR )
+#endif
+
+         ELSE
+
+!        --- otherwise stop MPI operations on this computer
+
+#ifdef SWANEXE
+            CALL MPI_FINALIZE ( IERR )
+#endif
+
+         END IF
+
+      END IF
+
+#endif
       RETURN
       END
 !****************************************************************
@@ -327,7 +386,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -345,7 +406,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -407,7 +468,9 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_BARRIER      Blocks until all nodes have called this routine
+#ifdef USE_MPI
+!     MPI_BARRIER      Blocks until all nodes have called this routine
+#endif
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !     TXPBLA           Removes leading and trailing blanks in string
@@ -431,20 +494,27 @@
       DATA IENT/0/
       IF (LTRACE) CALL STRACE (IENT,'SWSYNC')
 
-!MPI!     --- blocks until all nodes have called this routine
-!MPI
-!MPI      CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         CHARS(2) = INTSTR(INODE)
-!MPI         CALL TXPBLA(CHARS(2),IF2,IL2)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)//
-!MPI     &            ' and node number is '//CHARS(2)(IF2:IL2)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+!     --- blocks until all nodes have called this routine
+
+#ifdef SWANEXE
+      CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_BARRIER ( COMM, IERR )
+      CALL MPI_BARRIER ( COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         CHARS(2) = INTSTR(INODE)
+         CALL TXPBLA(CHARS(2),IF2,IL2)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)//
+     &            ' and node number is '//CHARS(2)(IF2:IL2)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
       RETURN
       END
@@ -454,7 +524,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -472,7 +544,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -540,8 +612,10 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_SEND         Immediately sends the data in the active
-!MPI!                      MPI message buffer
+#ifdef USE_MPI
+!     MPI_SEND         Immediately sends the data in the active
+!                      MPI message buffer
+#endif
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !     TXPBLA           Removes leading and trailing blanks in string
@@ -556,7 +630,7 @@
 !
 ! 12. Structure
 !
-!MPI!     Data is sent to a neighbour with command MPI_SEND
+!     Data is sent to a neighbour with command MPI_SEND
 !
 ! 13. Source text
 !
@@ -567,19 +641,28 @@
 !     --- if not parallel, return
       IF (.NOT.PARLL) RETURN
 
-!MPI      CALL MPI_SEND ( IPTR, ILEN, ITYPE, IDEST-1,
-!MPI     &                ITAG, MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         CHARS(2) = INTSTR(INODE)
-!MPI         CALL TXPBLA(CHARS(2),IF2,IL2)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)//
-!MPI     &            ' and node number is '//CHARS(2)(IF2:IL2)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+#ifdef SWANEXE
+      CALL MPI_SEND ( IPTR, ILEN, ITYPE, IDEST-1,
+     &                ITAG, MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_SEND ( IPTR, ILEN, ITYPE, IDEST-1,
+!COH     &                ITAG, COMM, IERR )
+      CALL MPI_SEND ( IPTR, ILEN, ITYPE, IDEST-1,
+     &                ITAG, COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         CHARS(2) = INTSTR(INODE)
+         CALL TXPBLA(CHARS(2),IF2,IL2)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)//
+     &            ' and node number is '//CHARS(2)(IF2:IL2)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
       RETURN
       END
@@ -589,7 +672,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -607,7 +692,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -666,19 +751,21 @@
 !     IF2   :     first non-character in string2
 !     IL1   :     last non-character in string1
 !     IL2   :     last non-character in string2
-!MPI!     ISTAT :     MPI status array
+!     ISTAT :     MPI status array
 !     MSGSTR:     string to pass message to call MSGERR
 !
       INTEGER      IENT, IERR, IF1, IF2, IL1, IL2
-!MPI      INTEGER      ISTAT(MPI_STATUS_SIZE)
+#ifdef USE_MPI
+      INTEGER      ISTAT(MPI_STATUS_SIZE)
+#endif
       CHARACTER*20 INTSTR, CHARS(2)
       CHARACTER*80 MSGSTR
 !
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_RECV         Immediately receives the data in the active
-!MPI!                      MPI message buffer
+!     MPI_RECV         Immediately receives the data in the active
+!                      MPI message buffer
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !     TXPBLA           Removes leading and trailing blanks in string
@@ -697,7 +784,7 @@
 !
 ! 12. Structure
 !
-!MPI!     Data is received from a neighbour with command MPI_RECV
+!     Data is received from a neighbour with command MPI_RECV
 !
 ! 13. Source text
 !
@@ -708,19 +795,28 @@
 !     --- if not parallel, return
       IF (.NOT.PARLL) RETURN
 
-!MPI      CALL MPI_RECV ( IPTR, ILEN, ITYPE, ISOURCE-1, ITAG,
-!MPI     &                MPI_COMM_WORLD, ISTAT, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS(1) = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
-!MPI         CHARS(2) = INTSTR(INODE)
-!MPI         CALL TXPBLA(CHARS(2),IF2,IL2)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(1)(IF1:IL1)//
-!MPI     &            ' and node number is '//CHARS(2)(IF2:IL2)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+#ifdef SWANEXE
+      CALL MPI_RECV ( IPTR, ILEN, ITYPE, ISOURCE-1, ITAG,
+     &                MPI_COMM_WORLD, ISTAT, IERR )
+#else
+!COH      CALL MPI_RECV ( IPTR, ILEN, ITYPE, ISOURCE-1, ITAG,
+!COH     &                COMM, ISTAT, IERR )
+      CALL MPI_RECV ( IPTR, ILEN, ITYPE, ISOURCE-1, ITAG,
+     &                COMM, ISTAT, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS(1) = INTSTR(IERR)
+         CALL TXPBLA(CHARS(1),IF1,IL1)
+         CHARS(2) = INTSTR(INODE)
+         CALL TXPBLA(CHARS(2),IF2,IL2)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(1)(IF1:IL1)//
+     &            ' and node number is '//CHARS(2)(IF2:IL2)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
       RETURN
       END
@@ -730,7 +826,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -748,7 +846,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -812,8 +910,8 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_BCAST        Broadcasts a message from the master
-!MPI!                      to all other processes of the group
+!     MPI_BCAST        Broadcasts a message from the master
+!                      to all other processes of the group
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !TIMG!     SWTSTA           Start timing for a section of code
@@ -831,8 +929,8 @@
 !
 ! 12. Structure
 !
-!MPI!     Broadcasts data from the master to all other nodes
-!MPI!     with command MPI_BCAST
+!     Broadcasts data from the master to all other nodes
+!     with command MPI_BCAST
 !
 ! 13. Source text
 !
@@ -844,16 +942,25 @@
       IF (.NOT.PARLL) RETURN
 
 !TIMG      CALL SWTSTA(201)
-!MPI      CALL MPI_BCAST ( IPTR, ILEN, ITYPE, MASTER-1,
-!MPI     &                 MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS,IF,IL)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(IF:IL)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+#ifdef SWANEXE
+      CALL MPI_BCAST ( IPTR, ILEN, ITYPE, MASTER-1,
+     &                 MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_BCAST ( IPTR, ILEN, ITYPE, MASTER-1,
+!COH     &                 COMM, IERR )
+      CALL MPI_BCAST ( IPTR, ILEN, ITYPE, MASTER-1,
+     &                 COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS = INTSTR(IERR)
+         CALL TXPBLA(CHARS,IF,IL)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(IF:IL)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 !TIMG      CALL SWTSTO(201)
 
       RETURN
@@ -864,7 +971,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
 !
@@ -882,7 +991,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -956,9 +1065,9 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_GATHER       Gathers data from all nodes to the master
-!MPI!     MPI_GATHERV      Gathers different amounts of data from
-!MPI!                      all nodes to the master
+!     MPI_GATHER       Gathers data from all nodes to the master
+!     MPI_GATHERV      Gathers different amounts of data from
+!                      all nodes to the master
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !     TXPBLA           Removes leading and trailing blanks in string
@@ -973,17 +1082,17 @@
 !
 !     if not parallel, return
 !
-!MPI!     gather the array sizes to the master
-!MPI!
+!     gather the array sizes to the master
+!
 !     check whether enough space has been allocated
 !     for gathered data
 !
 !     calculate starting address of each local array
 !     with respect to the global array
 !
-!MPI!     gather different amounts of data from each processor
-!MPI!     to the master
-!MPI!
+!     gather different amounts of data from each processor
+!     to the master
+!
 ! 13. Source text
 !
       SAVE IENT
@@ -993,28 +1102,37 @@
 !     --- if not parallel, return
       IF (.NOT.PARLL) RETURN
 
-      IF (INODE.EQ.MASTER) THEN
+      IF (IAMMASTER) THEN
          ALLOCATE(ICOUNT(0:NPROC-1))
          ALLOCATE(IDSPLC(0:NPROC-1))
       END IF
 
-!MPI!     --- gather the array sizes to the master
-!MPI
-!MPI      CALL MPI_GATHER( IILEN, 1, SWINT, ICOUNT, 1, SWINT,
-!MPI     &                 MASTER-1, MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS,IF,IL)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(IF:IL)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+!     --- gather the array sizes to the master
+
+#ifdef SWANEXE
+      CALL MPI_GATHER( IILEN, 1, SWINT, ICOUNT, 1, SWINT,
+     &                 MASTER-1, MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_GATHER( IILEN, 1, SWINT, ICOUNT, 1, SWINT,
+!COH     &                 MASTER-1, COMM, IERR )
+      CALL MPI_GATHER( IILEN, 1, SWINT, ICOUNT, 1, SWINT,
+     &                 MASTER-1, COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS = INTSTR(IERR)
+         CALL TXPBLA(CHARS,IF,IL)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(IF:IL)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
 
 !     --- check whether enough space has been allocated
 !         for gathered data
 
-      IF (INODE.EQ.MASTER) THEN
+      IF (IAMMASTER) THEN
          IF ( SUM(ICOUNT).GT.IOLEN ) THEN
             CALL MSGERR(4,
      &                  'Not enough space allocated for gathered data')
@@ -1025,28 +1143,37 @@
 !     --- calculate starting address of each local array
 !         with respect to the global array
 
-      IF (INODE.EQ.MASTER) THEN
+      IF (IAMMASTER) THEN
          IDSPLC(0) = 0
          DO I = 1, NPROC-1
             IDSPLC(I) = ICOUNT(I-1) + IDSPLC(I-1)
          END DO
       END IF
 
-!MPI!     --- gather different amounts of data from each processor
-!MPI!         to the master
-!MPI
-!MPI      CALL MPI_GATHERV( IIPTR, IILEN, ITYPE, IOPTR, ICOUNT, IDSPLC,
-!MPI     &                  ITYPE, MASTER-1, MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS,IF,IL)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(IF:IL)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+!     --- gather different amounts of data from each processor
+!         to the master
 
-      IF (INODE.EQ.MASTER) DEALLOCATE(ICOUNT,IDSPLC)
+#ifdef SWANEXE
+      CALL MPI_GATHERV( IIPTR, IILEN, ITYPE, IOPTR, ICOUNT, IDSPLC,
+     &                  ITYPE, MASTER-1, MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_GATHERV( IIPTR, IILEN, ITYPE, IOPTR, ICOUNT, IDSPLC,
+!COH     &                  ITYPE, MASTER-1, COMM, IERR )
+      CALL MPI_GATHERV( IIPTR, IILEN, ITYPE, IOPTR, ICOUNT, IDSPLC,
+     &                  ITYPE, MASTER-1, COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS = INTSTR(IERR)
+         CALL TXPBLA(CHARS,IF,IL)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(IF:IL)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
+
+      IF (IAMMASTER) DEALLOCATE(ICOUNT,IDSPLC)
 
       RETURN
       END
@@ -1073,7 +1200,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1172,7 +1299,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4
       USE M_PARALL
 !
@@ -1190,7 +1319,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1253,8 +1382,8 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_ALLREDUCE    Combines values from all processes and
-!MPI!                      distribute the result back to all processes
+!     MPI_ALLREDUCE    Combines values from all processes and
+!                      distribute the result back to all processes
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !TIMG!     SWTSTA           Start timing for a section of code
@@ -1275,8 +1404,8 @@
 !
 ! 12. Structure
 !
-!MPI!     Performs a global reduction of integers across all nodes
-!MPI!     with command MPI_ALLREDUCE
+!     Performs a global reduction of integers across all nodes
+!     with command MPI_ALLREDUCE
 !
 ! 13. Source text
 !
@@ -1287,16 +1416,25 @@
       ALLOCATE(ITEMP(ILEN))
 
 !TIMG      CALL SWTSTA(202)
-!MPI      CALL MPI_ALLREDUCE ( IARR, ITEMP, ILEN, SWINT,
-!MPI     &                     ITYPRD, MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS,IF,IL)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(IF:IL)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+#ifdef SWANEXE
+      CALL MPI_ALLREDUCE ( IARR, ITEMP, ILEN, SWINT,
+     &                     ITYPRD, MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_ALLREDUCE ( IARR, ITEMP, ILEN, SWINT,
+!COH     &                     ITYPRD, COMM, IERR )
+      CALL MPI_ALLREDUCE ( IARR, ITEMP, ILEN, SWINT,
+     &                     ITYPRD, COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS = INTSTR(IERR)
+         CALL TXPBLA(CHARS,IF,IL)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(IF:IL)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
       IARR = ITEMP
 !TIMG      CALL SWTSTO(202)
 
@@ -1310,7 +1448,9 @@
 !
 !****************************************************************
 !
-!MPI      USE MPI
+#ifdef USE_MPI
+      USE MPI
+#endif
       USE OCPCOMM4
       USE M_PARALL
 !
@@ -1328,7 +1468,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1391,8 +1531,8 @@
 !  8. Subroutines used
 !
 !     INTSTR           Converts integer to string
-!MPI!     MPI_ALLREDUCE    Combines values from all processes and
-!MPI!                      distribute the result back to all processes
+!     MPI_ALLREDUCE    Combines values from all processes and
+!                      distribute the result back to all processes
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
 !TIMG!     SWTSTA           Start timing for a section of code
@@ -1413,8 +1553,8 @@
 !
 ! 12. Structure
 !
-!MPI!     Performs a global reduction of reals across all nodes
-!MPI!     with command MPI_ALLREDUCE
+!     Performs a global reduction of reals across all nodes
+!     with command MPI_ALLREDUCE
 !
 ! 13. Source text
 !
@@ -1425,16 +1565,25 @@
       ALLOCATE(TEMP(ILEN))
 
 !TIMG      CALL SWTSTA(202)
-!MPI      CALL MPI_ALLREDUCE ( ARR, TEMP, ILEN, SWREAL,
-!MPI     &                     ITYPRD, MPI_COMM_WORLD, IERR )
-!MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
-!MPI         CHARS = INTSTR(IERR)
-!MPI         CALL TXPBLA(CHARS,IF,IL)
-!MPI         MSGSTR = 'MPI produces some internal error - '//
-!MPI     &            'return code is '//CHARS(IF:IL)
-!MPI         CALL MSGERR ( 4, MSGSTR )
-!MPI         RETURN
-!MPI      END IF
+#ifdef USE_MPI
+#ifdef SWANEXE
+      CALL MPI_ALLREDUCE ( ARR, TEMP, ILEN, SWREAL,
+     &                     ITYPRD, MPI_COMM_WORLD, IERR )
+#else
+!COH      CALL MPI_ALLREDUCE ( ARR, TEMP, ILEN, SWREAL,
+!COH     &                     ITYPRD, COMM, IERR )
+      CALL MPI_ALLREDUCE ( ARR, TEMP, ILEN, SWREAL,
+     &                     ITYPRD, COMM, IERR )
+#endif
+      IF ( IERR.NE.MPI_SUCCESS ) THEN
+         CHARS = INTSTR(IERR)
+         CALL TXPBLA(CHARS,IF,IL)
+         MSGSTR = 'MPI produces some internal error - '//
+     &            'return code is '//CHARS(IF:IL)
+         CALL MSGERR ( 4, MSGSTR )
+         RETURN
+      END IF
+#endif
       ARR = TEMP
 !TIMG      CALL SWTSTO(202)
 
@@ -1464,7 +1613,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1644,6 +1793,513 @@
 
       RETURN
       END
+!JAC!****************************************************************
+!JAC!
+!JAC      SUBROUTINE SWSTRIP ( IPOWN, IDIR, IPART, NPART, LPARTS,
+!JAC     &                     MXC  , MYC )
+!JAC!
+!JAC!****************************************************************
+!JAC!
+!JAC      USE OCPCOMM4                                                        40.41
+!JAC!
+!JAC      IMPLICIT NONE
+!JAC!
+!
+!   --|-----------------------------------------------------------|--
+!     | Delft University of Technology                            |
+!     | Faculty of Civil Engineering and Geosciences              |
+!     | Environmental Fluid Mechanics Section                     |
+!     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
+!     |                                                           |
+!     | Programmer: Marcel Zijlema                                |
+!   --|-----------------------------------------------------------|--
+!
+!
+!     SWAN (Simulating WAves Nearshore); a third generation wave model
+!     Copyright (C) 1993-2020  Delft University of Technology
+!
+!     This program is free software; you can redistribute it and/or
+!     modify it under the terms of the GNU General Public License as
+!     published by the Free Software Foundation; either version 2 of
+!     the License, or (at your option) any later version.
+!
+!     This program is distributed in the hope that it will be useful,
+!     but WITHOUT ANY WARRANTY; without even the implied warranty of
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!     GNU General Public License for more details.
+!
+!     A copy of the GNU General Public License is available at
+!     http://www.gnu.org/copyleft/gpl.html#SEC3
+!     or by writing to the Free Software Foundation, Inc.,
+!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!
+!JAC!
+!JAC!  0. Authors
+!JAC!
+!JAC!     40.30: Marcel Zijlema
+!JAC!     40.41: Marcel Zijlema
+!JAC!
+!JAC!  1. Updates
+!JAC!
+!JAC!     40.30, Feb. 03: New subroutine
+!JAC!     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!JAC!
+!JAC!  2. Purpose
+!JAC!
+!JAC!     Performs a stripwise partitioning with straight interfaces
+!JAC!
+!JAC!  3. Method
+!JAC!
+!JAC!     This method is described in Ph.D. Thesis of M. Roest
+!JAC!     entitled:
+!JAC!     Partitioning for parallel finite difference computations
+!JAC!     in coastal water simulation, DUT, 1997
+!JAC!
+!JAC!  4. Argument variables
+!JAC!
+!JAC!     IDIR        direction of cutting
+!JAC!                 1 = row
+!JAC!                 2 = column
+!JAC!     IPART       part number that must be partitioned
+!JAC!     IPOWN       array giving the subdomain number of each gridpoint
+!JAC!     LPARTS      list of parts to be created
+!JAC!                    lparts(1,i) = number of i-th part to be created
+!JAC!                    lparts(2,i) = size of i-th part to be created
+!JAC!     MXC         maximum counter of gridpoints in x-direction
+!JAC!     MYC         maximum counter of gridpoints in y-direction
+!JAC!     NPART       number of parts to be created
+!JAC!
+!JAC      INTEGER   IDIR, IPART, MXC, MYC, NPART
+!JAC      INTEGER   IPOWN(*)
+!JAC      INTEGER*8 LPARTS(2,*)
+!JAC!
+!JAC!  6. Local variables
+!JAC!
+!JAC!     IC    :     index of (IX,IY)-point
+!JAC!     ICC   :     index of (IX,IY)-point
+!JAC!     IENT  :     number of entries
+!JAC!     INCX  :     increment for adressing: 1 for x-dir, MXC for y-dir
+!JAC!     INCY  :     increment for adressing: MXC for x-dir, 1 for y-dir
+!JAC!     IX    :     index in x-direction
+!JAC!     IY    :     index in y-direction
+!JAC!     IYY   :     index in y-direction
+!JAC!     JPART :     a part counter
+!JAC!     MXCI  :     maximum counter of gridpoints in x/y-direction
+!JAC!     MYCI  :     maximum counter of gridpoints in y/x-direction
+!JAC!     NBACK :     number of points in a row already assigned to a part
+!JAC!     NFORW :     number of points in a row remaining to be assigned
+!JAC!     NINPRT:     number of points currently assigned to a new part
+!JAC!
+!JAC      INTEGER IC, ICC, IENT, INCX, INCY, IX, IY, IYY, JPART,
+!JAC     &        MXCI, MYCI, NBACK, NFORW, NINPRT
+!JAC!
+!JAC!  8. Subroutines used
+!JAC!
+!JAC!     STRACE           Tracing routine for debugging
+!JAC!
+!JAC!  9. Subroutines calling
+!JAC!
+!JAC!     SWORB
+!JAC!     SWPARTIT
+!JAC!
+!JAC! 10. Error messages
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 11. Remarks
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 12. Structure
+!JAC!
+!JAC!     depending on IDIR, determine indirect addressing in IPOWN
+!JAC!     start by creating the first part, which is currently empty
+!JAC!     for all points in IPOWN do
+!JAC!        if point belongs to the part that must be partitioned then
+!JAC!           when current part has reached its planned size
+!JAC!              see how many points in this row remain to be assigned
+!JAC!              if no more points to be assigned, go on to next part
+!JAC!              else, if majority of row has been assigned take the rest
+!JAC!              else, leave this row to next part
+!JAC!           assign point IC to part that is currently being created
+!JAC!
+!JAC! 13. Source text
+!JAC!
+!JAC      SAVE IENT
+!JAC      DATA IENT/0/
+!JAC      IF (LTRACE) CALL STRACE (IENT,'SWSTRIP')
+!JAC
+!JAC!     --- depending on IDIR, determine indirect addressing in IPOWN
+!JAC
+!JAC      IF ( IDIR.EQ.1 ) THEN
+!JAC         MXCI = MYC
+!JAC         MYCI = MXC
+!JAC         INCX = MXC
+!JAC         INCY = 1
+!JAC      ELSE IF ( IDIR.EQ.2 ) THEN
+!JAC         MXCI = MXC
+!JAC         MYCI = MYC
+!JAC         INCX = 1
+!JAC         INCY = MXC
+!JAC      END IF
+!JAC
+!JAC!     --- start by creating the first part, which is currently empty
+!JAC
+!JAC      JPART  = 1
+!JAC      NINPRT = 0
+!JAC
+!JAC!     --- for all points in IPOWN do
+!JAC
+!JAC      DO IX = 1, MXCI
+!JAC         DO IY = 1, MYCI
+!JAC
+!JAC            IC = IX*INCX + IY*INCY - MXC
+!JAC
+!JAC!           --- if this point belongs to the part that must be partitioned then
+!JAC
+!JAC            IF ( IPOWN(IC).EQ.IPART ) THEN
+!JAC
+!JAC!              --- when current part has reached its planned size
+!JAC
+!JAC               IF ( NINPRT.GE.LPARTS(2,JPART) ) THEN
+!JAC
+!JAC!                 --- see how many points in this row have been assigned
+!JAC
+!JAC                  NBACK = 0
+!JAC                  DO IYY = 1, IY-1
+!JAC
+!JAC                     ICC = IX*INCX + IYY*INCY - MXC
+!JAC                     IF (IPOWN(ICC).EQ.LPARTS(1,JPART)) NBACK = NBACK +1
+!JAC
+!JAC                  END DO
+!JAC
+!JAC!                 --- see how many points in this row remain to be assigned
+!JAC
+!JAC                  NFORW = 0
+!JAC                  DO IYY = IY, MYCI
+!JAC
+!JAC                     ICC = IX*INCX + IYY*INCY - MXC
+!JAC                     IF (IPOWN(ICC).EQ.IPART) NFORW = NFORW +1
+!JAC
+!JAC                  END DO
+!JAC
+!JAC!                 --- if no more points to be assigned, go on to next part
+!JAC
+!JAC                  IF ( NFORW.EQ.0 ) THEN
+!JAC
+!JAC                     JPART  = JPART + 1
+!JAC                     NINPRT = 0
+!JAC
+!JAC                  ELSE IF ( (NBACK-NFORW).GT.0 ) THEN
+!JAC
+!JAC!                    --- if majority of row has been assigned take the rest
+!JAC
+!JAC                     LPARTS(2,JPART  ) = LPARTS(2,JPART  ) + NFORW
+!JAC                     LPARTS(2,JPART+1) = LPARTS(2,JPART+1) - NFORW
+!JAC
+!JAC                  ELSE
+!JAC!                    --- else, leave this row to next part
+!JAC
+!JAC                     LPARTS(2,JPART  ) = LPARTS(2,JPART  ) - NBACK
+!JAC                     LPARTS(2,JPART+1) = LPARTS(2,JPART+1) + NBACK
+!JAC
+!JAC                     DO IYY = 1, IY-1
+!JAC
+!JAC                        ICC = IX*INCX + IYY*INCY - MXC
+!JAC                        IF ( IPOWN(ICC).EQ.LPARTS(1,JPART) ) THEN
+!JAC                           IPOWN(ICC) = LPARTS(1,JPART+1)
+!JAC                        END IF
+!JAC
+!JAC                     END DO
+!JAC
+!JAC                     JPART  = JPART + 1
+!JAC                     NINPRT = NBACK
+!JAC
+!JAC                  END IF
+!JAC
+!JAC               END IF
+!JAC
+!JAC!              --- assign point IC to part that is currently being created
+!JAC
+!JAC               IPOWN(IC) = LPARTS(1,JPART)
+!JAC               NINPRT    = NINPRT + 1
+!JAC
+!JAC            END IF
+!JAC
+!JAC         END DO
+!JAC      END DO
+!JAC
+!JAC      RETURN
+!JAC      END
+!JAC!****************************************************************
+!JAC!
+!JAC      SUBROUTINE SWORB ( IPOWN, IDIR, IPART, NPART, LPARTS,
+!JAC     &                   MXC  , MYC )
+!JAC!
+!JAC!****************************************************************
+!JAC!
+!JAC      USE OCPCOMM4                                                        40.41
+!JAC!
+!JAC      IMPLICIT NONE
+!JAC!
+!
+!   --|-----------------------------------------------------------|--
+!     | Delft University of Technology                            |
+!     | Faculty of Civil Engineering and Geosciences              |
+!     | Environmental Fluid Mechanics Section                     |
+!     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
+!     |                                                           |
+!     | Programmer: Marcel Zijlema                                |
+!   --|-----------------------------------------------------------|--
+!
+!
+!     SWAN (Simulating WAves Nearshore); a third generation wave model
+!     Copyright (C) 1993-2020  Delft University of Technology
+!
+!     This program is free software; you can redistribute it and/or
+!     modify it under the terms of the GNU General Public License as
+!     published by the Free Software Foundation; either version 2 of
+!     the License, or (at your option) any later version.
+!
+!     This program is distributed in the hope that it will be useful,
+!     but WITHOUT ANY WARRANTY; without even the implied warranty of
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!     GNU General Public License for more details.
+!
+!     A copy of the GNU General Public License is available at
+!     http://www.gnu.org/copyleft/gpl.html#SEC3
+!     or by writing to the Free Software Foundation, Inc.,
+!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!
+!JAC!
+!JAC!  0. Authors
+!JAC!
+!JAC!     40.30: Marcel Zijlema
+!JAC!     40.41: Marcel Zijlema
+!JAC!
+!JAC!  1. Updates
+!JAC!
+!JAC!     40.30, Feb. 03: New subroutine
+!JAC!     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!JAC!
+!JAC!  2. Purpose
+!JAC!
+!JAC!     Performs an Orthogonal Recursive Bisection partitioning
+!JAC!
+!JAC!  3. Method
+!JAC!
+!JAC!     Starting with a single part (the entire domain), each part is
+!JAC!     recursively partitioned by bisecting it, until all parts have been
+!JAC!     created. The bisection direction is swapped in each direction.
+!JAC!
+!JAC!     This method is described in Ph.D. Thesis of M. Roest
+!JAC!     entitled:
+!JAC!     Partitioning for parallel finite difference computations
+!JAC!     in coastal water simulation, DUT, 1997
+!JAC!
+!JAC!  4. Argument variables
+!JAC!
+!JAC!     IDIR        direction of cutting
+!JAC!                 1 = row
+!JAC!                 2 = column
+!JAC!     IPART       part number that must be partitioned
+!JAC!     IPOWN       array giving the subdomain number of each gridpoint
+!JAC!     LPARTS      list of parts to be created
+!JAC!                    lparts(1,i) = number of i-th part to be created
+!JAC!                    lparts(2,i) = size of i-th part to be created
+!JAC!     MXC         maximum counter of gridpoints in x-direction
+!JAC!     MYC         maximum counter of gridpoints in y-direction
+!JAC!     NPART       number of parts to be created
+!JAC!
+!JAC      INTEGER   IDIR, IPART, MXC, MYC, NPART
+!JAC      INTEGER   IPOWN(*)
+!JAC      INTEGER*8 LPARTS(2,*)
+!JAC!
+!JAC!  6. Local variables
+!JAC!
+!JAC!     IDIFF :     the difference to be applied to a subdomain-size
+!JAC!     IENT  :     number of entries
+!JAC!     IP    :     counter of parts to be splitted
+!JAC!     ISPLIT:     counter of parts to be created in splitting
+!JAC!     ISSUCC:     flag indicating success in reducing a difference in size
+!JAC!                 0=no
+!JAC!                 1=yes
+!JAC!     IWORK :     see description LPARTS
+!JAC!     J     :     loop counter
+!JAC!     JEND  :     number of last new part to be created by splitting
+!JAC!     JPARTE:     number of last part in 1..npart belonging to jpart
+!JAC!     JPARTS:     number of first part in 1..npart belonging to jpart
+!JAC!     JSTART:     number of first new part to be created by splitting
+!JAC!     KSPLIT:     number of parts to be created in a particular splitting
+!JAC!     NP    :     number of parts to be created in a particular recursion
+!JAC!     NSPLIT:     maximum number of parts to be created in one splitting
+!JAC!                 (NB: 2 = bisection, 4 = quadrisection)
+!JAC
+!JAC      INTEGER IDIFF, IENT, IP, ISPLIT, ISSUCC, J, JEND, JPARTE, JPARTS,
+!JAC     &        JSTART, KSPLIT, NP, NSPLIT
+!JAC      INTEGER*8 IWORK(2,NPART)
+!JAC      PARAMETER(NSPLIT = 2)
+!JAC!
+!JAC!  8. Subroutines used
+!JAC!
+!JAC!     MSGERR           Writes error message
+!JAC!     STRACE           Tracing routine for debugging
+!JAC!     SWSTRIP          Performs a stripwise partitioning with straight
+!JAC!                      interfaces
+!JAC!
+!JAC!  9. Subroutines calling
+!JAC!
+!JAC!     SWPARTIT
+!JAC!
+!JAC! 10. Error messages
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 11. Remarks
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 12. Structure
+!JAC!
+!JAC!     while not enough parts have been created, do another recursion
+!JAC!
+!JAC!        for each part that currently exists
+!JAC!
+!JAC!          determine which final parts belong to this part
+!JAC!          if the number of such parts > 1, do further splitting
+!JAC!
+!JAC!            determine into how many parts this part must be split
+!JAC!            determine the sizes and numbers of parts to be created
+!JAC!
+!JAC!            do splitting
+!JAC!
+!JAC!            determine whether objective partsizes have been modified
+!JAC!            and distribute the difference over the constituent parts
+!JAC!
+!JAC!        swap cutting direction
+!JAC!
+!JAC! 13. Source text
+!JAC!
+!JAC      SAVE IENT
+!JAC      DATA IENT/0/
+!JAC      IF (LTRACE) CALL STRACE (IENT,'SWORB')
+!JAC
+!JAC!     --- while not enough parts have been created, do another recursion
+!JAC
+!JAC      NP = 1
+!JAC100   IF ( NP.LE.NPART ) THEN
+!JAC
+!JAC!        --- for each part that currently exists
+!JAC
+!JAC         DO IP = 1, NP
+!JAC
+!JAC!           --- determine which final parts belong to this part
+!JAC
+!JAC            JPARTS = (IP-1)*NPART/NP+1
+!JAC            JPARTE = (IP  )*NPART/NP
+!JAC
+!JAC!           --- if the number of such parts > 1, do further splitting
+!JAC
+!JAC            IF ( (JPARTE-JPARTS+1).GT.1 ) THEN
+!JAC
+!JAC!              --- determine into how many parts this part must be split
+!JAC
+!JAC               KSPLIT = MIN(NSPLIT,JPARTE-JPARTS+1)
+!JAC
+!JAC!              --- determine the sizes and numbers of parts to be created
+!JAC
+!JAC               DO ISPLIT = 1, KSPLIT
+!JAC
+!JAC                  JSTART = JPARTS+(ISPLIT-1)*(JPARTE-JPARTS+1)/KSPLIT
+!JAC                  JEND   = JPARTS+    ISPLIT*(JPARTE-JPARTS+1)/KSPLIT-1
+!JAC
+!JAC                  IWORK(1,ISPLIT) = JSTART
+!JAC
+!JAC                  IWORK(2,ISPLIT) = 0
+!JAC                  DO J = JSTART, JEND
+!JAC                     IWORK(2,ISPLIT) = IWORK(2,ISPLIT) + LPARTS(2,J)
+!JAC                  END DO
+!JAC
+!JAC               END DO
+!JAC
+!JAC!              --- do splitting
+!JAC
+!JAC               CALL SWSTRIP (IPOWN,IDIR,JPARTS,KSPLIT,IWORK,MXC,MYC)
+!JAC
+!JAC!              --- determine whether objective partsizes have been modified
+!JAC!                  in SWSTRIP in order to make straight interfaces
+!JAC
+!JAC               DO ISPLIT = 1, KSPLIT
+!JAC
+!JAC                  JSTART = JPARTS+(ISPLIT-1)*(JPARTE-JPARTS+1)/KSPLIT
+!JAC                  JEND   = JPARTS+    ISPLIT*(JPARTE-JPARTS+1)/KSPLIT-1
+!JAC
+!JAC                  DO J = JSTART, JEND
+!JAC                     IWORK(2,ISPLIT) = IWORK(2,ISPLIT) - LPARTS(2,J)
+!JAC                  END DO
+!JAC
+!JAC!                 --- and distribute the difference over the contiguous
+!JAC!                     parts making sure not to cause negative subdomain-sizes
+!JAC
+!JAC                  J      = JSTART
+!JAC                  ISSUCC = 0
+!JAC                  IF ( IWORK(2,ISPLIT).LT.0 ) THEN
+!JAC                     IDIFF = -1
+!JAC                  ELSE
+!JAC                     IDIFF =  1
+!JAC                  END IF
+!JAC
+!JAC!                 --- reduce the difference until nothing is left
+!JAC
+!JAC200               IF ( IWORK(2,ISPLIT).NE.0 ) THEN
+!JAC
+!JAC!                    --- only adjust parts if their size remains valid
+!JAC
+!JAC                     IF ( LPARTS(2,J).GT.0 .AND.
+!JAC     &                    ((LPARTS(2,J)+IDIFF).GT.0) ) THEN
+!JAC                        ISSUCC          = 1
+!JAC                        LPARTS(2,J)     = LPARTS(2,J)     + IDIFF
+!JAC                        IWORK(2,ISPLIT) = IWORK(2,ISPLIT) - IDIFF
+!JAC                     END IF
+!JAC
+!JAC!                    --- go on to the next part
+!JAC
+!JAC                     J = J + 1
+!JAC
+!JAC!                    --- when all parts have been visited, go back to first
+!JAC
+!JAC                     IF ( J.GT.JEND ) THEN
+!JAC
+!JAC!                       --- check whether any reduction of the difference
+!JAC!                           was done in last pass over all parts
+!JAC
+!JAC                        IF ( ISSUCC.EQ.0 ) THEN
+!JAC                           CALL MSGERR (4,'Internal problem in SWORB')
+!JAC                           RETURN
+!JAC                        END IF
+!JAC                        J = JSTART
+!JAC                     END IF
+!JAC
+!JAC                     GOTO 200
+!JAC                  END IF
+!JAC
+!JAC               END DO
+!JAC
+!JAC            END IF
+!JAC
+!JAC         END DO
+!JAC
+!JAC!        --- swap cutting direction
+!JAC
+!JAC         IDIR = MOD(IDIR,2) + 1
+!JAC
+!JAC         NP = NSPLIT*NP
+!JAC         GOTO 100
+!JAC
+!JAC      END IF
+!JAC
+!JAC      RETURN
+!JAC      END
 !****************************************************************
 !
       SUBROUTINE SWPARTIT ( IPOWN, MXC, MYC )
@@ -1667,7 +2323,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1703,6 +2359,7 @@
 !  3. Method
 !
 !     Based on stripwise partitioning
+!JAC!     Based on Orthogonal Recursive Bisection
 !
 !  4. Argument variables
 !
@@ -1738,6 +2395,7 @@
 !     STPNOW           Logical indicating whether program must
 !                      terminated or not
 !     STRACE           Tracing routine for debugging
+!JAC!     SWORB            Performs an Orthogonal Recursive Bisection partitioning
 !     SWSTRIP          Performs a stripwise partitioning with straight
 !                      interfaces
 !
@@ -1808,6 +2466,8 @@
 !     --- partition grid
 
       CALL SWSTRIP ( IPOWN, IDIR, NPROC, IWORK, MXC, MYC )
+!JAC      CALL SWORB ( IPOWN, IDIR, 1, NPROC, IWORK, MXC, MYC )
+!JAC      IF (STPNOW()) RETURN
 
       RETURN
       END
@@ -1834,7 +2494,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1993,6 +2653,10 @@
          MYF = MYC+1
          MYL = 0
       END IF
+!JAC      MXF = MXC+1
+!JAC      MYF = MYC+1
+!JAC      MXL = 0
+!JAC      MYL = 0
 
       DO IX = 1, MXC
          DO IY = 1, MYC
@@ -2176,7 +2840,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2319,6 +2983,238 @@
 
       RETURN
       END
+!JAC!****************************************************************
+!JAC!
+!JAC      SUBROUTINE SWEXCHG ( FIELD, SWPDIR, KGRPNT )
+!JAC!
+!JAC!****************************************************************
+!JAC!
+!JAC      USE OCPCOMM4                                                        40.41
+!JAC      USE SWCOMM3                                                         40.41
+!JAC      USE M_PARALL                                                        40.31
+!JAC!
+!JAC      IMPLICIT NONE
+!JAC!
+!
+!   --|-----------------------------------------------------------|--
+!     | Delft University of Technology                            |
+!     | Faculty of Civil Engineering and Geosciences              |
+!     | Environmental Fluid Mechanics Section                     |
+!     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
+!     |                                                           |
+!     | Programmer: Marcel Zijlema                                |
+!   --|-----------------------------------------------------------|--
+!
+!
+!     SWAN (Simulating WAves Nearshore); a third generation wave model
+!     Copyright (C) 1993-2020  Delft University of Technology
+!
+!     This program is free software; you can redistribute it and/or
+!     modify it under the terms of the GNU General Public License as
+!     published by the Free Software Foundation; either version 2 of
+!     the License, or (at your option) any later version.
+!
+!     This program is distributed in the hope that it will be useful,
+!     but WITHOUT ANY WARRANTY; without even the implied warranty of
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!     GNU General Public License for more details.
+!
+!     A copy of the GNU General Public License is available at
+!     http://www.gnu.org/copyleft/gpl.html#SEC3
+!     or by writing to the Free Software Foundation, Inc.,
+!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!
+!JAC!
+!JAC!  0. Authors
+!JAC!
+!JAC!     40.30: Marcel Zijlema
+!JAC!     40.41: Marcel Zijlema
+!JAC!
+!JAC!  1. Updates
+!JAC!
+!JAC!     40.30, Feb. 03: New subroutine
+!JAC!     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!JAC!
+!JAC!  2. Purpose
+!JAC!
+!JAC!     Updates geographical field array through exchanging
+!JAC!     values between neighbouring subdomains depending on
+!JAC!     sweep direction
+!JAC!
+!JAC!  3. Method
+!JAC!
+!JAC!     Made use of MPI by means of SWSENDNB and SWRECVNB
+!JAC!     and also block administration (stored in IBLKAD)
+!JAC!
+!JAC!  4. Argument variables
+!JAC!
+!JAC!     FIELD       geographical field array for which 'halo' values must
+!JAC!                 be copied from neighbouring subdomains
+!JAC!     KGRPNT      indirect addressing for grid points
+!JAC!     SWPDIR      sweep direction (0=all directions together)
+!JAC!
+!JAC      INTEGER SWPDIR
+!JAC      INTEGER KGRPNT(MXC*MYC)
+!JAC      REAL    FIELD(MCGRD)
+!JAC!
+!JAC!  6. Local variables
+!JAC!
+!JAC!     IDOM  :     subdomain number
+!JAC!     IENT  :     number of entries
+!JAC!     INB   :     neighbour counter
+!JAC!     IPNB  :     position of neighbour (=top, bottom, right, left)
+!JAC!     IPR   :     array containing positions of neighbours from
+!JAC!                 which data is to be received
+!JAC!     IPS   :     array containing positions of neighbours to
+!JAC!                 which data is to be sent
+!JAC!     ISTART:     pointer in array IBLKAD
+!JAC!     ISWP  :     sweep direction
+!JAC!     ITAG  :     message tag for sending and receiving
+!JAC!     K     :     loop counter
+!JAC!     NNEIGH:     number of neighbouring subdomains
+!JAC!     NOVLU :     number of overlapping unknowns
+!JAC!     WORK  :     work array to store data to be sent to or
+!JAC!                 received from neighbour
+!JAC!
+!JAC      INTEGER IDOM, IENT, INB, IPNB, ISTART, ISWP, ITAG,
+!JAC     &        K, NNEIGH, NOVLU
+!JAC      INTEGER IPR(2,4), IPS(2,4)
+!JAC      REAL    WORK(MAX(MXC,MYC))
+!JAC!
+!JAC!  8. Subroutines used
+!JAC!
+!JAC!     STPNOW           Logical indicating whether program must
+!JAC!                      terminated or not
+!JAC!     STRACE           Tracing routine for debugging
+!JAC!     SWRECVNB         Data is received from a neighbour
+!JAC!     SWSENDNB         Data is sent to a neighbour
+!JAC!TIMG!     SWTSTA           Start timing for a section of code
+!JAC!TIMG!     SWTSTO           Stop timing for a section of code
+!JAC!
+!JAC      LOGICAL STPNOW
+!JAC!
+!JAC!  9. Subroutines calling
+!JAC!
+!JAC!     SWCOMP
+!JAC!
+!JAC! 10. Error messages
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 11. Remarks
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 12. Structure
+!JAC!
+!JAC!     if not parallel, return
+!JAC!
+!JAC!     for all neighbouring subdomains do
+!JAC!        get position
+!JAC!        if position corresponds to sweep selection
+!JAC!           get subdomain number, pointer and size
+!JAC!           store data to be sent in array WORK
+!JAC!           send array WORK
+!JAC!
+!JAC!     for all neighbouring subdomains do
+!JAC!        get position
+!JAC!        if position corresponds to sweep selection
+!JAC!           get subdomain number, pointer and size
+!JAC!           receive next array and store in WORK
+!JAC!           store the received data
+!JAC!
+!JAC! 13. Source text
+!JAC!
+!JAC      SAVE IENT
+!JAC      DATA IENT/0/
+!JAC      IF (LTRACE) CALL STRACE (IENT,'SWEXCHG')
+!JAC
+!JAC!     --- if not parallel, return
+!JAC      IF (.NOT.PARLL) RETURN
+!JAC
+!JAC      IPR = RESHAPE((/2,4,2,3,1,3,1,4/), (/2,4/))
+!JAC      IPS = RESHAPE((/1,3,1,4,2,4,2,3/), (/2,4/))
+!JAC
+!JAC!TIMG      CALL SWTSTA(203)
+!JAC
+!JAC      ISWP = MAX(1,SWPDIR)
+!JAC
+!JAC      NNEIGH = IBLKAD(1)
+!JAC
+!JAC!     --- for all neighbouring subdomains do
+!JAC
+!JAC      DO INB = 1, NNEIGH
+!JAC
+!JAC!        --- get position
+!JAC
+!JAC         IPNB = IBLKAD(3*INB)
+!JAC
+!JAC!        --- if position corresponds to sweep selection
+!JAC
+!JAC         IF ( SWPDIR.EQ.0 .OR.
+!JAC     &        IPNB.EQ.IPS(1,ISWP) .OR. IPNB.EQ.IPS(2,ISWP) ) THEN
+!JAC
+!JAC!           --- get subdomain number, pointer and size
+!JAC
+!JAC            IDOM   = IBLKAD(3*INB-1)
+!JAC            ISTART = IBLKAD(3*INB+1)
+!JAC            NOVLU  = IBLKAD(ISTART)
+!JAC
+!JAC!           --- store data to be sent in array WORK
+!JAC
+!JAC            DO K = 1, NOVLU
+!JAC               WORK(K) = FIELD(KGRPNT(IBLKAD(ISTART+K)))
+!JAC            END DO
+!JAC
+!JAC!           --- send array WORK
+!JAC
+!JAC            ITAG = 2
+!JAC            CALL SWSENDNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+!JAC            IF (STPNOW()) RETURN
+!JAC
+!JAC         END IF
+!JAC
+!JAC      END DO
+!JAC
+!JAC!     --- for all neighbouring subdomains do
+!JAC
+!JAC      DO INB = 1, NNEIGH
+!JAC
+!JAC!        --- get position
+!JAC
+!JAC         IPNB = IBLKAD(3*INB)
+!JAC
+!JAC!        --- if position corresponds to sweep selection
+!JAC
+!JAC         IF ( SWPDIR.EQ.0 .OR.
+!JAC     &        IPNB.EQ.IPR(1,ISWP) .OR. IPNB.EQ.IPR(2,ISWP) ) THEN
+!JAC
+!JAC!           --- get subdomain number, pointer and size
+!JAC
+!JAC            IDOM   = IBLKAD(3*INB-1)
+!JAC            ISTART = IBLKAD(3*INB+1)
+!JAC            NOVLU  = IBLKAD(ISTART)
+!JAC
+!JAC!           --- receive next array and store in WORK
+!JAC
+!JAC            ITAG  = 2
+!JAC            CALL SWRECVNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+!JAC            IF (STPNOW()) RETURN
+!JAC
+!JAC!           --- store the received data
+!JAC
+!JAC            DO K = 1, NOVLU
+!JAC               FIELD(KGRPNT(IBLKAD(ISTART+NOVLU+K))) = WORK(K)
+!JAC            END DO
+!JAC
+!JAC         END IF
+!JAC
+!JAC      END DO
+!JAC
+!JAC!TIMG      CALL SWTSTO(203)
+!JAC
+!JAC      RETURN
+!JAC      END
 !****************************************************************
 !
       SUBROUTINE SWEXCHG ( FIELD, KGRPNT )
@@ -2343,7 +3239,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2533,7 +3429,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2699,7 +3595,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2866,7 +3762,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3005,7 +3901,7 @@
          IF (STPNOW()) RETURN
 
          IF (.NOT.FULL) THEN
-            IF (INODE.EQ.MASTER) THEN
+            IF (IAMMASTER) THEN
                ILEN = MXCGL*MYCGL +
      &                       4*MAX(IHALOX,IHALOY)*NPROC*MAX(MXCGL,MYCGL)
                ALLOCATE(KGRPTC(ILEN))
@@ -3013,10 +3909,10 @@
             CALL SWGATHER ( KGRPTC, ILEN, KGRPNT, MXC*MYC, SWINT )
             IF (STPNOW()) RETURN
          ELSE
-            IF (INODE.EQ.MASTER) ALLOCATE(KGRPTC(0))
+            IF (IAMMASTER) ALLOCATE(KGRPTC(0))
          END IF
 
-         IF (INODE.EQ.MASTER) THEN
+         IF (IAMMASTER) THEN
             IF (FULL) THEN
                ILEN = MXCGL*MYCGL +
      &                       4*MAX(IHALOX,IHALOY)*NPROC*MAX(MXCGL,MYCGL)
@@ -3036,7 +3932,7 @@
 
 !        --- copy gathered data to global array in appropriate manner
 
-         IF (INODE.EQ.MASTER) THEN
+         IF (IAMMASTER) THEN
 
             IOFF1 = 0
             IOFF2 = 0
@@ -3116,7 +4012,7 @@
 
          END IF
 
-         IF (INODE.EQ.MASTER) DEALLOCATE(KGRPTC,FLDC)
+         IF (IAMMASTER) DEALLOCATE(KGRPTC,FLDC)
 
       END IF
 
@@ -3129,12 +4025,15 @@
 !****************************************************************
 !
       USE TIMECOMM                                                        40.41
+!PUN      USE OCPCOMM2
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
       USE SWCOMM2                                                         40.51
       USE SWCOMM3                                                         40.41
       USE OUTP_DATA
       USE M_PARALL                                                        40.31
+!PUN      USE SwanGriddata, ONLY: nvertsg                                     41.36
+!PUN      USE SIZES                                                           41.36
 !
       IMPLICIT NONE
 !
@@ -3150,7 +4049,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3173,6 +4072,7 @@
 !     40.30: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.51: Marcel Zijlema
+!     41.36: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -3180,6 +4080,7 @@
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.41, Dec. 04: optimization output with respect to COMPGRID
 !     40.51, Feb. 05: re-design output process in parallel mode
+!     41.36, Jun. 06: collecting data for PunSWAN
 !
 !  2. Purpose
 !
@@ -3197,18 +4098,22 @@
 !     OURQT       array indicating at what time requested output          40.51
 !                 is processed                                            40.51
 !
-      REAL    BLKND(MXCGL,MYCGL), OURQT(MAX_OUTP_REQ)                     40.51
+      REAL    BLKND(MXCGL,MYCGL)                                          40.51
+      REAL*8  OURQT(MAX_OUTP_REQ)                                         40.51
 !
 !  6. Local variables
 !
 !     CORQ  :     current item in list of request outputs
 !     CROSS :     auxiliary logical array
 !     CUOPS :     current item in list of point sets
+!PUN!     EXIST :     logical whether a file exist or not
 !     DIF   :     difference between end and actual times
 !     DTTIWR:     to write time string
 !     IC    :     loop variable
 !     IENT  :     number of entries
+!PUN!     ILPOS :     actual length of filename
 !     IP    :     loop variable
+!PUN!     IPROC :     loop counter
 !     IRQ   :     request number
 !     IT    :     time step counter
 !     IT0   :     integer indicating first step of simulation
@@ -3239,10 +4144,12 @@
 !
       INTEGER   IC, IENT, IP, IRQ, IT, IT0, IT1, IUNIT, MIP, MXK, MYK
       INTEGER   ITMP1, ITMP2, ITMP3, ITMP4, ITMP5, ITMP6
-      REAL      DIF, TNEXT
+!PUN      INTEGER   ILPOS, IPROC
+      REAL*8    DIF, TNEXT
       REAL      RTMP1, RTMP2, RTMP3, RTMP4
       REAL, ALLOCATABLE :: XC(:), YC(:), XP(:), YP(:)                     40.51
       LOGICAL   OPENED
+!PUN      LOGICAL   EXIST
       LOGICAL, ALLOCATABLE :: CROSS(:,:)                                  40.86
       CHARACTER PSTYPE*1, RTYPE*4, SNAMPF*8, DTTIWR*18
       TYPE(ORQDAT), POINTER :: CORQ
@@ -3294,6 +4201,8 @@
       IF (LTRACE) CALL STRACE (IENT,'SWCOLOUT')
 
       IF ( NREOQ.EQ.0 ) RETURN
+!PUN
+!PUN      NPROC = MNPROC                                                      41.36
 
 !     --- do for all COMPUTE commands
 
@@ -3331,17 +4240,27 @@
                IF ( IT.EQ.IT0 .AND. IC.EQ.1 ) THEN
                   CORQ%OQR(1) = OURQT(IRQ)                                40.51
                END IF
-               TNEXT = CORQ%OQR(1)
+               IF (CORQ%OQR(1).LT.TINIC) THEN
+                  TNEXT = TINIC
+               ELSE
+                  TNEXT = CORQ%OQR(1)
+               ENDIF
                IF ( ABS(DIF).LT.0.5*DT .AND. CORQ%OQR(2).LT.0. ) THEN
                   CORQ%OQR(1) = TIMCO
                ELSE IF ( CORQ%OQR(2).GT.0. .AND. TIMCO.GE.TNEXT ) THEN
-                  CORQ%OQR(1) = TIMCO + CORQ%OQR(2)
+                  CORQ%OQR(1) = TNEXT + CORQ%OQR(2)
                ELSE
                   GOTO 50
                END IF
 
                RTYPE  = CORQ%RQTYPE
                SNAMPF = CORQ%PSNAME
+!PUN
+!PUN               IF (SNAMPF.EQ.'COMPGRID') THEN
+!PUN                  LCOMPGRD=.TRUE.
+!PUN               ELSE
+!PUN                  LCOMPGRD=.FALSE.
+!PUN               ENDIF
 
                CUOPS => FOPS
                DO
@@ -3362,6 +4281,7 @@
                   MIP = CUOPS%MIP
                ELSE IF ( PSTYPE.EQ.'U' ) THEN
                   MIP = CUOPS%MIP
+!PUN                  IF ( LCOMPGRD ) MIP = nvertsg
                   MXK = MIP
                   MYK = 1
                END IF
@@ -3412,6 +4332,47 @@
                XCLMAX = RTMP2
                YCLMIN = RTMP3
                YCLMAX = RTMP4
+!PUN
+!PUN!              --- find global vertex index for output locations
+!PUN!                  stored in array XC
+!PUN
+!PUN               IF ( .NOT.LCOMPGRD ) THEN
+!PUN                  XC = -1.
+!PUN                  YC =  0.
+!PUN                  FILENM = TRIM(LOCALDIR)//DIRCH2//'output.set'
+!PUN                  ILPOS  = LEN(TRIM(LOCALDIR))
+!PUN                  DO IPROC = 1, NPROC
+!PUN                     WRITE(FILENM(ILPOS-3:ILPOS),'(I4.4)') IPROC-1
+!PUN                     IUNIT = HIOPEN+NREOQ*(NPROC+1)+IPROC
+!PUN                     INQUIRE ( FILE=FILENM, EXIST=EXIST, OPENED=OPENED )
+!PUN                     IF ( .NOT.OPENED ) THEN
+!PUN                        IF (EXIST) THEN
+!PUN                           OPEN ( UNIT=IUNIT, FILE=FILENM,
+!PUN     &                            FORM='UNFORMATTED' )
+!PUN                        ELSE
+!PUN                           CALL MSGERR( 4,
+!PUN     &                                'file output.set does not exist' )
+!PUN                           RETURN
+!PUN                        ENDIF
+!PUN                     ENDIF
+!PUN                     READ(IUNIT) ITMP1, ITMP2
+!PUN                     IF (ITMP1.EQ.IRQ) THEN
+!PUN                        DO IP = 1, ITMP2
+!PUN                           READ (IUNIT) ITMP3, ITMP4
+!PUN                           XC(ITMP3) = REAL(ITMP4) - 1.
+!PUN                        ENDDO
+!PUN                     ELSE
+!PUN                        CALL MSGERR( 4,
+!PUN     &        'inconsistency found in SWCOLOUT: wrong request number ' )
+!PUN                        RETURN
+!PUN                     ENDIF
+!PUN                  ENDDO
+!PUN               ELSE
+!PUN                  DO IP = 1, MIP
+!PUN                     XC(IP) = REAL(IP) - 1.
+!PUN                     YC(IP) = 0.
+!PUN                  ENDDO
+!PUN               ENDIF
 
 !              --- correct problem coordinates with offset values
 
@@ -3426,17 +4387,25 @@
 !                  output locations
 
                IF ( RTYPE(1:3).EQ.'TAB' ) THEN
+                 IF ( RTYPE.EQ.'TABC') THEN
+!                 --- use "block" intermediate file facility to pass data between cores
+                  CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%OQR, CORQ%IVTYP,
+     &                            CORQ%FAC, SNAMPF, MIP, 1, IRQ,
+     &                            BLKND, XC, YC )
+                  IF (STPNOW()) RETURN
+                 ELSE
                   CALL SWCOLTAB ( RTYPE, CORQ%OQI, CORQ%IVTYP, MIP, IRQ,
      &                            BLKND, XC, YC, XP, YP )                 40.51 40.41
                   IF (STPNOW()) RETURN
+                 ENDIF
                END IF
 
 !              --- rewrite spectral output by means of collection of
 !                  output locations
 
                IF ( RTYPE(1:2).EQ.'SP' ) THEN
-                  CALL SWCOLSPC ( RTYPE, CORQ%OQI, MIP, IRQ, BLKND,       40.51 40.41
-     &                            XC, YC )                                40.51
+                  CALL SWCOLSPC ( RTYPE, CORQ%OQI, CORQ%OQR, MIP,         41.40 40.51 40.41
+     &                            IRQ  , BLKND   , XC      , YC )         40.51
                   IF (STPNOW()) RETURN
                END IF
 
@@ -3444,8 +4413,9 @@
 !                  output data
 
                IF ( RTYPE(1:3).EQ.'BLK' ) THEN
-                  CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%IVTYP, CORQ%FAC,
-     &                            SNAMPF, MXK, MYK, IRQ, BLKND, XC, YC )  40.51 40.41
+                  CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%OQR, CORQ%IVTYP,  41.40
+     &                            CORQ%FAC, SNAMPF, MXK, MYK, IRQ,        40.51 40.41
+     &                            BLKND, XC, YC )                         40.51 40.41
                   IF (STPNOW()) RETURN
                END IF
 
@@ -3474,6 +4444,7 @@
         IF (OPENED) CLOSE(IUNIT)
       END DO
       DO IUNIT = HIOPEN+NREOQ+1, HIOPEN+NREOQ*(NPROC+1)
+!PUN      DO IUNIT = HIOPEN+NREOQ+1, HIOPEN+NREOQ*(NPROC+1)+NPROC
         INQUIRE ( UNIT=IUNIT, OPENED=OPENED )
         IF (OPENED) CLOSE ( UNIT=IUNIT, STATUS='delete' )
       END DO
@@ -3487,12 +4458,14 @@
 !
 !****************************************************************
 !
+!PUN      USE OCPCOMM2, ONLY: LENFNM, DIRCH2                                  41.36
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA
       USE M_PARALL                                                        40.31
+!PUN      USE SIZES, ONLY: GLOBALDIR, LOCALDIR                                41.36
 !
       IMPLICIT NONE
 !
@@ -3508,7 +4481,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3532,6 +4505,7 @@
 !     40.41: Marcel Zijlema
 !     40.51: Agnieszka Herman
 !     40.51: Marcel Zijlema
+!     41.36: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -3540,6 +4514,7 @@
 !     40.41, Dec. 04: optimization output with respect to COMPGRID
 !     40.51, Feb. 05: further optimization
 !     40.51, Feb. 05: re-design output process in parallel mode
+!     41.36, Jun. 12: collecting data for PunSWAN
 !
 !  2. Purpose
 !
@@ -3567,6 +4542,7 @@
 !
 !     EXIST :     logical whether a file exist or not
 !     FSTR  :     an auxiliary string
+!     I     :     integer
 !     IENT  :     number of entries
 !     IF    :     first non-character in string
 !     IL    :     last non-character in string
@@ -3588,7 +4564,7 @@
 !     OPENED:     logical whether a file is open or not
 !     OUTLIN:     output line
 !
-      INTEGER       IENT, IF, IL, ILPOS, IP, IPROC, IUNIT,
+      INTEGER       I, IENT, IF, IL, ILPOS, IP, IPROC, IUNIT,
      &              IUT, IVTYPE, IXK, IYK, JVAR, LFIELD, NLINES,
      &              NREF, NUMDEC, NVAR
       LOGICAL       EXIST, OPENED
@@ -3646,12 +4622,15 @@
 
          FILENM = OUTP_FILES(OQI(2))
          ILPOS  = INDEX(FILENM, '-0')
-         FILENM = FILENM(1:ILPOS-1)
+         IF (ILPOS.NE.0) FILENM = FILENM(1:ILPOS-1)
+!PUN         ILPOS  = LEN(TRIM(LOCALDIR))+2
+!PUN         FILENM = FILENM(ILPOS:LENFNM)
+!PUN         FILENM = TRIM(GLOBALDIR)//DIRCH2//TRIM(FILENM)
          INQUIRE ( FILE=FILENM, OPENED=OPENED, NUMBER=IUT )
 
 !        --- if it is not open or already open thru another request
 
-         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN+NREOQ ) THEN
+         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN ) THEN
 
 !           --- open generic output file or reset reference number
 
@@ -3692,9 +4671,13 @@
 
             FILENM = OUTP_FILES(OQI(2))
             ILPOS  = INDEX ( FILENM, ' ' )-1
+!PUN            ILPOS  = LEN(TRIM(LOCALDIR))
             DO IPROC = 1, NPROC
-               WRITE(FILENM(ILPOS-3:ILPOS),100) IPROC
+               I = IPROC
+!PUN               I = I - 1
+               WRITE(FILENM(ILPOS-3:ILPOS),100) I
  100           FORMAT('-',I3.3)
+!PUN 100           FORMAT(I4.4)
                IUNIT = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+IPROC
                INQUIRE ( FILE=FILENM, EXIST=EXIST, OPENED=OPENED )
                IF ( .NOT.OPENED ) THEN
@@ -3702,6 +4685,8 @@
                      OPEN ( UNIT=IUNIT, FILE=FILENM )
                   ELSE
                      MSGSTR= 'file '//FILENM(1:ILPOS)//' does not exist'
+!PUN                     MSGSTR= 'file '//TRIM(FILENM(ILPOS:LENFNM))//
+!PUN     &                       ' does not exist'
                      CALL MSGERR( 4, MSGSTR )
                      RETURN
                   END IF
@@ -3812,16 +4797,20 @@
       END
 !****************************************************************
 !
-      SUBROUTINE SWCOLSPC ( RTYPE, OQI, MIP, IRQ, BLKND, XC, YC )         40.51
+      SUBROUTINE SWCOLSPC ( RTYPE, OQI, OQR, MIP, IRQ, BLKND, XC, YC )    41.40 40.51
 !
 !****************************************************************
 !
+!PUN      USE OCPCOMM2, ONLY: LENFNM, DIRCH2                                  41.36
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA
       USE M_PARALL                                                        40.31
+      USE swn_outnc, ONLY: swn_outnc_colspc                               41.40
+!PUN      USE SIZES, ONLY: GLOBALDIR, LOCALDIR                                41.36
+!PUN      USE SwanGriddata, ONLY: xcugrdgl, ycugrdgl
 !
       IMPLICIT NONE
 !
@@ -3837,7 +4826,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3861,6 +4850,7 @@
 !     40.41: Marcel Zijlema
 !     40.51: Agnieszka Herman
 !     40.51: Marcel Zijlema
+!     41.36: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -3869,6 +4859,7 @@
 !     40.41, Dec. 04: optimization output with respect to COMPGRID
 !     40.51, Feb. 05: further optimization
 !     40.51, Feb. 05: re-design output process in parallel mode
+!     41.36, Jun. 12: collecting data for PunSWAN
 !
 !  2. Purpose
 !
@@ -3880,12 +4871,14 @@
 !     BLKND       collected array giving node number per subdomain
 !     IRQ         request number
 !     MIP         total number of output points
-!     OQI         array containing output request data
+!     OQI         integer array containing output request data
+!     OQR         real array containing output request data
 !     RTYPE       type of output request
 !     XC          computational grid x-coordinate of output point
 !     YC          computational grid y-coordinate of output point
 !
       INTEGER   IRQ, MIP, OQI(4)
+      REAL*8    OQR(2)                                                    41.40
       REAL      BLKND(MXCGL,MYCGL), XC(MIP), YC(MIP)                      40.51
       CHARACTER RTYPE*4
 !
@@ -3893,6 +4886,7 @@
 !
 !     EMPTY :     logical whether a line is empty or not
 !     EXIST :     logical whether a file exist or not
+!     I     :     integer
 !     IBLKN :     integer giving node number per subdomain
 !     IENT  :     number of entries
 !     IF    :     first non-character in string
@@ -3906,23 +4900,30 @@
 !     IXK   :     loop counter
 !     IYK   :     loop counter
 !     MSGSTR:     string to pass message to call MSGERR
+!     NCF   :     true if netCDF file
 !     NLINES:     number of lines in heading
 !     NREF  :     unit reference number
 !     OPENED:     logical whether a file is open or not
 !     OTYPE :     integer indicating dimension of spectrum
 !     OUTLIN:     output line
 !
-      INTEGER       IBLKN, IENT, IF, IL, ILPOS, IP, IPROC, IS,
+      INTEGER       I, IBLKN, IENT, IF, IL, ILPOS, IP, IPROC, IS,
      &              IUNIT, IUT, IXK, IYK, NLINES, NREF, OTYPE
       LOGICAL       EMPTY, EXIST, OPENED
+      LOGICAL, SAVE :: NCF = .FALSE.                                      41.40
       CHARACTER*80  MSGSTR
       CHARACTER (LEN=LENSPO) OUTLIN
+!PUN      CHARACTER (LEN=8) :: CRFORM = '(2F14.4)'
 !
 !  8. Subroutines used
 !
 !     MSGERR           Writes error message
 !     STRACE           Tracing routine for debugging
+!     STPNOW           Logical indicating whether program must
+!     swn_outnc_colspc Collect spectral output for netcdf
 !     TXPBLA           Removes leading and trailing blanks in string
+!
+      LOGICAL STPNOW
 !
 !  9. Subroutines calling
 !
@@ -3958,6 +4959,15 @@
       DATA IENT/0/
       IF (LTRACE) CALL STRACE (IENT,'SWCOLSPC')
 
+      FILENM = OUTP_FILES(OQI(2))
+      NCF = INDEX( FILENM, '.NC' ).NE.0 .OR.                              41.40
+     &      INDEX (FILENM, '.nc' ).NE.0                                   41.40
+!
+      IF ( NCF ) THEN                                                     41.40
+         CALL swn_outnc_colspc( RTYPE, OQI, OQR, MIP, KGRPGL )
+         RETURN
+      ENDIF
+
       NREF   = OQI(1)
       NLINES = 0
 
@@ -3967,12 +4977,15 @@
 
          FILENM = OUTP_FILES(OQI(2))
          ILPOS  = INDEX(FILENM, '-0')
-         FILENM = FILENM(1:ILPOS-1)
+         IF (ILPOS.NE.0) FILENM = FILENM(1:ILPOS-1)
+!PUN         ILPOS  = LEN(TRIM(LOCALDIR))+2
+!PUN         FILENM = FILENM(ILPOS:LENFNM)
+!PUN         FILENM = TRIM(GLOBALDIR)//DIRCH2//TRIM(FILENM)
          INQUIRE ( FILE=FILENM, OPENED=OPENED, NUMBER=IUT )
 
 !        --- if it is not open or already open thru another request
 
-         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN+NREOQ ) THEN
+         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN ) THEN
 
 !           --- open generic output file or reset reference number
 
@@ -3987,6 +5000,7 @@
 !           --- count lines of first part of heading
 
             NLINES = NLINES + 5
+!PUN            IF ( LCOMPGRD    ) NLINES = NLINES - 1
             IF ( NSTATM.EQ.1 ) NLINES = NLINES + 2
 
 !           --- open individual process output files and
@@ -3994,9 +5008,13 @@
 
             FILENM = OUTP_FILES(OQI(2))
             ILPOS  = INDEX ( FILENM, ' ' )-1
+!PUN            ILPOS  = LEN(TRIM(LOCALDIR))
             DO IPROC = 1, NPROC
-               WRITE(FILENM(ILPOS-3:ILPOS),100) IPROC
+               I = IPROC
+!PUN               I = I - 1
+               WRITE(FILENM(ILPOS-3:ILPOS),100) I
  100           FORMAT('-',I3.3)
+!PUN 100           FORMAT(I4.4)
                IUNIT = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+IPROC
                INQUIRE ( FILE=FILENM, EXIST=EXIST, OPENED=OPENED )
                IF ( .NOT.OPENED ) THEN
@@ -4004,6 +5022,8 @@
                      OPEN ( UNIT=IUNIT, FILE=FILENM )
                   ELSE
                      MSGSTR= 'file '//FILENM(1:ILPOS)//' does not exist'
+!PUN                     MSGSTR= 'file '//TRIM(FILENM(ILPOS:LENFNM))//
+!PUN     &                       ' does not exist'
                      CALL MSGERR( 4, MSGSTR )
                      RETURN
                   END IF
@@ -4015,9 +5035,15 @@
                END DO
             END DO
 
+!PUN!           --- write number of locations in case of whole grid
+!PUN            IF ( LCOMPGRD ) THEN
+!PUN               WRITE (NREF,'(I6,T41,A)') MIP, 'number of locations'
+!PUN            ENDIF
+!PUN
 !           --- write coordinates of output points to generic
 !               output file
 
+!PUN            IF ( .NOT.LCOMPGRD ) THEN
             DO IP = 1, MIP                                                40.51
                IF ( XC(IP).LT.-0.01 .OR. YC(IP).LT.-0.01 .OR.             40.51
      &              XC(IP).GT.REAL(MXCGL-1)+0.01 .OR.                     40.51
@@ -4040,6 +5066,12 @@
                END DO
                IF (EMPTY) WRITE (NREF, '(A)') OUTLIN(1:IL)
             END DO
+!PUN            ELSE
+!PUN            DO IP = 1, MIP
+!PUN               WRITE (NREF, FMT=CRFORM) DBLE(xcugrdgl(IP)),
+!PUN     &                                  DBLE(ycugrdgl(IP))
+!PUN            ENDDO
+!PUN            ENDIF
 
 !           --- count lines of rest of heading and write heading
 !               to generic output file
@@ -4138,16 +5170,22 @@
       END
 !****************************************************************
 !
-      SUBROUTINE SWCOLBLK ( RTYPE, OQI, IVTYP, FAC  , PSNAME,
-     &                      MXK  , MYK, IRQ  , BLKND, XC    ,             40.51
-     &                      YC   )                                        40.51
+      SUBROUTINE SWCOLBLK ( RTYPE , OQI, OQR, IVTYP, FAC  ,               41.40
+     &                      PSNAME, MXK, MYK, IRQ  , BLKND,               40.51
+     &                      XC    , YC )                                  40.51
 !
 !****************************************************************
 !
+!PUN      USE OCPCOMM2, ONLY: LENFNM, DIRCH2                                  41.36
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
+      USE SWCOMM3, ONLY: NSTATM                                           41.62
+      USE SWCOMM4, ONLY: KSPHER                                           41.62
       USE OUTP_DATA
       USE M_PARALL
+!PUN      USE SIZES, ONLY: GLOBALDIR, LOCALDIR                                41.36
+!PUN!NCF      USE SwanGridData, ONLY: XCUGRDGL, YCUGRDGL                          41.40
+      USE swn_outnc                                                       41.40
 !
       IMPLICIT NONE
 !
@@ -4163,7 +5201,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4187,6 +5225,8 @@
 !     40.41: Marcel Zijlema
 !     40.51: Agnieszka Herman
 !     40.51: Marcel Zijlema
+!     41.36: Marcel Zijlema
+!     41.62: Andre van der Westhuysen
 !
 !  1. Updates
 !
@@ -4196,6 +5236,8 @@
 !     40.41, Dec. 04: optimization output with respect to COMPGRID
 !     40.51, Feb. 05: further optimization
 !     40.51, Feb. 05: re-design output process in parallel mode
+!     41.36, Jun. 12: collecting data for PunSWAN
+!     41.62, Nov. 15: included output fields for wave partitioning
 !
 !  2. Purpose
 !
@@ -4210,7 +5252,8 @@
 !     IVTYP       type of variable output
 !     MXK         number of points in x-direction of output frame
 !     MYK         number of points in y-direction of output frame
-!     OQI         array containing output request data
+!     OQI         integer array containing output request data
+!     OQR         real array containing output request data
 !     PSNAME      name of output locations
 !     RTYPE       type of output request
 !     XC          computational grid x-coordinate of output point
@@ -4218,7 +5261,8 @@
 !
       INTEGER   MXK, MYK, IRQ, OQI(4), IVTYP(OQI(3))
       REAL      BLKND(MXCGL,MYCGL), XC(MXK*MYK), YC(MXK*MYK)              40.51
-      REAL      FAC(OQI(3))
+      REAL*8    OQR(2)                                                    41.40
+      REAL      FAC(OQI(3))                                               41.40
       CHARACTER RTYPE*4, PSNAME*8
 !
 !  6. Local variables
@@ -4230,6 +5274,8 @@
 !     FTIP  :     auxiliary real
 !     FTIP1 :     auxiliary real
 !     FTIP2 :     auxiliary real
+!     I     :     integer
+!     IBLKN :     integer giving node number per subdomain
 !     IDLA  :     lay-out indicator
 !     IF    :     first non-character in string
 !     IFAC  :     auxiliary integer
@@ -4254,17 +5300,21 @@
 !     OPENED:     logical whether a file is open or not
 !     VOQ   :     collected output variables
 !
-      INTEGER      IDLA, IENT, IF, IFAC, IL, ILPOS, IP, IPD,
-     &             IPROC, IUNIT, IUT, IXK, IYK, IVTYPE, JVAR, NREF,
+      INTEGER      I, IBLKN, IDLA, IENT, IF, IFAC, IL, ILPOS, IP, IPD,
+     &             IPROC, IUNIT, IUT, IXK, IYK, IVTYPE, J, JVAR, NREF,
      &             NVAR
       REAL         DFAC, FMAX, FTIP, FTIP1, FTIP2
       LOGICAL      EXIST, OPENED
       INTEGER, SAVE :: IREC(MAX_OUTP_REQ)=0                               40.51 40.41
       LOGICAL, SAVE :: MATLAB=.FALSE.                                     40.41
+      LOGICAL, SAVE :: NCF   =.FALSE.                                     41.40
+      LOGICAL, SAVE :: RAWPRT=.FALSE.                                     41.62
       CHARACTER*80 MSGSTR
       CHARACTER (LEN=20) :: CTIM                                          40.41
       CHARACTER (LEN=30) :: NAMVAR                                        40.41
+      CHARACTER (LEN=80) :: HTXT(3)                                       41.62
       REAL, ALLOCATABLE :: VOQ(:,:)
+      INTEGER VOQR(NMOVAR)                                                41.62
 !
 !  8. Subroutines used
 !
@@ -4325,14 +5375,39 @@
 
          FILENM = OUTP_FILES(OQI(2))
          ILPOS  = INDEX(FILENM, '-0')
-         FILENM = FILENM(1:ILPOS-1)
+         IF (ILPOS.NE.0) FILENM = FILENM(1:ILPOS-1)
+!PUN         ILPOS  = LEN(TRIM(LOCALDIR))+2
+!PUN         FILENM = FILENM(ILPOS:LENFNM)
+!PUN         FILENM = TRIM(GLOBALDIR)//DIRCH2//TRIM(FILENM)
          INQUIRE ( FILE=FILENM, OPENED=OPENED, NUMBER=IUT )
+         MATLAB = INDEX( FILENM, '.MAT' ).NE.0 .OR.                       40.41
+     &            INDEX (FILENM, '.mat' ).NE.0                            40.41
+         NCF    = INDEX( FILENM, '.NC'  ).NE.0 .OR.                       41.40
+     &            INDEX (FILENM, '.nc'  ).NE.0                            41.40
+         RAWPRT = INDEX( FILENM, '.RAW' ).NE.0 .OR.                       41.62
+     &            INDEX (FILENM, '.raw' ).NE.0                            41.62
 
 !        --- if it is not open or already open thru another request
 
-         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN+NREOQ ) THEN
+         IF ( .NOT.OPENED .OR. NREF.LE.HIOPEN ) THEN
 
 !           --- open generic output file or reset reference number
+
+            IF (NCF .AND. .NOT.OPENED) THEN                               41.40
+               IF(PSNAME == 'COMPGRID') THEN
+                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+     &                                      OVLNAM, OQI, OQR, IVTYP,IRQ,
+     &                                      XGRDGL, YGRDGL)
+               ELSE
+                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+     &                                      OVLNAM, OQI, OQR, IVTYP,IRQ)
+               ENDIF
+!PUN!NCF               CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!PUN!NCF     &                                      OVLNAM, OQI, OQR, IVTYP, IRQ,
+!PUN!NCF     &                                      XCUGRDGL, YCUGRDGL)
+                IUT    = HIOPEN + IRQ
+                OPENED = .TRUE.
+            END IF
 
             IF ( .NOT.OPENED ) THEN
                NREF = HIOPEN + IRQ
@@ -4342,29 +5417,56 @@
             END IF
             OQI(1) = NREF
 
-            MATLAB = INDEX( FILENM, '.MAT' ).NE.0 .OR.                    40.41
-     &               INDEX (FILENM, '.mat' ).NE.0                         40.41
             IF (MATLAB .AND. .NOT.OPENED) THEN
                CLOSE(NREF)
                OPEN(UNIT=NREF, FILE=FILENM, FORM='UNFORMATTED',
+     &              STATUS='REPLACE',
+!MatL4     &              ACCESS='DIRECT', RECL=1)
      &              ACCESS='DIRECT', RECL=4)                              41.08
                IREC(IRQ) = 1                                              40.51
             END IF
+
+            IF (RAWPRT .AND. IPD.EQ.1 .AND. .NOT.OPENED) THEN             41.62
+              IF (NSTATM.EQ.1) THEN
+                 WRITE (HTXT(1),'(a)') ' yyyymmdd hhmmss'
+              ELSE
+                 WRITE (HTXT(1),'(a)') ''
+              ENDIF
+              IF (KSPHER.EQ.0) THEN
+                 WRITE (HTXT(2),'(a)') '         x             y'
+              ELSE
+                 WRITE (HTXT(2),'(a)') '       lat           lon'
+              ENDIF
+              WRITE (HTXT(3),'(a)')
+     &              '       name       nprt depth uabs  udir cabs  cdir'
+!
+              WRITE(NREF,'(A26)') 'SWAN PARTITIONED DATA FILE'
+              WRITE(NREF,'(A16,A24,A50)') TRIM(HTXT(1)), TRIM(HTXT(2)),
+     &                                    TRIM(HTXT(3))
+              WRITE(NREF,'(A31,A20)') '        hs     tp     lp       ',
+     &                                'theta     sp      wf'
+            END IF                                                        41.62
 
 !           --- open individual process output files
 
             FILENM = OUTP_FILES(OQI(2))
             ILPOS  = INDEX ( FILENM, ' ' )-1
+!PUN            ILPOS  = LEN(TRIM(LOCALDIR))
             DO IPROC = 1, NPROC
-               WRITE(FILENM(ILPOS-3:ILPOS),100) IPROC
+               I = IPROC
+!PUN               I = I - 1
+               WRITE(FILENM(ILPOS-3:ILPOS),100) I
  100           FORMAT('-',I3.3)
+!PUN 100           FORMAT(I4.4)
                IUNIT = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+IPROC
                INQUIRE ( FILE=FILENM, EXIST=EXIST, OPENED=OPENED )
                IF ( .NOT.OPENED ) THEN
                   IF (EXIST) THEN
-                     OPEN ( UNIT=IUNIT, FILE=FILENM )
+                     OPEN ( UNIT=IUNIT, FILE=FILENM, FORM='UNFORMATTED')
                   ELSE
                      MSGSTR= 'file '//FILENM(1:ILPOS)//' does not exist'
+!PUN                     MSGSTR= 'file '//TRIM(FILENM(ILPOS:LENFNM))//
+!PUN     &                       ' does not exist'
                      CALL MSGERR( 4, MSGSTR )
                      RETURN
                   END IF
@@ -4382,23 +5484,40 @@
       CALL TXPBLA(CTIM,IF,IL)                                             40.41
       CTIM(9:9)='_'                                                       40.41
 
-      ALLOCATE(VOQ(MXK*MYK,2))
+      IF (.NOT.RAWPRT) THEN
+         ALLOCATE(VOQ(MXK*MYK,2))
+      ELSE
+         ALLOCATE(VOQ(MXK*MYK,NMOVAR))
+         VOQR=(/ (J, J=1, NMOVAR) /)
+      ENDIF
 
-      DO JVAR = 1, NVAR
+      JLOOP: DO JVAR = 1, NVAR
 
          IVTYPE = IVTYP(JVAR)
          DFAC   = FAC(JVAR)
 
-         VOQ = OVEXCV(IVTYPE)
+         IF (.NOT.RAWPRT) THEN                                            41.62
+            VOQ = OVEXCV(IVTYPE)
+            J   = 1
+         ELSE
+            J   = IVTYPE
+         ENDIF
 
          DO IP = 1, MXK*MYK                                               40.51
             IXK = NINT(XC(IP)+100.)-99                                    41.07 40.51
             IYK = NINT(YC(IP)+100.)-99                                    41.07 40.51
-            IPROC = 1                                                     40.51
+            IF ( IXK.LT.1 .OR. IYK.LT.1 .OR. IXK.GT.MXCGL .OR.
+     &           IYK.GT.MYCGL ) THEN
+               IBLKN = 0
+               IPROC = NPROC+1
+            ELSE
+               IBLKN = NINT(BLKND(IXK,IYK))
+               IPROC = 1
+            END IF
             PROCLOOP1 : DO                                                40.51
-              IF ( NINT(BLKND(IXK,IYK)).EQ.IPROC ) THEN                   40.51
+              IF ( IBLKN.EQ.IPROC ) THEN                                  40.51
                  IUNIT = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+IPROC         40.51
-                 READ (IUNIT, FLT_BLKP) VOQ(IP,1)                         40.51
+                 READ (IUNIT) VOQ(IP,J)                                   40.51
                  EXIT PROCLOOP1                                           40.51
               ELSE                                                        40.51
                  IPROC = IPROC + 1                                        40.51
@@ -4416,11 +5535,18 @@
             DO IP = 1, MXK*MYK                                            40.51
                IXK = NINT(XC(IP)+100.)-99                                 41.07 40.51
                IYK = NINT(YC(IP)+100.)-99                                 41.07 40.51
-               IPROC = 1                                                  40.51
+               IF ( IXK.LT.1 .OR. IYK.LT.1 .OR. IXK.GT.MXCGL .OR.
+     &              IYK.GT.MYCGL ) THEN
+                  IBLKN = 0
+                  IPROC = NPROC+1
+               ELSE
+                  IBLKN = NINT(BLKND(IXK,IYK))
+                  IPROC = 1
+               END IF
                PROCLOOP2 : DO                                             40.51
-                 IF ( NINT(BLKND(IXK,IYK)).EQ.IPROC ) THEN                40.51
+                 IF ( IBLKN.EQ.IPROC ) THEN                               40.51
                     IUNIT=HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+IPROC        40.51
-                    READ (IUNIT, FLT_BLKP) VOQ(IP,2)                      40.51
+                    READ (IUNIT) VOQ(IP,J+1)                              40.51
                     EXIT PROCLOOP2                                        40.51
                  ELSE                                                     40.51
                     IPROC = IPROC + 1                                     40.51
@@ -4433,6 +5559,8 @@
                END DO PROCLOOP2                                           40.51
             END DO                                                        40.51
          END IF
+
+         IF (RAWPRT) CYCLE JLOOP                                          41.62
 
          IF ( IPD.EQ.1 ) THEN
             IF ( DFAC.LE.0. ) THEN
@@ -4465,7 +5593,7 @@
 
          IF (OVSVTY(IVTYPE) .LT. 3) THEN
             IF (MATLAB) THEN
-               IF (IL.EQ.1) THEN                                          40.41
+               IF (IL.EQ.1 .OR. IVTYPE.LT.3 .OR. IVTYPE.EQ.52) THEN       40.94 40.41
                   NAMVAR = OVSNAM(IVTYPE)                                 40.41
                ELSE                                                       40.41
                   NAMVAR = OVSNAM(IVTYPE)(1:LEN_TRIM(OVSNAM(IVTYPE)))//   40.41
@@ -4473,6 +5601,13 @@
                END IF                                                     40.41
                CALL SWRMAT( MYK, MXK, NAMVAR, VOQ(1,1), NREF,
      &                      IREC(IRQ), IDLA, OVEXCV(IVTYPE) )             40.51
+            ELSE IF (NCF) THEN                                            41.40
+               IF ( ( IVTYPE.GT.2 .OR. PSNAME.NE.'COMPGRID')
+     &                .AND.IVTYPE.NE.40 ) THEN
+                  CALL swn_outnc_appendblock(MYK, MXK, IVTYPE, OQI(1),
+     &                                       IRQ, VOQ(1,1),
+     &                                       OVEXCV(IVTYPE), 1)
+               END IF
             ELSE
                CALL SBLKPT( IPD, NREF, DFAC, PSNAME, OVUNIT(IVTYPE),
      &                      MXK, MYK, IDLA, OVLNAM(IVTYPE), VOQ(1,1) )
@@ -4497,6 +5632,15 @@
                END IF                                                     40.41
                CALL SWRMAT( MYK, MXK, NAMVAR,
      &                 VOQ(1,2), NREF, IREC(IRQ), IDLA, OVEXCV(IVTYPE) )  40.51
+            ELSE IF (NCF) THEN                                            41.40
+               IF ( IVTYPE.GT.3 ) THEN
+                  CALL swn_outnc_appendblock(MYK, MXK, IVTYPE, OQI(1),
+     &                                       IRQ, VOQ(1,1),
+     &                                       OVEXCV(IVTYPE), 1)
+                  CALL swn_outnc_appendblock(MYK, MXK, IVTYPE, OQI(1),
+     &                                       IRQ, VOQ(1,2),
+     &                                       OVEXCV(IVTYPE), 2)
+               END IF
             ELSE
                CALL SBLKPT( IPD, NREF, DFAC, PSNAME, OVUNIT(IVTYPE),
      &                      MXK, MYK, IDLA, OVLNAM(IVTYPE)//'X-comp',
@@ -4507,9 +5651,14 @@
             END IF
          END IF
 
-      END DO
+      END DO JLOOP
 
-      IF (IPD.EQ.1) WRITE (PRINTF, 111)
+!     generate a dump of the raw partition data, if appropriate
+      IF (RAWPRT) CALL SRAWPT ( NREF, VOQR, VOQ, MXK, MYK )               41.62
+
+      IF ( NCF ) CALL swn_outnc_close_on_end(OQI(1), IRQ)                 41.40
+
+      IF (IPD.EQ.1 .AND. NREF.EQ.PRINTF) WRITE (PRINTF, 111)
 
       DEALLOCATE(VOQ)
 
@@ -4517,3 +5666,266 @@
 
       RETURN
       END
+!JAC!****************************************************************
+!JAC!
+!JAC      SUBROUTINE SWBLKCOL ( MCOLR, KGRPNT )
+!JAC!
+!JAC!****************************************************************
+!JAC!
+!JAC      USE OCPCOMM4                                                        40.41
+!JAC      USE SWCOMM3                                                         40.41
+!JAC      USE M_PARALL                                                        40.31
+!JAC!
+!JAC      IMPLICIT NONE
+!JAC!
+!
+!   --|-----------------------------------------------------------|--
+!     | Delft University of Technology                            |
+!     | Faculty of Civil Engineering and Geosciences              |
+!     | Environmental Fluid Mechanics Section                     |
+!     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
+!     |                                                           |
+!     | Programmer: Marcel Zijlema                                |
+!   --|-----------------------------------------------------------|--
+!
+!
+!     SWAN (Simulating WAves Nearshore); a third generation wave model
+!     Copyright (C) 1993-2020  Delft University of Technology
+!
+!     This program is free software; you can redistribute it and/or
+!     modify it under the terms of the GNU General Public License as
+!     published by the Free Software Foundation; either version 2 of
+!     the License, or (at your option) any later version.
+!
+!     This program is distributed in the hope that it will be useful,
+!     but WITHOUT ANY WARRANTY; without even the implied warranty of
+!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!     GNU General Public License for more details.
+!
+!     A copy of the GNU General Public License is available at
+!     http://www.gnu.org/copyleft/gpl.html#SEC3
+!     or by writing to the Free Software Foundation, Inc.,
+!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!
+!JAC!
+!JAC!  0. Authors
+!JAC!
+!JAC!     40.30: Marcel Zijlema
+!JAC!     40.41: Marcel Zijlema
+!JAC!
+!JAC!  1. Updates
+!JAC!
+!JAC!     40.30, Mar. 03: New subroutine
+!JAC!     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!JAC!
+!JAC!  2. Purpose
+!JAC!
+!JAC!     Colours the subdomains with red, yellow, green and black
+!JAC!     in order to determine the sequence of sweeps during the
+!JAC!     iteration process
+!JAC!
+!JAC!  3. Method
+!JAC!
+!JAC!     The four-colour ordering scheme is based on colouring
+!JAC!     subdomains in each direction in alternating way with
+!JAC!     red and black (similar to a chessboard colouring),
+!JAC!     whereafter the product of resulting color directions
+!JAC!     is taken.
+!JAC!     Initially, the most left and under blocks are coloured
+!JAC!     red, whereas other are uncoloured. Then, the colors
+!JAC!     are propagated from left to right and from bottom to
+!JAC!     top. Finally, when both directions of all subdomains
+!JAC!     have been coloured, the subdomains are coloured by
+!JAC!     taking the product of two color directions.
+!JAC!
+!JAC!  4. Argument variables
+!JAC!
+!JAC!     KGRPNT      indirect addressing for grid points
+!JAC!     MCOLR       flag to indicate multi-colouring
+!JAC!                 of subdomains (.TRUE.) or not (.FALSE.)
+!JAC!
+!JAC      INTEGER KGRPNT(MXC,MYC)
+!JAC      LOGICAL MCOLR
+!JAC!
+!JAC!  5. Parameter variables
+!JAC!
+!JAC!     ITERMAX:    maximum number of iterations
+!JAC!     IWHITE:     integer used to colour subdomains 'white'
+!JAC!
+!JAC      INTEGER IWHITE, ITERMAX
+!JAC      PARAMETER (IWHITE=0, ITERMAX=100)
+!JAC!
+!JAC!  6. Local variables
+!JAC!
+!JAC!     CHARS :     character for passing info to MSGERR
+!JAC!     ICOLNB:     color of neighbouring subdomain
+!JAC!     ICONV :     indicator for convergence (0=yes, 1=no)
+!JAC!     IENT  :     number of entries
+!JAC!     IF    :     first non-character in string
+!JAC!     IL    :     last non-character in string
+!JAC!     ITER  :     iteration count
+!JAC!     IXCOL :     color in x-direction of own subdomain
+!JAC!     IYCOL :     color in y-direction of own subdomain
+!JAC!     MSGSTR:     string to pass message to call MSGERR
+!JAC!     XCOL  :     field array containing present color in x-direction
+!JAC!     YCOL  :     field array containing present color in y-direction
+!JAC!
+!JAC      INTEGER      ICOLNB, ICONV, IENT, IF, IL, ITER, IXCOL, IYCOL
+!JAC      CHARACTER*20 INTSTR, CHARS
+!JAC      CHARACTER*80 MSGSTR
+!JAC      REAL, ALLOCATABLE :: XCOL(:), YCOL(:)
+!JAC!
+!JAC!  8. Subroutines used
+!JAC!
+!JAC!     INTSTR           Converts integer to string
+!JAC!     MSGERR           Writes error message
+!JAC!     STRACE           Tracing routine for debugging
+!JAC!     SWEXCHG          Updates geographical field array through
+!JAC!                      exchanging values between subdomains
+!JAC!     SWREDUCE         Performs a global reduction
+!JAC!     TXPBLA           Removes leading and trailing blanks in string
+!JAC!
+!JAC!  9. Subroutines calling
+!JAC!
+!JAC!     SWMAIN
+!JAC!
+!JAC! 10. Error messages
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 11. Remarks
+!JAC!
+!JAC!     ---
+!JAC!
+!JAC! 12. Structure
+!JAC!
+!JAC!     if not parallel or no colouring, return
+!JAC!
+!JAC!     initially, both x- and y-direction of the most left
+!JAC!     and under subdomains are coloured red and that of all
+!JAC!     other subdomains are marked white, i.e. not being
+!JAC!     coloured
+!JAC!
+!JAC!     while not all subdomains are coloured do
+!JAC!        exchange colors of both directions between subdomains
+!JAC!        adjust color in x-direction of own subdomain
+!JAC!        adjust color in y-direction of own subdomain
+!JAC!        check whether all subdomains have been coloured
+!JAC!
+!JAC!     if not all subdomains have been coloured gives message and stops
+!JAC!
+!JAC!     finally, subdomains are coloured by taking the product of two
+!JAC!     color directions
+!JAC!
+!JAC! 13. Source text
+!JAC!
+!JAC      SAVE IENT
+!JAC      DATA IENT/0/
+!JAC      IF (LTRACE) CALL STRACE (IENT,'SWBLKCOL')
+!JAC
+!JAC      IBCOL = IRED
+!JAC
+!JAC!     --- if not parallel or no colouring, return
+!JAC      IF (.NOT.PARLL .OR. .NOT.MCOLR) RETURN
+!JAC
+!JAC      ALLOCATE(XCOL(MCGRD))
+!JAC      ALLOCATE(YCOL(MCGRD))
+!JAC
+!JAC!     --- initially, both x- and y-direction of the most left
+!JAC!         and under subdomains are coloured red and that of all
+!JAC!         other subdomains are marked white, i.e. not being
+!JAC!         coloured
+!JAC
+!JAC      IF ( MXF.EQ.1 ) THEN
+!JAC         IXCOL = IRED
+!JAC      ELSE
+!JAC         IXCOL = IWHITE
+!JAC      END IF
+!JAC      IF ( MYF.EQ.1 ) THEN
+!JAC         IYCOL = IRED
+!JAC      ELSE
+!JAC         IYCOL = IWHITE
+!JAC      END IF
+!JAC
+!JAC!     --- while not all subdomains are coloured, adjust the
+!JAC!         color of each direction of own subdomain depending
+!JAC!         on the color directions of left and under neighbours
+!JAC
+!JAC      DO ITER = 1, ITERMAX
+!JAC
+!JAC         ICONV = 0
+!JAC
+!JAC!        --- exchange colors of both directions between subdomains
+!JAC
+!JAC         XCOL = REAL(IXCOL)
+!JAC         YCOL = REAL(IYCOL)
+!JAC         CALL SWEXCHG ( XCOL, 0, KGRPNT )
+!JAC         CALL SWEXCHG ( YCOL, 0, KGRPNT )
+!JAC
+!JAC!        --- adjust color in x-direction of own subdomain
+!JAC
+!JAC         IF ( IXCOL.EQ.IWHITE ) THEN
+!JAC
+!JAC            ICOLNB = NINT(XCOL(KGRPNT(1,2)))
+!JAC            IF ( ICOLNB.EQ.IRED ) THEN
+!JAC               IXCOL = IBLACK
+!JAC            ELSE IF ( ICOLNB.EQ.IBLACK ) THEN
+!JAC               IXCOL = IRED
+!JAC            ELSE
+!JAC               ICONV = 1
+!JAC            END IF
+!JAC
+!JAC         END IF
+!JAC
+!JAC!        --- adjust color in y-direction of own subdomain
+!JAC
+!JAC         IF ( IYCOL.EQ.IWHITE ) THEN
+!JAC
+!JAC            ICOLNB = NINT(YCOL(KGRPNT(2,1)))
+!JAC            IF ( ICOLNB.EQ.IRED ) THEN
+!JAC               IYCOL = IBLACK
+!JAC            ELSE IF ( ICOLNB.EQ.IBLACK ) THEN
+!JAC               IYCOL = IRED
+!JAC            ELSE
+!JAC               ICONV = 1
+!JAC            END IF
+!JAC
+!JAC         END IF
+!JAC
+!JAC!        --- check whether all subdomains have been coloured
+!JAC
+!JAC         CALL SWREDUCE( ICONV, 1, SWINT, SWMAX )
+!JAC         IF ( ICONV.EQ.0 ) GOTO 100
+!JAC
+!JAC      END DO
+!JAC 100  CONTINUE
+!JAC
+!JAC!     --- if not all subdomains have been coloured
+!JAC!         gives message and stops
+!JAC
+!JAC      IF (ICONV.NE.0 .AND. (IXCOL.EQ.IWHITE .OR. IYCOL.EQ.IWHITE)) THEN
+!JAC         CHARS = INTSTR(INODE)
+!JAC         CALL TXPBLA(CHARS,IF,IL)
+!JAC         MSGSTR = 'Subdomain '//CHARS(IF:IL)//
+!JAC     &            'has not been coloured'
+!JAC         CALL MSGERR ( 4, MSGSTR )
+!JAC         RETURN
+!JAC      END IF
+!JAC
+!JAC!     --- finally, subdomains are coloured by taking the product
+!JAC!         of two color directions
+!JAC
+!JAC      IF ( IXCOL.EQ.IRED .AND. IYCOL.EQ.IRED ) THEN
+!JAC         IBCOL = IRED
+!JAC      ELSE IF ( IXCOL.EQ.IBLACK .AND. IYCOL.EQ.IRED ) THEN
+!JAC         IBCOL = IYELOW
+!JAC      ELSE IF ( IXCOL.EQ.IBLACK .AND. IYCOL.EQ.IBLACK ) THEN
+!JAC         IBCOL = IGREEN
+!JAC      ELSE IF ( IXCOL.EQ.IRED .AND. IYCOL.EQ.IBLACK ) THEN
+!JAC         IBCOL = IBLACK
+!JAC      END IF
+!JAC
+!JAC      DEALLOCATE(XCOL,YCOL)
+!JAC
+!JAC      RETURN
+!JAC      END

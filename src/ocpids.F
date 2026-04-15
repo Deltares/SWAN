@@ -13,6 +13,7 @@
       USE OCPCOMM3                                                        40.41
       USE OCPCOMM4                                                        40.41
       USE M_PARALL                                                        40.31
+!PUN      USE SIZES                                                           40.95
 
 !
 !
@@ -27,7 +28,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -54,6 +55,7 @@
 !     40.30: Marcel Zijlema
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!     40.95: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -72,6 +74,7 @@
 !     40.31, Nov. 03: removing HPGL-functionality
 !     40.41, Sep. 04: includes speed processors in initialisation file
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     40.95, Jun. 08: parallelization of unSWAN using MESSENGER of ADCIRC
 !
 !  2. Purpose
 !
@@ -91,7 +94,8 @@
       LOGICAL    LREAD, FILEXI
       CHARACTER  INPFIL *40, OUTFIL *40, INIFIL *(*), TSTFIL *40,
      &           PLTOPT *4, TIMSTR *24,
-     &           OUTFO *40, TSTFO *40, TXT*120
+     &           INPFO *40, OUTFO *40, TSTFO *40, TXT*120
+      CHARACTER (LEN=LENFNM) SCRFIL
       INTEGER    PRCTIM(6), INIVER, INIVEF
       INTEGER    PFROPT                                                   40.31
       REAL       PLPARM(10)                                               40.31
@@ -136,10 +140,13 @@
           READ (11, 130, ERR=930, END=930) DIRCH1
           READ (11, 130, ERR=930, END=930) DIRCH2
         ELSE
-!DOS          DIRCH1 = CHAR(47)                                               40.41 40.03
-!DOS          DIRCH2 = CHAR(92)                                               40.03
-!UNIX          DIRCH1 = CHAR(92)                                               40.41 40.30
-!UNIX          DIRCH2 = CHAR(47)                                               40.30
+#ifndef HAVE_CONFIG_H ! Windows
+          DIRCH1 = CHAR(47)                                               40.41 40.03
+          DIRCH2 = CHAR(92)                                               40.03
+#else ! Linux
+          DIRCH1 = CHAR(92)                                               40.41 40.30
+          DIRCH2 = CHAR(47)                                               40.30
+#endif
         ENDIF
         IF (INIVEF.LT.3) THEN
            READ (11, 140, ERR=930, END=930) PLTOPT
@@ -195,15 +202,19 @@
         COMID  = '$'
 !       DIRCH1 is directory separation character as appears in input file
 !       DIRCH2 is directory separation character replacing DIRCH1         40.00
-!DOS        DIRCH1 =  CHAR(47)                                                40.41 40.03
-!DOS        DIRCH2 =  CHAR(92)                                                40.03
-!UNIX        DIRCH1 =  CHAR(92)                                                40.41 40.30
-!UNIX        DIRCH2 =  CHAR(47)                                                40.30
+#ifndef HAVE_CONFIG_H ! Windows
+        DIRCH1 =  CHAR(47)                                                40.41 40.03
+        DIRCH2 =  CHAR(92)                                                40.03
+#else ! Linux
+        DIRCH1 =  CHAR(92)                                                40.41 40.30
+        DIRCH2 =  CHAR(47)                                                40.30
+#endif
 !       INST = name of institute, max. 40 characters
         INST = 'Delft University of Technology'
         ITMOPT = 1
 !
       ENDIF
+      INPFO = INPFIL                                                      40.95
       OUTFO = OUTFIL                                                      40.30
       TSTFO = TSTFIL                                                      40.30
 
@@ -226,33 +237,46 @@
          IF (STPNOW()) RETURN
       END IF
 
+!PUN      IAMMASTER = MYPROC.EQ.0                                             40.95
+!PUN      IF ( MNPROC==1 ) THEN                                               40.95
+!PUN         INPUTDIR = '.'                                                   40.95
+!PUN         LOCALDIR = '.'                                                   40.95
+!PUN      ELSE                                                                40.95
+!PUN         CALL MAKE_DIRNAME()                                              40.95
+!PUN      ENDIF                                                               40.95
+!PUN      INPFIL = TRIM(INPUTDIR)//DIRCH2//TRIM(INPFIL)                       40.95
+!PUN      OUTFIL = TRIM(LOCALDIR)//DIRCH2//TRIM(OUTFIL)                       40.95
+!PUN      TSTFIL = TRIM(LOCALDIR)//DIRCH2//TRIM(TSTFIL)                       40.95
+
       IF (INIVEF.LT.INIVER) THEN
 !
 !       write initialisation file
 !
-        OPEN  (12, FILE=INIFIL, STATUS='UNKNOWN', FORM='FORMATTED',       40.00
-     &           ERR=950)
-        WRITE (12, 210) INIVER, 'version of initialisation file'          10.16
-        WRITE (12, 220) INST,   'name of institute'
-        WRITE (12, 210) INPUTF, 'command file ref. number'
-        WRITE (12, 220) INPFIL, 'command file name'
-        WRITE (12, 210) PRINTF, 'print file ref. number'
-        WRITE (12, 220) OUTFO,  'print file name'                         40.30
-        WRITE (12, 210) PRTEST, 'test file ref. number'
-        WRITE (12, 220) TSTFO,  'test file name'                          40.30
-        WRITE (12, 210) SCREEN, 'screen ref. number'
-        WRITE (12, 210) IUNMAX, 'highest file ref. number'
-        WRITE (12, 230) COMID,  'comment identifier'
-        WRITE (12, 230) TABC,   'TAB character'
-        WRITE (12, 230) DIRCH1, 'dir sep char in input file'
-        WRITE (12, 230) DIRCH2, 'dir sep char replacing previous one'     40.00
-        WRITE (12, 210) ITMOPT, 'default time coding option'
-        IF (PARLL) THEN
-           DO II = 1, NPROC
-              WRITE (12, 240) IWEIG(II), 'speed of processor ',II
-           END DO
-        END IF
-        CLOSE (12)
+        IF ( IAMMASTER ) THEN
+           OPEN  (12, FILE=INIFIL, STATUS='UNKNOWN', FORM='FORMATTED',    40.00
+     &                ERR=950)
+           WRITE (12, 210) INIVER, 'version of initialisation file'       10.16
+           WRITE (12, 220) INST,   'name of institute'
+           WRITE (12, 210) INPUTF, 'command file ref. number'
+           WRITE (12, 220) INPFO,  'command file name'
+           WRITE (12, 210) PRINTF, 'print file ref. number'
+           WRITE (12, 220) OUTFO,  'print file name'                      40.30
+           WRITE (12, 210) PRTEST, 'test file ref. number'
+           WRITE (12, 220) TSTFO,  'test file name'                       40.30
+           WRITE (12, 210) SCREEN, 'screen ref. number'
+           WRITE (12, 210) IUNMAX, 'highest file ref. number'
+           WRITE (12, 230) COMID,  'comment identifier'
+           WRITE (12, 230) TABC,   'TAB character'
+           WRITE (12, 230) DIRCH1, 'dir sep char in input file'
+           WRITE (12, 230) DIRCH2, 'dir sep char replacing previous one'  40.00
+           WRITE (12, 210) ITMOPT, 'default time coding option'
+           IF (PARLL) THEN
+              DO II = 1, NPROC
+                 WRITE (12, 240) IWEIG(II), 'speed of processor ',II
+              END DO
+           END IF
+           CLOSE (12)
+        ENDIF
   210   FORMAT (I5, T41, A)
   220   FORMAT (A40, A)
   230   FORMAT (A1, T41, A)
@@ -280,14 +304,20 @@
         WRITE (PRINTF, 12) TIMSTR
    12   FORMAT ('1',//,20X, 'Execution started at ',A, //)
       ENDIF
-      IF (PRTEST.NE.PRINTF) OPEN (UNIT=PRTEST, FILE=TSTFIL, ERR=922)
-      IF (SCREEN.NE.6) OPEN(UNIT=SCREEN, FILE='screen',ERR=960)           34.01
+      IF (PRTEST.NE.PRINTF) THEN
+         OPEN (UNIT=PRTEST, FILE=TSTFIL, ERR=922)
+      ENDIF
+      IF (SCREEN.NE.6) THEN
+         SCRFIL = 'screen'
+         OPEN (UNIT=SCREEN, FILE=SCRFIL, ERR=960)                         34.01
+      ENDIF
       IF (LREAD) THEN
-        IF (INPFIL.NE.'    ')
-     &  OPEN (UNIT=INPUTF, FILE=INPFIL, STATUS='OLD',                     40.41
-!CVIS     &        SHARED,                                                     40.41
-     &        ERR=910)                                                    40.41
-        CALL RDINIT
+         IF (INPFIL.NE.'    ') THEN
+            OPEN (UNIT=INPUTF, FILE=INPFIL, STATUS='OLD',                 40.41
+!CVIS     &            SHARED,                                                 40.41
+     &            ERR=910)                                                40.41
+         ENDIF
+         CALL RDINIT
       ENDIF
 !
       RETURN
@@ -296,7 +326,7 @@
       RETURN                                                              34.01
 !
   920 INERR=920                                                           34.01
-      IF ( INODE.EQ.MASTER )                                              40.31
+      IF ( IAMMASTER )                                                    40.95 40.31
      &   WRITE(*,*) 'Cannot open PRINT file '                             40.31
       RETURN                                                              34.01
 !
@@ -304,17 +334,17 @@
       RETURN
 !
   930 INERR=930                                                           34.01
-      IF ( INODE.EQ.MASTER )                                              40.31
+      IF ( IAMMASTER )                                                    40.95 40.31
      &   WRITE(*,*) 'Error reading initialisation file '                  40.31
       RETURN                                                              34.01
 !
   935 INERR=935                                                           34.01
-      IF ( INODE.EQ.MASTER )                                              40.31
+      IF ( IAMMASTER )                                                    40.95 40.31
      &   WRITE(*,*) 'Incorrect version of initialisation file '           40.31
       RETURN                                                              34.01
 !
   950 INERR=950                                                           34.01
-      IF ( INODE.EQ.MASTER )                                              40.31
+      IF ( IAMMASTER )                                                    40.95 40.31
      &   WRITE(*,*) 'Error opening initialisation file '                  40.31
       RETURN                                                              34.01
 !
@@ -339,7 +369,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -438,7 +468,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -459,7 +489,7 @@
 !     Updates
 !
 !       ver 30.70, Sep 1997 by N.Booij: adaptation in view year 2000
-!       40.89, Nico Booij: integer Jumpyear introduced to prevent porblems
+!       40.89, Nico Booij: integer Jumpyear introduced to prevent problems
 !                          with 2-digit year code
 !
 !     Function:
@@ -488,7 +518,8 @@
 !
       INTEGER :: JUMPYEAR = 30     ! Used in interpretation of 2-digit year code
       INTEGER    IOPT, DTTIME(6)
-      CHARACTER  TIMSTR *(*), MONC(12) *3, MONCI *3
+      CHARACTER    MONC(12) *3, MONCI *3
+      CHARACTER(*) TIMSTR
       DATA MONC /'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL',
      &           'AUG', 'SEP', 'OCT', 'NOV', 'DEC'/
 !
@@ -562,7 +593,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as

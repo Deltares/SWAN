@@ -36,7 +36,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -202,7 +202,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -332,7 +332,7 @@
           GOTO 800                                                        32.02
         ELSE                                                              32.02
 !         ver 30.20: names of input variables changed, order of data changed
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)                                        BJXX 40.31
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -386,7 +386,7 @@
         ELSE                                                              32.02
 !         mod 970221: GROUP is introduced as a new command instead of
 !         an option SUBG within the Frame command
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)                                        BJXX 40.31
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -464,7 +464,7 @@
 !
 
       IF (KEYWIS ('CURV')) THEN
-        ALLOCATE(OPSTMP)                                                  40.31
+        CALL CONSTRUCTOR(OPSTMP)                                          BJXX 40.31
         CALL INCSTR('SNAME',PSNAME,'REQ',' ')
         IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
         OPSTMP%PSNAME = PSNAME                                            40.31
@@ -538,7 +538,7 @@
 !   ------------------------------------------------------------------
 !
       IF (KEYWIS ('POIN')) THEN
-        ALLOCATE(OPSTMP)                                                  40.31
+        CALL CONSTRUCTOR(OPSTMP)                                          BJXX 40.31
         CALL INCSTR('SNAME',PSNAME,'REQ',' ')
         IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
         OPSTMP%PSNAME = PSNAME                                            40.31
@@ -617,7 +617,7 @@
      &                   ' with 1D-computation')                          32.02
           GOTO 800                                                        32.02
         ELSE                                                              32.02
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)                                        BJXX 40.31
           CALL INCSTR('RNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'RNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -702,7 +702,7 @@
      &                   ' with 1D-computation')                          32.02
           GOTO 800                                                        32.02
         ELSE                                                              32.02
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)                                        BJXX 40.31
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -803,7 +803,7 @@
           GOTO 800                                                        32.02
         ELSE                                                              32.02
 !         ver 30.20: names changed, order changed
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)                                        BJXX 40.31
           CALL INCSTR('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -823,6 +823,7 @@
 !               --- read first line to determine number of vertices
 !
                 READ(NDS, *, END=950, ERR=910) NVTX
+                ISTAT = 0
                 IF(.NOT.ALLOCATED(XG)) ALLOCATE(XG(NVTX), STAT = ISTAT)
                 IF ( ISTAT == 0 ) THEN
                    IF(.NOT.ALLOCATED(YG)) ALLOCATE(YG(NVTX), STAT=ISTAT)
@@ -858,6 +859,7 @@
 !               --- read first line to determine number of vertices
 !
                 READ(NDS, *, END=950, ERR=910) NVTX, NDIM, NATTR, NBMARK
+                ISTAT = 0
                 IF(.NOT.ALLOCATED(XG)) ALLOCATE(XG(NVTX), STAT = ISTAT)
                 IF ( ISTAT == 0 ) THEN
                    IF(.NOT.ALLOCATED(YG)) ALLOCATE(YG(NVTX), STAT=ISTAT)
@@ -1026,6 +1028,8 @@
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA                                                       40.13
       USE M_PARALL                                                        40.31
+      USE swn_outnc                                                       41.52
+!PUN      USE SIZES                                                           40.95
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1039,7 +1043,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1069,6 +1073,9 @@
 !     40.30: Marcel Zijlema
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!     41.62: Andre van der Westhuysen
+!     41.72: Henrique Rapizo
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -1094,6 +1101,9 @@
 !     40.30, Mar. 03: introduction distributed-memory approach using MPI
 !     40.31, Nov. 03: removing POOL construction and HPGL funcationality
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     41.62, Nov. 15: included input fields for wave partitioning
+!     41.75, Jan. 19: adding sea ice
+!     41.72, Nov. 19: user defined number of swell partitions instead of hardcoded 9
 !
 !  2. Purpose
 !
@@ -1128,12 +1138,13 @@
 !
 ! 13. Source text
 !
+      PARAMETER  (NEXPT=10)                                               41.62
       INTEGER IERR                                                        40.31
       CHARACTER PSNAME *16, STYPE *1, RTYPE *4                            40.31
       LOGICAL   KEYWIS                                                    40.31
       TYPE(ORQDAT), POINTER :: ORQTMP                                     40.31
       TYPE(ORQDAT), SAVE, POINTER :: CORQ                                 40.31
-      LOGICAL, SAVE :: LORQ = .FALSE.                                     40.31
+!     LOGICAL, SAVE :: LORQ = .FALSE.                                     BJXX 40.31
       TYPE AUXT                                                           40.31
         INTEGER             :: I
         REAL                :: R
@@ -1141,8 +1152,12 @@
       END TYPE AUXT
       TYPE(AUXT), TARGET  :: FRST                                         40.31
       TYPE(AUXT), POINTER :: CURR, TMP                                    40.31
-      SAVE IENT
+      INTEGER IEXPT(NEXPT)                                                41.62
+      INTEGER IVT                                                         41.62
+      INTEGER NOSWLL                                                      41.72
+      SAVE IENT, IEXPT
       DATA IENT/0/
+      DATA IEXPT /1, 2, 4, 5, 10, 12, 13, 16, 17, 26/                     41.62
       CALL STRACE (IENT,'SWREOQ')
 !
 !   --------------------------------------------------------------------------
@@ -1151,7 +1166,9 @@
 !             FRCOEFF/WIND/DISSIP/QB/TRANSP/FORCE/UBOT/URMS/WLEN/STEEPNESS/  &
 !             DHSIGN/DRTM01/LEAK/TSEC/XP/YP/DIST/SETUP/TMM10/RTMM10/         &
 !             TMBOT/QP/BFI/WATLEV/BOTLEV/TPS/DISBOT/DISSURF/DISWCAP/         &
-!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS >        &
+!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS|LWAVP/   &
+!             DISTUR/TURB/DISSWELL/AICE/DISICE/                              &
+!             PTHSIGN/PTRTP/PTWLEN/PTDIR/PTDSPR/PTWFRAC/PTSTEEPNESS>         &
 !             ([unit]) (OUTPUT [tbegblk] [deltblk] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
 !   BLO   block type output
@@ -1171,7 +1188,7 @@
 !
 !         output frame exists
 !
-          ALLOCATE(ORQTMP)                                                40.31
+          CALL CONSTRUCTOR(ORQTMP)                                        BJXX 40.31
           NREOQ = NREOQ + 1                                               40.31
           IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                      40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1211,12 +1228,15 @@
                WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                    40.30
   33           FORMAT('-',I3.3)                                           40.30
             END IF                                                        40.30
+!PUN            FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                 40.95
           ENDIF
           CALL INKEYW ('STA', ' ')
           IF (KEYWIS('LAY')) THEN
             CALL ININTG ('IDLA', IDLAO, 'REQ', 0)
             CALL INKEYW ('REQ', ' ')
-            IF (IDLAO.NE.1 .AND. IDLAO.NE.3 .AND. IDLAO.NE.4)
+            IF (IDLAO.NE.1 .AND. IDLAO.NE.3 .AND. IDLAO.NE.4
+     &          .AND. IDLAO.NE.5
+     &         )
      &        CALL MSGERR (2, 'Illegal value for IDLA')
           ENDIF
           ORQTMP%OQR(1) = -1.                                             40.31
@@ -1238,13 +1258,49 @@
           CURR => FRST                                                    40.31
   70      CALL SVARTP (IVTYPE)
           IF (IVTYPE .EQ. 98) GOTO 91                                     30.00
-          IF (IVTYPE .NE. 99) THEN
+          IF (IVTYPE .NE. 999) THEN
+             IF ( INDEX(FILENM,'.NC').NE.0  .OR.                          41.52
+     &            INDEX(FILENM,'.nc').NE.0 ) THEN                         41.52
+                IF ( IVTYPE.GT.2 ) THEN                                   41.52
+                   call stnames_init()                                    41.52
+                   IF ( STNAMES(IVTYPE,1).EQ. ' ' ) CALL MSGERR (2,       41.52
+     &                   'netCDF output not allowed for '//TRIM(FILENM))  41.52
+                ENDIF                                                     41.52
+             ENDIF                                                        41.52
              CALL INREAL ('UNIT', DFAC, 'STA', -1.)
              IF (OVSVTY(IVTYPE).EQ.5) THEN
                CALL MSGERR (2,
      &         'Type of output not allowed for this quantity')
                WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)
-             ELSE IF (IVTYPE .GT. 0) THEN
+             ELSE IF (IVTYPE.GT.100 .AND. IVTYPE.LT.110) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTHSIGN instead.')      41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.110 .AND. IVTYPE.LT.120) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTRTP instead.')        41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.120 .AND. IVTYPE.LT.130) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTWLEN instead.')       41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.130 .AND. IVTYPE.LT.140) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTDIR instead.')        41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.140 .AND. IVTYPE.LT.150) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTDSPR instead.')       41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.150 .AND. IVTYPE.LT.160) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTWFRAC instead.')      41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.160 .AND. IVTYPE.LT.170) THEN             41.62
+               CALL MSGERR (2,'Invalid partitioning output '//            41.62
+     &                        'specification. Use PTSTEEPNESS instead.')  41.62
+               WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                   41.62
+             ELSE IF (IVTYPE.GT.0 .AND. IVTYPE.LT.100) THEN               41.62
                 NVAR = NVAR+1
                 ALLOCATE(TMP)                                             40.31
                 TMP%I = IVTYPE                                            40.31
@@ -1253,14 +1309,14 @@
                 CURR%NEXTI => TMP                                         40.31
                 CURR => TMP                                               40.31
                 IF (IVTYPE.EQ.6) IUBOTR = 1
+                IF (IVTYPE.EQ.36 .AND. JZEL.LE.1) THEN
+                   MCMVAR = MCMVAR+1                                      40.65
+                   JZEL   = MCMVAR                                        40.65
+                   ALOCMP = .TRUE.                                        40.97
+                ENDIF                                                     40.65
                 IF (IVTYPE.EQ.50 .AND. JPBOT.LE.1) THEN                   40.65
                    MCMVAR = MCMVAR+1                                      40.65
                    JPBOT  = MCMVAR                                        40.65
-                   ALOCMP = .TRUE.                                        40.97
-                ENDIF                                                     40.65
-                IF (IVTYPE.EQ.52 .AND. JBOTLV.LE.1) THEN                  40.65
-                   MCMVAR = MCMVAR+1                                      40.65
-                   JBOTLV = MCMVAR                                        40.65
                    ALOCMP = .TRUE.                                        40.97
                 ENDIF                                                     40.65
                 IF (IVTYPE.EQ.54 .AND. JDSXB.LE.1) THEN                   40.65
@@ -1276,6 +1332,11 @@
                 IF (IVTYPE.EQ.56 .AND. JDSXW.LE.1) THEN                   40.65
                    MCMVAR = MCMVAR+1                                      40.65
                    JDSXW  = MCMVAR                                        40.65
+                   ALOCMP = .TRUE.                                        40.97
+                ENDIF                                                     40.65
+                IF (IVTYPE.EQ.57 .AND. JDSXV.LE.1) THEN                   40.65
+                   MCMVAR = MCMVAR+1                                      40.65
+                   JDSXV  = MCMVAR                                        40.65
                    ALOCMP = .TRUE.                                        40.97
                 ENDIF                                                     40.65
                 IF (IVTYPE.EQ.60 .AND. JGENR.LE.1) THEN                   40.85
@@ -1328,9 +1389,70 @@
                    JRADS  = MCMVAR                                        40.85
                    ALOCMP = .TRUE.                                        40.97
                 ENDIF                                                     40.85
+                IF (IVTYPE.EQ.72 .AND. JDSXT.LE.1) THEN                   40.35
+                   MCMVAR = MCMVAR+1                                      40.35
+                   JDSXT  = MCMVAR                                        40.35
+                   ALOCMP = .TRUE.                                        40.35
+                ENDIF                                                     40.35
+                IF (IVTYPE.EQ.74 .AND. JDSXM.LE.1) THEN                   40.65
+                   MCMVAR = MCMVAR+1                                      40.65
+                   JDSXM  = MCMVAR                                        40.65
+                   ALOCMP = .TRUE.                                        40.97
+                ENDIF                                                     40.65
+                IF (IVTYPE.EQ.75 .AND. JDSXL.LE.1) THEN                   40.88
+                   MCMVAR = MCMVAR+1                                      40.88
+                   JDSXL  = MCMVAR                                        40.88
+                   ALOCMP = .TRUE.                                        40.88
+                ENDIF                                                     40.88
+                IF (IVTYPE.EQ.76 .AND. JDSXI.LE.1) THEN                   41.75
+                   MCMVAR = MCMVAR+1                                      41.75
+                   JDSXI  = MCMVAR                                        41.75
+                   ALOCMP = .TRUE.                                        41.75
+                ENDIF                                                     41.75
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
-     &              IVTYPE.EQ.56 .OR. IVTYPE.GE.60 ) LADDS = .TRUE.       40.85
+     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.
+     &              (IVTYPE.GE.60 .AND. IVTYPE.LE.74) ) LADDS = .TRUE.
+             ELSE IF (IVTYPE.LT.170) THEN                                 41.62
+                NOSWLL = INT(OUTPAR(51))                                  41.72
+!               add NOSWLL partitions of requested partition parameter    41.72
+                DO IVT = IVTYPE, IVTYPE+NOSWLL                            41.72 41.62
+                   NVAR = NVAR+1                                          41.62
+                   ALLOCATE(TMP)                                          41.62
+                   TMP%I = IVT                                            41.62
+                   TMP%R = DFAC                                           41.62
+                   NULLIFY(TMP%NEXTI)                                     41.62
+                   CURR%NEXTI => TMP                                      41.62
+                   CURR => TMP                                            41.62
+                ENDDO                                                     41.62
+             ELSE IF (IVTYPE.EQ.170) THEN                                 41.62
+!               in case of PARTITIONS, add all partition parameters
+                NVAR = NVAR+1
+                ALLOCATE(TMP)                                             41.62
+                TMP%I = 171                                               41.62
+                TMP%R = DFAC                                              41.62
+                NULLIFY(TMP%NEXTI)                                        41.62
+                CURR%NEXTI => TMP                                         41.62
+                CURR => TMP                                               41.62
+                DO IVT = 100, 159                                         41.62
+                   NVAR = NVAR+1                                          41.62
+                   ALLOCATE(TMP)                                          41.62
+                   TMP%I = IVT                                            41.62
+                   TMP%R = DFAC                                           41.62
+                   NULLIFY(TMP%NEXTI)                                     41.62
+                   CURR%NEXTI => TMP                                      41.62
+                   CURR => TMP                                            41.62
+                ENDDO                                                     41.62
+!               add some other parameters e.g. Xp, Yp, Depth, Hs, etc.
+                DO IVT = 1, NEXPT                                         41.62
+                   NVAR = NVAR+1                                          41.62
+                   ALLOCATE(TMP)                                          41.62
+                   TMP%I = IEXPT(IVT)                                     41.62
+                   TMP%R = DFAC                                           41.62
+                   NULLIFY(TMP%NEXTI)                                     41.62
+                   CURR%NEXTI => TMP                                      41.62
+                   CURR => TMP                                            41.62
+                ENDDO                                                     41.62
              ENDIF
              GOTO 70
           ENDIF
@@ -1350,8 +1472,8 @@
             IF (NSTATM.EQ.0) CALL MSGERR (3,
      &      'time information not allowed in stationary mode')
             NSTATM = 1
-            CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0.)        40.31 30.00
-            CALL ININTV ('DELT', ORQTMP%OQR(2), 'REQ', 0.)                40.31 30.00
+            CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0D0)       40.31 30.00
+            CALL INITVD ('DELT', ORQTMP%OQR(2), 'REQ', 0D0)               40.31 30.00
           ENDIF
 !
           ORQTMP%OQI(3) = NVAR                                            40.31
@@ -1373,7 +1495,9 @@
 !             FRCOEFF/WIND/DISSIP/QB/TRANSP/FORCE/UBOT/URMS/WLEN/STEEPNESS/  &
 !             DHSIGN/DRTM01/LEAK/TIME/TSEC/XP/YP/DIST/SETUP/TMM10/RTMM10/    &
 !             TMBOT/QP/BFI/WATLEV/BOTLEV/TPS/DISBOT/DISSURF/DISWCAP/         &
-!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS >        &
+!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS|LWAVP/   &
+!             DISTUR/TURB/DISSWELL/AICE/DISICE/                              &
+!             PTHSIGN/PTRTP/PTWLEN/PTDIR/PTDSPR/PTWFRAC/PTSTEEPNESS>         &
 !             ([unit]) (OUTPUT [tbegtbl] [delttbl] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
 !   TABLE   output in the form of a table
@@ -1384,7 +1508,7 @@
 !
 !       output points exist
 !
-        ALLOCATE(ORQTMP)                                                  40.31
+        CALL CONSTRUCTOR(ORQTMP)                                          BJXX 40.31
         NREOQ = NREOQ + 1                                                 40.31
         IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                        40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1409,6 +1533,11 @@
 !       unit reference number NREF is 0, will be determined in output module
         CALL INCSTR ('FNAME', FILENM, 'STA', ' ')
         IF (FILENM .NE. '    ') THEN
+          IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
+     &         INDEX (FILENM, '.nc' ).NE.0 ) THEN
+            RTYPE = 'TABC'
+            ORQTMP%RQTYPE = RTYPE
+          ENDIF
           NREF = 0
 !         --- append node number to FILENM in case of                     40.30
 !             parallel computing                                          40.30
@@ -1416,6 +1545,7 @@
              ILPOS = INDEX ( FILENM, ' ' )-1                              40.30
              WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                      40.30
           END IF                                                          40.30
+!PUN          FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                   40.95
         ELSE
           NREF = PRINTF
         ENDIF
@@ -1432,12 +1562,48 @@
         CURR => FRST                                                      40.31
    80   CALL SVARTP (IVTYPE)
         IF (IVTYPE .EQ. 98) GOTO 90                                       30.00
-        IF (IVTYPE .NE. 99) THEN
+        IF (IVTYPE .NE. 999) THEN
+           IF ( INDEX(FILENM,'.NC').NE.0  .OR.                            41.52
+     &          INDEX(FILENM,'.nc').NE.0 ) THEN                           41.52
+              IF ( IVTYPE.GT.2.AND.IVTYPE.NE.40 ) THEN                    41.52
+                 call stnames_init()                                      41.52
+                 IF ( STNAMES(IVTYPE,1).EQ. ' ' ) CALL MSGERR (2,         41.52
+     &                 'netCDF table does not support '//OVKEYW(IVTYPE))  41.52
+              ENDIF                                                       41.52
+           ENDIF                                                          41.52
           IF (OVSVTY(IVTYPE).EQ.5) THEN
             CALL MSGERR (2,
      &      'Type of output not allowed for this quantity')
             WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)
-          ELSE IF (IVTYPE .GT. 0) THEN
+          ELSE IF (IVTYPE.GT.100 .AND. IVTYPE.LT.110) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTHSIGN instead.')         41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.110 .AND. IVTYPE.LT.120) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTRTP instead.')           41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.120 .AND. IVTYPE.LT.130) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTWLEN instead.')          41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.130 .AND. IVTYPE.LT.140) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTDIR instead.')           41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.140 .AND. IVTYPE.LT.150) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTDSPR instead.')          41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.150 .AND. IVTYPE.LT.160) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTWFRAC instead.')         41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.160 .AND. IVTYPE.LT.170) THEN                41.62
+            CALL MSGERR (2,'Invalid partitioning output '//               41.62
+     &                     'specification. Use PTSTEEPNESS instead.')     41.62
+            WRITE (PRINTF, *) ' -> ', OVSNAM(IVTYPE)                      41.62
+          ELSE IF (IVTYPE.GT.0 .AND. IVTYPE.LT.100) THEN                  41.62
             NVAR = NVAR+1
             ALLOCATE(TMP)                                                 40.31
             TMP%I = IVTYPE                                                40.31
@@ -1448,11 +1614,6 @@
             IF (IVTYPE.EQ.50 .AND. JPBOT.LE.1) THEN                       40.65
                MCMVAR = MCMVAR+1                                          40.65
                JPBOT  = MCMVAR                                            40.65
-               ALOCMP = .TRUE.                                            40.97
-            ENDIF                                                         40.65
-            IF (IVTYPE.EQ.52 .AND. JBOTLV.LE.1) THEN                      40.65
-               MCMVAR = MCMVAR+1                                          40.65
-               JBOTLV = MCMVAR                                            40.65
                ALOCMP = .TRUE.                                            40.97
             ENDIF                                                         40.65
             IF (IVTYPE.EQ.54 .AND. JDSXB.LE.1) THEN                       40.65
@@ -1468,6 +1629,11 @@
             IF (IVTYPE.EQ.56 .AND. JDSXW.LE.1) THEN                       40.65
                MCMVAR = MCMVAR+1                                          40.65
                JDSXW  = MCMVAR                                            40.65
+               ALOCMP = .TRUE.                                            40.97
+            ENDIF                                                         40.65
+            IF (IVTYPE.EQ.57 .AND. JDSXV.LE.1) THEN                       40.65
+               MCMVAR = MCMVAR+1                                          40.65
+               JDSXV  = MCMVAR                                            40.65
                ALOCMP = .TRUE.                                            40.97
             ENDIF                                                         40.65
             IF (IVTYPE.EQ.60 .AND. JGENR.LE.1) THEN                       40.85
@@ -1520,9 +1686,46 @@
                JRADS  = MCMVAR                                            40.85
                ALOCMP = .TRUE.                                            40.97
             ENDIF                                                         40.85
+            IF (IVTYPE.EQ.72 .AND. JDSXT.LE.1) THEN                       40.35
+               MCMVAR = MCMVAR+1                                          40.35
+               JDSXT  = MCMVAR                                            40.35
+               ALOCMP = .TRUE.                                            40.35
+            ENDIF                                                         40.35
+            IF (IVTYPE.EQ.74 .AND. JDSXM.LE.1) THEN                       40.65
+               MCMVAR = MCMVAR+1                                          40.65
+               JDSXM  = MCMVAR                                            40.65
+               ALOCMP = .TRUE.                                            40.97
+            ENDIF                                                         40.65
+            IF (IVTYPE.EQ.75 .AND. JDSXL.LE.1) THEN                       40.88
+               MCMVAR = MCMVAR+1                                          40.88
+               JDSXL  = MCMVAR                                            40.88
+               ALOCMP = .TRUE.                                            40.88
+            ENDIF                                                         40.88
+            IF (IVTYPE.EQ.76 .AND. JDSXI.LE.1) THEN                       41.75
+               MCMVAR = MCMVAR+1                                          41.75
+               JDSXI  = MCMVAR                                            41.75
+               ALOCMP = .TRUE.                                            41.75
+            ENDIF                                                         41.75
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
-     &          IVTYPE.EQ.56 .OR. IVTYPE.GE.60 ) LADDS = .TRUE.           40.85
+     &          IVTYPE.EQ.56 .OR.                                         VORTECH
+     &          (IVTYPE.GE.60 .AND. IVTYPE.LE.71) ) LADDS = .TRUE.        VORTECH
+            CALL INKEYW ('STA', ' ')                                      40.00
+            IF (KEYWIS('UNIT')) THEN
+              CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
+            ENDIF
+          ELSE IF (IVTYPE.LT.170) THEN                                    41.62
+            NOSWLL = INT(OUTPAR(51))                                      41.72
+!           add NOSWLL partitions of requested partition parameter        41.72
+            DO IVT = IVTYPE, IVTYPE+NOSWLL                                41.72 41.62
+               NVAR = NVAR+1                                              41.62
+               ALLOCATE(TMP)                                              41.62
+               TMP%I = IVT                                                41.62
+               TMP%R = DFAC                                               41.62
+               NULLIFY(TMP%NEXTI)                                         41.62
+               CURR%NEXTI => TMP                                          41.62
+               CURR => TMP                                                41.62
+            ENDDO                                                         41.62
             CALL INKEYW ('STA', ' ')                                      40.00
             IF (KEYWIS('UNIT')) THEN
               CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
@@ -1539,14 +1742,19 @@
            END DO                                                         40.31
            DEALLOCATE(TMP)                                                40.31
         END IF                                                            40.31
+        IF ( RTYPE.EQ.'TABC') THEN
+          ALLOCATE(ORQTMP%FAC(NVAR))
+          ORQTMP%FAC=1.
+        ELSE
         ALLOCATE(ORQTMP%FAC(0))                                           40.31
+        ENDIF
 
         IF (IVTYPE .EQ. 98) THEN                                          30.00
           IF (NSTATM.EQ.0) CALL MSGERR (3,
      &      'time information not allowed in stationary mode')
           NSTATM = 1
-          CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0.)          40.31 30.00
-          CALL ININTV ('DELT', ORQTMP%OQR(2), 'REQ', 0.)                  40.31 30.00
+          CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0D0)         40.31 30.00
+          CALL INITVD ('DELT', ORQTMP%OQR(2), 'REQ', 0D0)                 40.31 30.00
         ENDIF
         ORQTMP%OQI(3) = NVAR                                              40.31
         NULLIFY(ORQTMP%NEXTORQ)                                           40.31
@@ -1571,8 +1779,9 @@
       ENDIF
 !
 !   --------------------------------------------------------------------------
-!   SPECout 'sname'  SPEC1D/SPEC2D  ABS/REL   'fname'                       &
-!             (OUTPUT [tbegspc] [deltspc] SEC/MIN/HR/DAY)
+!   SPECout 'sname'  SPEC1D/SPEC2D  ABS/REL   'fname'                        &
+!                    (MONth  ESCAle MDGRID COMPress NOAUX) (NOT documented)  &
+!                    (OUTPUT [tbegspc] [deltspc] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
 !   SPEC   output of spectra
 
@@ -1582,7 +1791,7 @@
 !
 !       output points exist
 !
-        ALLOCATE(ORQTMP)                                                  40.31
+        CALL CONSTRUCTOR(ORQTMP)                                          BJXX 40.31
         NREOQ = NREOQ + 1                                                 40.31
         IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                        40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1612,10 +1821,36 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                        40.30
         END IF                                                            40.30
+!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         ORQTMP%PSNAME = PSNAME                                            40.31
         ORQTMP%OQI(1) = NREF                                              40.31
         ORQTMP%OQI(2) = NREOQ                                             40.31
         OUTP_FILES(NREOQ) = FILENM                                        40.31 40.13
+!
+        CALL INKEYW ('STA', ' ')                                          41.40
+!       declare monthly netCDF file                                       41.40
+!       store in oqi(4) differ from idla of block!                        41.40
+        ORQTMP%OQI(4) = 0                                                 41.40
+        IF (KEYWIS('MON')) THEN                                           41.40
+           ORQTMP%OQI(4) = ORQTMP%OQI(4) + 1                              41.40
+        ENDIF                                                             41.40
+        CALL INKEYW ('STA', ' ')                                          41.40
+        IF (KEYWIS('ESCA')) THEN                                          41.40
+           ORQTMP%OQI(4) = ORQTMP%OQI(4) + 2                              41.40
+        ENDIF                                                             41.40
+        CALL INKEYW ('STA', ' ')
+        IF (KEYWIS('COMP')) THEN
+           ORQTMP%OQI(4) = ORQTMP%OQI(4) + 4
+        ENDIF
+        CALL INKEYW ('STA', ' ')
+        IF (KEYWIS('MDGRID')) THEN
+           ORQTMP%OQI(4) = ORQTMP%OQI(4) + 8
+        ENDIF
+        CALL INKEYW ('STA', ' ')
+        IF (KEYWIS('NOAUX')) THEN
+           ORQTMP%OQI(4) = ORQTMP%OQI(4) + 16
+        ENDIF
+        CALL INKEYW ('STA', ' ')
 !
         NVAR = 0                                                          40.31
         ORQTMP%OQI(3) = NVAR                                              40.31
@@ -1627,8 +1862,8 @@
           IF (NSTATM.EQ.0) CALL MSGERR (3,
      &      'time information not allowed in stationary mode')
           NSTATM = 1
-          CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0.)          40.31 30.00
-          CALL ININTV ('DELT', ORQTMP%OQR(2), 'REQ', 0.)                  40.31 30.00
+          CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0D0)         40.31 30.00
+          CALL INITVD ('DELT', ORQTMP%OQR(2), 'REQ', 0D0)                 40.31 30.00
           IF (NSTATM.EQ.0) CALL MSGERR (2,
      &                  'time input not allowed in stationary mode')
         ENDIF
@@ -1675,7 +1910,7 @@
             GOTO 800
           ENDIF
 !         output points exist
-          ALLOCATE(ORQTMP)                                                40.31
+          CALL CONSTRUCTOR(ORQTMP)                                        BJXX 40.31
           NREOQ = NREOQ + 1                                               40.31
           IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                      40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1691,12 +1926,17 @@
              ILPOS = INDEX ( FILENM, ' ' )-1                              40.30
              WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                      40.30
           END IF                                                          40.30
+!PUN          FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                   40.95
           ORQTMP%PSNAME = PSNAME                                          40.31
           ORQTMP%OQI(1) = NREF                                            40.31
           ORQTMP%OQI(2) = NREOQ                                           40.31
           OUTP_FILES(NREOQ) = FILENM                                      40.31 40.13
           NVAR = 0                                                        40.31
           ORQTMP%OQI(3) = NVAR                                            40.31
+!         scale spectra and do not store auxillary variables
+          IF ( INDEX( FILENM, '.NC'  ).NE.0 .OR.
+     &         INDEX (FILENM, '.nc'  ).NE.0 )
+     &       ORQTMP%OQI(4) = 18
           ALLOCATE(ORQTMP%IVTYP(0))                                       40.31
           ALLOCATE(ORQTMP%FAC(0))                                         40.31
 !
@@ -1705,8 +1945,8 @@
             IF (NSTATM.EQ.0) CALL MSGERR (3,
      &      'time information not allowed in stationary mode')
             NSTATM = 1
-            CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0.)        40.31 30.00
-            CALL ININTV ('DELT', ORQTMP%OQR(2), 'REQ', 0.)                40.31 30.00
+            CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0D0)       40.31 30.00
+            CALL INITVD ('DELT', ORQTMP%OQR(2), 'REQ', 0D0)               40.31 30.00
             IF (NSTATM.EQ.0) CALL MSGERR (2,
      &                  'time input not allowed in stationary mode')
           ENDIF
@@ -1753,7 +1993,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1923,7 +2163,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2041,7 +2281,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2138,7 +2378,7 @@
 !     keyword OUTPUT means that output times will be entered              40.00
       IF (KEYWIS ('OUT')) IVTYPE = 98                                     40.03
 !     keyword ZZZZ means end of list of output quantities                 40.00
-      IF (KEYWIS ('ZZZZ')) IVTYPE = 99
+      IF (KEYWIS ('ZZZZ')) IVTYPE = 999
 !
       IF (IVTYPE .EQ. 0) CALL WRNKEY
 !
@@ -2173,7 +2413,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2205,6 +2445,7 @@
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
 !     40.92: Marcel Zijlema
+!     41.14: Nico Booij
 !
 !  1. Updates
 !
@@ -2225,6 +2466,7 @@
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Jun. 07: extension to unstructured grids
 !     40.92, Jun. 08: changes with respect to boundary polygons
+!     41.14, Jul. 10: call SwanBndStruc added
 !
 !  2. Purpose
 !
@@ -2268,15 +2510,15 @@
 
       INTEGER   NUMP
 
-      LOGICAL, SAVE :: LBFILS = .FALSE.                                   40.31
-      LOGICAL, SAVE :: LBS    = .FALSE.                                   40.31
-      LOGICAL, SAVE :: LBGP   = .FALSE.                                   40.31
-
+!      LOGICAL, SAVE :: LBFILS = .FALSE.                                  BJXX 40.31
+!      LOGICAL, SAVE :: LBS    = .FALSE.                                  BJXX 40.31
+!      LOGICAL, SAVE :: LBGP   = .FALSE.                                  BJXX 40.31
+!                                                                         BJXX
       TYPE(BSPCDAT), POINTER :: BFLTMP                                    40.31
-      TYPE(BSPCDAT), SAVE, POINTER :: CUBFL                               40.31
+!      TYPE(BSPCDAT), SAVE, POINTER :: CUBFL                              BJXX 40.31
 
       TYPE(BSDAT), POINTER :: BSTMP                                       40.31
-      TYPE(BSDAT), SAVE, POINTER :: CUBS                                  40.31
+!      TYPE(BSDAT), SAVE, POINTER :: CUBS                                 BJXX 40.31
 
       TYPE(BGPDAT), POINTER :: BGPTMP                                     40.31
 
@@ -2369,6 +2611,12 @@
 !        in ascending order
 !
          CALL SwanBpntlist                                                40.80
+         IF (STPNOW()) RETURN                                             41.39
+      ELSE                                                                41.14
+!
+!        generate output curves BOUNDARY and BOUND_** for structured grids
+!
+         CALL SwanBndStruc ( XCGRID, YCGRID )                             41.14
       ENDIF                                                               40.80
 !
       CALL INKEYW ('REQ',' ')
@@ -2380,7 +2628,7 @@
 !
 !                      |  JONswap  [gamma]  |
 !                      |                    |    | -> PEAK |
-!  BOUNdspec  SHAPe   <   PM                 >  <           >   &
+!  BOUndspec  SHAPe   <   PM                 >  <           >   &
 !                      |                    |    | MEAN    |
 !                      |  GAUSs  [sigfr]    |
 !                      |                    |
@@ -2435,7 +2683,7 @@
 !                                    | UNFormatted <          > |
 !                                    |              | WKstat |  |
 !                                    |                          |
-!       BOUNdnest2  WAMNest 'fname' <                            > [xgc] [ygc]
+!       BOUndnest2  WAMNest 'fname' <                            > [xgc] [ygc] [lwdate]
 !                                    |                          |
 !                                    | FREE                     |
 !
@@ -2458,9 +2706,9 @@
         ENDIF                                                             40.80
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
+        CALL CONSTRUCTOR(BFLTMP)                                          BJXX 40.31
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
-        CALL BCWAMN (FILENM, 'NEST', BFLTMP, LBGP,                        40.31
+        CALL BCWAMN (FILENM, 'NEST', BFLTMP,                              BJXX 40.31
      &               XCGRID, YCGRID, KGRPNT, XYTST)                       40.31
         IF (STPNOW()) RETURN                                              34.01
         NULLIFY(BFLTMP%NEXTBSPC)                                          40.31
@@ -2478,9 +2726,9 @@
 !       SWAN in WaveWatch nesting                                         40.05
 !
 !      =======================================================================
-!                                 | -> CLOS |
-!       BOUNdnest2  WWIII 'fname'  <          > [xgc] [ygc]               40.02
-!                                 |  OPEN   |
+!                                | UNFormatted |   | -> CLOS |
+!       BOUndnest3  WW3 'fname' <               > <           > [xgc] [ygc]
+!                                | FREe        |   |    OPEN |
 !      =======================================================================
 !
         IF (MXC .LE. 0 .AND. OPTG.NE.5) THEN                              40.80
@@ -2500,26 +2748,10 @@
         ENDIF                                                             40.80
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
-        CALL INCSTR ('FNAME',FILENM,'STA', 'nest.ww3')
-
-!       if keyword is OPEN (boundary is not a closed contour) then
-!          DONALL is TRUE  and the nesting boundary remain open
-!       else (default case)
-!          DONALL is FALSE  and boundary is close and interpolation
-!          between the last and the first point will be done
-
-        CALL INKEYW ('STA', 'CLOS')                                       40.05
-        IF (KEYWIS('OPEN')) THEN                                          40.05
-           DONALL = .TRUE.                                                40.05
-        ELSE IF (KEYWIS('CLOS')) THEN                                     40.05
-           DONALL = .FALSE.                                               40.05
-        ELSE                                                              40.05
-           CALL WRNKEY                                                    40.05
-        ENDIF                                                             40.05
-        CALL BCWW3N (FILENM, 'NEST', BFLTMP, LBGP,                        40.31 40.05
-     &               XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,               40.31 40.05
-     &               DONALL)                                              40.31 40.05
+        CALL CONSTRUCTOR(BFLTMP)                                          BJXX 40.31
+        CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
+        CALL BCWW3N (FILENM, 'NEST', BFLTMP,                              BJXX 40.31 40.05
+     &               XCGRID, YCGRID, KGRPNT, XYTST, KGRBND)               40.31 40.05
         IF (STPNOW()) RETURN
         NULLIFY(BFLTMP%NEXTBSPC)                                          40.31
         IF ( .NOT.LBFILS ) THEN                                           40.31
@@ -2536,7 +2768,7 @@
 !       Nesting SWAN model in larger SWAN model
 ! ==========================================
 !                                | -> CLOS |                              40.05
-!     BOUNdnest1  NEST 'fname'  <           >
+!     BOUndnest1  NEst 'fname'  <           >
 !                                |  OPEN   |                              40.05
 ! ==========================================
 !
@@ -2551,7 +2783,7 @@
         ENDIF
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
+        CALL CONSTRUCTOR(BFLTMP)                                          BJXX 40.31
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
 
 !       if keyword is OPEN then
@@ -2569,7 +2801,7 @@
            CALL WRNKEY                                                    40.05
         ENDIF                                                             40.05
 
-        CALL BCFILE (FILENM, 'NEST', BFLTMP, LBGP,                        40.31
+        CALL BCFILE (FILENM, 'NEST', BFLTMP,                              BJXX 40.31
      &               XCGRID, YCGRID, KGRPNT, XYTST,  KGRBND,              40.31
      &               DONALL)                                              40.05
         IF (STPNOW()) RETURN                                              34.01
@@ -2597,7 +2829,7 @@
 !                 |           | SE    |          | CLOCKWise  |    |
 !                 |           | East  |                            |
 !                 |           | NE    |                            |
-!       BOUNdary <                                                  >    &
+!       BOUndary <                                                  >    &
 !                 |           | -> XY  < [x] [y] >           |     |
 !                 | SEGment  <                                >    |
 !                             |    IJ  < [i] [j] > | < [k] > |
@@ -2687,13 +2919,15 @@
                  ENDIF                                                    40.80
               ENDIF                                                       40.80
             ELSE
-              CALL ININTG ('I' , IX2, 'REP', -1)                          40.03
-              IF (IX2 .LT. 0) GOTO 42                                     40.00
               IF (OPTG.NE.5) THEN                                         40.80
+                 CALL ININTG ('I' , IX2, 'REP', -1)                       40.03
+                 IF (IX2 .LT. 0) GOTO 42                                  40.00
                  CALL ININTG ('J' , IY2, 'REQ',  0)                       40.03
                  IX2 = IX2 + 1                                            40.00
                  IY2 = IY2 + 1
               ELSE                                                        40.80
+                 CALL ININTG ('K' , IX2, 'REP', -1)                       40.03
+                 IF (IX2 .LT. 0) GOTO 42                                  40.00
                  IF (IX2.LE.0 .OR. IX2.GT.nverts) THEN                    40.80
                     WRITE (MSGSTR,'(I4,A)') IX2,                          40.80
      &                                    ' is not a valid vertex index'  40.80
@@ -2745,7 +2979,10 @@
                    ENDIF
                  ENDDO
                ELSE
-                 CALL MSGERR (2, 'Boundary point outside comp. grid')
+                 MSGSTR =''                                               41.14
+                 write (MSGSTR, 117) IX2-1, IY2-1                         41.14
+ 117             format ('(',2I5, ') is outside computational grid')      41.14
+                 CALL MSGERR (2, MSGSTR)
                ENDIF
                IY1 = IY2
             ELSE                                                          40.80
@@ -3151,18 +3388,20 @@
                 CALL MSGERR (2,                                           30.81
      &          'Power of cosine is less or equal to zero')               30.81
               END IF                                                      30.81
-              IF (SPPARM(4)*DDIR**2/2. .GT. 1.) THEN                      40.03
+              IF (.NOT.LSPNAR .AND.
+     &            SPPARM(4)*DDIR**2/2. .GT. 1.) THEN                      40.03
                 CALL MSGERR (2,                                           40.03
      &          'distribution too narrow to be represented properly')     40.03
                 WRITE (PRINTF, 142) SQRT(2./SPPARM(4))*180./PI            40.03
  142            FORMAT (' Advise: choose Dtheta < ', F8.3, ' degr')       40.03
+                LSPNAR = .TRUE.
               END IF                                                      40.03
             ENDIF
             NBSPEC = NBSPEC + 1
             IF (ITEST.GE.80) WRITE (PRTEST,*) ' bound. spectr.',
      &                   NBSPEC, (SPPARM(II), II=1,4)
             NBSPSS = NBSPEC
-            ALLOCATE(BSTMP)                                               40.31
+            CALL CONSTRUCTOR(BSTMP)                                       BJXX 40.31
             BSTMP%NBS    = NBSPEC                                         40.31
             BSTMP%FSHAPE = FSHAPE                                         40.31
             BSTMP%DSHAPE = DSHAPE                                         40.31
@@ -3181,8 +3420,8 @@
 !           generate new set of file data
             NBFILS = NBFILS + 1
             NBSPSS = NBSPEC
-            ALLOCATE(BFLTMP)                                              40.31
-            CALL BCFILE (FILENM, 'PNTS', BFLTMP, LBGP,                    40.31
+            CALL CONSTRUCTOR(BFLTMP)                                      BJXX 40.31
+            CALL BCFILE (FILENM, 'PNTS', BFLTMP,                          BJXX 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
             IF (STPNOW()) RETURN                                          34.01
@@ -3202,7 +3441,7 @@
             IX = CURR%JX                                                  40.31
             IF (OPTG.NE.5) IY = CURR%JY                                   40.80 40.31
             CURR => CURR%NEXTXY                                           40.31
-            ALLOCATE(BGPTMP)                                              40.31
+            CALL CONSTRUCTOR(BGPTMP)                                      BJXX 40.31
             IF (OPTG.NE.5) THEN                                           40.80
                BGPTMP%BGP(1) = KGRPNT(IX,IY)                              40.31
             ELSE                                                          40.80
@@ -3270,10 +3509,17 @@
                     CALL MSGERR (2,'Power of cosine is less or equal '//  30.81
      &                             'to zero')                             30.81
                   END IF                                                  30.81
+                  IF (.NOT.LSPNAR .AND.
+     &                SPPARM(4)*DDIR**2/2. .GT. 1.) THEN
+                    CALL MSGERR (2,
+     &             'distribution too narrow to be represented properly')
+                    WRITE (PRINTF, 142) SQRT(2./SPPARM(4))*180./PI
+                    LSPNAR = .TRUE.
+                  END IF
                 ENDIF
                 NBSPEC = NBSPEC + 1
                 IBSPC2 = NBSPEC
-                ALLOCATE(BSTMP)                                           40.31
+                CALL CONSTRUCTOR(BSTMP)                                   BJXX 40.31
                 BSTMP%NBS    = NBSPEC                                     40.31
                 BSTMP%FSHAPE = FSHAPE                                     40.31
                 BSTMP%DSHAPE = DSHAPE                                     40.31
@@ -3298,8 +3544,8 @@
 !                 generate new set of file data
                   NBFILS = NBFILS + 1
                   NBSPSS = NBSPEC
-                  ALLOCATE(BFLTMP)                                        40.31
-                  CALL BCFILE (FILENM, 'PNTS', BFLTMP, LBGP,              40.31
+                  CALL CONSTRUCTOR(BFLTMP)                                BJXX 40.31
+                  CALL BCFILE (FILENM, 'PNTS', BFLTMP,                    BJXX 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
                   IF (STPNOW()) RETURN                                    34.01
@@ -3339,7 +3585,7 @@
               XC1 = XC2
               YC1 = YC2
               IF (RDIST.GT.RLEN2) GOTO 340
-              ALLOCATE(BGPTMP)                                            40.31
+              CALL CONSTRUCTOR(BGPTMP)                                    BJXX 40.31
               IF (OPTG.NE.5) THEN                                         40.80
                  BGPTMP%BGP(1) = KGRPNT(IX,IY)                            40.31
               ELSE                                                        40.80
@@ -3381,7 +3627,7 @@
       END
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCFILE (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCFILE (FBCNAM, BCTYPE, BSPFIL,                          BJXX 40.31
      &                   XCGRID, YCGRID, KGRPNT,                          40.31
      &                   XYTST,  KGRBND, DONALL)                          40.31 40.05
 !                                                                    *
@@ -3394,6 +3640,7 @@
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE M_BNDSPEC                                                       40.31
+      use HRextensions, only: swn_hre_bcnccf
 !
       IMPLICIT NONE
 !
@@ -3409,7 +3656,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3484,8 +3731,8 @@
       CHARACTER FBCNAM *(*), BCTYPE *(*)
 
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-
-      LOGICAL :: LBGP                                                     40.31
+!                                                                         BJXX
+!      LOGICAL :: LBGP                                                    BJXX 40.31
 !
 !  5. Parameter variables
 !
@@ -3567,10 +3814,18 @@
 ! 13. Source text
 !
       LOGICAL         CCOORD                                            40.03
-
+      LOGICAL :: NCF =.FALSE.
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCFILE')
+      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
+     &     INDEX (FILENM, '.nc' ).NE.0) THEN
+         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL,
+     &                   XCGRID, YCGRID, KGRPNT,
+     &                   XYTST,  KGRBND, DONALL)
+         RETURN
+      ENDIF
+!
 !
       NDSL = 0
       IIPT2 = 0                                                           40.05
@@ -3582,6 +3837,7 @@
 !
 !     --- initialize array BFILED of BSPFIL                               40.31
       BSPFIL%BFILED = 0                                                   40.31
+      DORDER = 0                                                          BJXX
 !
 !     start reading from the data file
       READ (NDSD, '(A)') HEDLIN
@@ -3661,7 +3917,7 @@
 !                 the SWAN computational grid
 !
               NBGRPT_PREV = NBGRPT                                        40.05
-              CALL SWBCPT (  LBGP, XCGRID, YCGRID,                        40.41 40.31 40.05
+              CALL SWBCPT (  XCGRID, YCGRID,                              BJXX 40.41 40.31 40.05
      &                       KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,       40.05
      &                       NBOUNC,DONALL )                              40.05
 !             check if the grid points are on nested boundary.
@@ -3723,6 +3979,7 @@
 !           reverse order if second direction is smaller than first
             IF (IANG.EQ.1) THEN
               DIRRD1 = DIRRAD
+              DORDER = 1
             ELSE IF (IANG.EQ.2) THEN
               IF (DIRRAD.LT.DIRRD1) THEN
                 DORDER = -1
@@ -3836,6 +4093,7 @@
   28    FORMAT (I6, ' quantities')
       ELSE
         CALL MSGERR (3, 'unsupported boundary data file')
+        NBOUNC = 0                                                        BJXX
       ENDIF
 !
       ALLOCATE(BSPFIL%BSPLOC(NBOUNC))                                     40.31
@@ -3873,7 +4131,7 @@
       END
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCWAMN (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCWAMN (FBCNAM, BCTYPE, BSPFIL,                          BJXX 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST)                   40.31
 !                                                                    *
 !*********************************************************************
@@ -3900,7 +4158,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4028,7 +4286,7 @@
       INTEGER   KGRPNT(MXC,MYC), XYTST(*)
       REAL      XCGRID(MXC,MYC), YCGRID(MXC,MYC)
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-      LOGICAL :: LBGP                                                     40.31
+!      LOGICAL :: LBGP                                                    BJXX 40.31
       CHARACTER FBCNAM *(*), BCTYPE *(*)
 !
 !     local variables
@@ -4069,7 +4327,7 @@
 
       REAL      XP, YP, XP1, YP1, XP2, YP2, RR, RX, RY, RL2,
      &          XANG, XFRE, THD, FR1, CO, XBOU, XDELC,
-     &          XLON, XLAT, XDATE, EMEAN, THQ, FMEAN, USNEW, THWNEW
+     &          XLON, XLAT, XDATE, EMEAN, THQ, FMEAN
 !     XP        problem coordinate of a comp. grid point on the boundary
 !     YP        problem coordinate of a comp. grid point on the boundary
 !     XP1       problem coordinate of a boundary location
@@ -4094,7 +4352,7 @@
 
 
       CHARACTER (LEN=4)  :: BTYPE     ! type of boundary cond.
-      CHARACTER (LEN=12) :: CDATE     ! date-time
+      CHARACTER (LEN=14) :: CDATE     ! date-time
       CHARACTER (LEN=80) :: HEDLIN    ! heading line
 
       DOUBLE PRECISION :: DDATE, XLON0, XLAT0
@@ -4150,6 +4408,7 @@
 !     if not given first point in data file is assumed
       CALL INDBLE('XGC',XLON0,'STA',-999.D0)                              40.01
       CALL INDBLE('YGC',XLAT0,'STA',-999.D0)                              40.01
+      CALL ININTG('LWDATE',LWDATE,'STA',12)                               41.13
 !
 !     start reading from the data file
 !
@@ -4219,7 +4478,7 @@
         IF (BTYPE.EQ.'WAMF') THEN
 !         read boundary point coordinates from file
           READ(NDSD,*) XLON, XLAT, DDATE, EMEAN,
-     &               THQ, FMEAN, USNEW, THWNEW
+     &               THQ, FMEAN
           IF (IBOUNC.EQ.1 .AND. ITEST.GE.80) WRITE (PRTEST, *)            40.13
      &          ' WAMNEST starting time ', DDATE                          40.13
 !         read spectral densities but ignore them for the moment
@@ -4229,16 +4488,16 @@
         ELSE IF (BTYPE.EQ.'WAMC') THEN
 !         read boundary point coordinates from file
           READ(NDSD) XLON, XLAT, XDATE, EMEAN,
-     &               THQ, FMEAN, USNEW, THWNEW
+     &               THQ, FMEAN
           IF (IBOUNC.EQ.1 .AND. ITEST.GE.80) WRITE (PRTEST, *)            40.13
      &          ' WAMNEST starting time ', XDATE                          40.13
 !         read spectral densities but ignore them for the moment
           READ(NDSD) (SPAUX(II), II=1,NANG*NFRE)                          40.31 30.90
         ELSE
 !         read boundary point coordinates from file
-          READ(NDSD) XLON, XLAT, CDATE, EMEAN, THQ, FMEAN
+          READ(NDSD) XLON, XLAT, CDATE(1:LWDATE), EMEAN, THQ, FMEAN       41.13
           IF (IBOUNC.EQ.1 .AND. ITEST.GE.80) WRITE (PRTEST, *)            40.13
-     &          ' WAMNEST starting time ', CDATE                          40.13
+     &          ' WAMNEST starting time ', CDATE(1:LWDATE)                41.13 40.13
 !         read spectral densities but ignore them for the moment
           READ(NDSD) (SPAUX(II), II=1,NANG*NFRE)                          40.31 30.90
         ENDIF
@@ -4356,7 +4615,7 @@
                           NBGRPT = NBGRPT + 1
                           IIPT1 = IIPT1 + 1                               40.03
                           IIPT2 = IIPT2 + 1                               40.03
-                          ALLOCATE(BGPTMP)                                40.31
+                          CALL CONSTRUCTOR(BGPTMP)                        BJXX 40.31
                           BGPTMP%BGP(1) = INDXGR                          40.31
 !                         next item indicates type of boundary condition
                           BGPTMP%BGP(2) = 1                               40.31
@@ -4462,9 +4721,9 @@
 
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCWW3N (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCWW3N (FBCNAM, BCTYPE, BSPFIL,                          BJXX 40.31
      &                   XCGRID, YCGRID, KGRPNT,                          40.31
-     &                   XYTST,  KGRBND, DONALL)                          40.31
+     &                   XYTST,  KGRBND)                                  40.31
 !                                                                    *
 !*********************************************************************
 !
@@ -4489,7 +4748,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4529,7 +4788,7 @@
 !  3. Method
 !
 !      open boundaries files
-!      read from ASSCII files the points where the energy desity is given and
+!      read from ASCII files the points where the energy density is given and
 !      interpolate them to the grid points of the SWAN computational grid
 !
 !  4. Argument variables
@@ -4546,13 +4805,9 @@
 !     BCTYPE  char  inp    boundary condition type, is 'WW3N' in this case
 !
       CHARACTER FBCNAM *(*), BCTYPE *(*)
-!
-!     DONALL : logic arguments declare if the boundary is open or close
-!
-      LOGICAL   :: DONALL
 
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-      LOGICAL :: LBGP                                                     40.31
+!      LOGICAL :: LBGP                                                    BJXX 40.31
 !
 !  5. Parameter variables
 !
@@ -4595,7 +4850,11 @@
       INTEGER            :: IBOUNC
       INTEGER            :: DORDER, IOPTT
       INTEGER            :: NHEDF, NHEDT, NHEDS, NBGRPT_PREV
-      INTEGER            :: IFRE, IANG,II, IIPT2
+      INTEGER            :: IHD, IFRE, IANG, II, IIPT2
+!
+!     DONALL : logic arguments declare if the boundary is open or close
+!
+      LOGICAL   :: DONALL
 !
 !     DUM_A     real number used for reading a file but not used in any calculation
 !     XLON      longitude
@@ -4610,11 +4869,11 @@
 !
       CHARACTER (LEN=4)  :: BTYPE
 !                           type of boundary cond.
-      CHARACTER (LEN=24) :: HEDLINT
+      CHARACTER (LEN=21) :: HEDLINT
 !                           WW3 version
       CHARACTER (LEN=30) :: GNAME
 !                           name of test case readed from b. file
-      CHARACTER (LEN=12) :: PTNME
+      CHARACTER (LEN=10) :: PTNME
 !                           name of b. point
 !     XLON0     longitude of origin of computational grid
 !     XLAT0     latitude of origin of computational grid
@@ -4634,6 +4893,7 @@
 !     SWBCPT, STPNOW
 !
       LOGICAL   :: STPNOW
+      LOGICAL   :: KEYWIS
 !
 !  9. Subroutines calling
 !
@@ -4668,17 +4928,15 @@
 !  12. Structure
 !
 !       -----------------------------------------------------------------
-!       Open boundary condition data file
-!       Read type of file from first line of file
-!       If the headline is WAVEWATCH III SPECTRA
-!
-!       then  b.c. type is WW3N
+!       Unformatted WW3 point output transfer file -- b.c. type is WW3U.
+!       Formatted WW3 point output transfer file -- b.c. type is WW3F.
 !       -----------------------------------------------------------
+!
 !          Read spectral directions from file and write them into
 !          array BSPDIR
 !          Read spectral frequencies from fileand write them into
 !          array BSPFRQ
-!          For all boubdaries points do
+!          For all boundary points do
 !            read location from data file
 !            transform into local cartesian coordinates (if nesesery)
 !            Then calculate data on grid points
@@ -4692,6 +4950,36 @@
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCWW3N')
+!
+!     Process required UNFormatted/FREe keyword
+      CALL INKEYW ('REQ', ' ')
+      IF (KEYWIS('FRE')) THEN
+        BTYPE = 'WW3F'
+      ELSE IF (KEYWIS('UNF')) THEN
+        BTYPE = 'WW3U'
+      ELSE
+        CALL WRNKEY
+        CALL MSGERR (4, 'The BOUndnest3 WW3 command requires '//
+     &                  'UNFormatted or FREe as the first keyword.' )
+      ENDIF
+      IF (STPNOW()) RETURN
+!
+!     Process optional CLOS/OPEN keyword
+!     if keyword is OPEN (boundary is not a closed contour) then
+!        DONALL is TRUE  and the nesting boundary remain open
+!     else (default case)
+!        DONALL is FALSE  and boundary is close and interpolation
+!        between the last and the first point will be done
+
+      CALL INKEYW ('STA', 'CLOS')
+      IF (KEYWIS('OPEN')) THEN
+        DONALL = .TRUE.
+      ELSE IF (KEYWIS('CLOS')) THEN
+        DONALL = .FALSE.
+      ELSE
+        CALL WRNKEY
+      ENDIF
+      IF (STPNOW()) RETURN
 !
 !     NDSL unit ref number for namelist files
       NDSL = 0
@@ -4707,29 +4995,26 @@
 !     open data file NDSD unit ref number for data files
       NDSD = 0
       IOSTAT = 0
-!
-      CALL FOR (NDSD, FILENM , 'OF', IOSTAT)
+      IF (BTYPE.EQ.'WW3F') THEN
+        CALL FOR (NDSD, FILENM , 'OF', IOSTAT)
+      ELSE
+        CALL FOR (NDSD, FILENM , 'OU', IOSTAT)
+      ENDIF
       IF (STPNOW()) RETURN
 !
-!     --- initialize array BFILED of BSPFIL                               40.31
-      BSPFIL%BFILED = 0                                                   40.31
-!
-!     start reading from the boundary data file
-!     HEDLINT = 'WAVEWATCH III SPECTRA' = header of the file
-!     read from boundary file the header , number of frequencies NFR,
-!     number of direction NANG,  number of boundaries points NBOUNC,
-!     Name of the points  GNAME
-!
-      READ (NDSD, 1944) HEDLINT,NFRE, NANG, NBOUNC, GNAME
-!
-      IF (HEDLINT(2:22) .NE. 'WAVEWATCH III SPECTRA')
+!     Read header
+      IF (BTYPE.EQ.'WW3F') THEN
+        READ (NDSD, 1944) HEDLINT, NFRE, NANG, NBOUNC, GNAME
+      ELSE
+        READ (NDSD)       HEDLINT, NFRE, NANG, NBOUNC, GNAME
+      ENDIF
+      IF (HEDLINT .NE. 'WAVEWATCH III SPECTRA')
      &  CALL MSGERR (3, 'file is not a WW3 spectral file')
       IF (NBOUNC.LT.2)  CALL MSGERR
      &  (3, 'SWAN need at least 2 boundary points for nesting')
 !
-!     ISTATF related with stationary and non stationary mode
-!
-      BTYPE = 'WW3N'
+!     --- initialize array BFILED of BSPFIL                               40.31
+      BSPFIL%BFILED = 0                                                   40.31
 !
 !     read frequencies from WW3 boundary file
 !
@@ -4738,7 +5023,11 @@
 !     read frequency
 !     FRQ_ARRAY(IFRE) =   SIG(IK)/(2*PI)
 !
-      READ (NDSD,1945) (FRQ_ARRAY(IFRE) ,IFRE=1,NFRE)
+      IF (BTYPE.EQ.'WW3F') THEN
+        READ (NDSD,1945) (FRQ_ARRAY(IFRE) ,IFRE=1,NFRE)
+      ELSE
+        READ (NDSD)      (FRQ_ARRAY(IFRE) ,IFRE=1,NFRE)
+      ENDIF
 !
       ALLOCATE(BSPFIL%BSPFRQ(NFRE))                                       40.31
       DO IFRE = 1, NFRE
@@ -4748,7 +5037,7 @@
       IF (ITEST.GE.60) THEN
         WRITE(PRTEST,*) ' HEDLINT ',' NFRE ',' NANG ',' NBOUNC ',
      &                  ' GNAME'
-        WRITE(PRTEST,1944) HEDLINT,NFRE, NANG, NBOUNC, GNAME
+        WRITE (PRTEST,*) HEDLINT, NFRE, NANG, NBOUNC, GNAME
         WRITE (PRTEST,*) 'Frequencies read from boundary file ', FILENM
         WRITE (PRTEST,*) (FRQ_ARRAY(IFRE),IFRE = 1,NFRE)
       ENDIF
@@ -4757,7 +5046,11 @@
 !     DIR_ARRAY(IANG) = MOD(2.5*PI-TH(ITH),TPI)
 !     there are in radians but is not in right order related to SWAN
 !
-      READ (NDSD,1946) (DIR_ARRAY(IANG),IANG=1,NANG)
+      IF (BTYPE.EQ.'WW3F') THEN
+        READ (NDSD,1946) (DIR_ARRAY(IANG),IANG=1,NANG)
+      ELSE
+        READ (NDSD)      (DIR_ARRAY(IANG),IANG=1,NANG)
+      ENDIF
 !
 !     put values in right order. The value of the DIR_ARRAY(i) should be
 !     smaller that the DIR_ARRAY(i-1)
@@ -4788,7 +5081,11 @@
       ENDIF
 !
 !     Time
-      READ (NDSD, 900) WWDATE,WWTIME
+      IF (BTYPE.EQ.'WW3F') THEN
+        READ (NDSD, 900) WWDATE,WWTIME
+      ELSE
+        READ (NDSD)      WWDATE,WWTIME
+      ENDIF
 !
 !     Read from boundary file info about the boundary points(b.p): name of b. p.,
 !     geographical location of b.p., depth, wind u-velocity  and direction at the b.p.
@@ -4805,12 +5102,21 @@
 !       longitude = XLON
 !       A real which is not used in the computation
 !
-        READ (NDSD,901) PTNME, XLAT, XLON, DUM_A, DUM_A,
-     &                   DUM_A, DUM_A, DUM_A
+        IF (BTYPE.EQ.'WW3F') THEN
+          READ (NDSD,901) PTNME, XLAT, XLON, DUM_A, DUM_A,
+     &                    DUM_A, DUM_A, DUM_A
+        ELSE
+          READ (NDSD)     PTNME, XLAT, XLON, DUM_A, DUM_A,
+     &                    DUM_A, DUM_A, DUM_A
+        ENDIF
 !       Pass over the lines where the energy spectra is written in the boundary file.
 !       The energy spectra is going to be read later, in the subroutine RESPEC
 !
-        READ (NDSD,902) ((DUM_A, IFRE = 1,NFRE),IANG = 1,NANG)
+        IF (BTYPE.EQ.'WW3F') THEN
+          READ (NDSD,902) ((DUM_A, IFRE = 1,NFRE),IANG = 1,NANG)
+        ELSE
+          READ (NDSD)     ((DUM_A, IFRE = 1,NFRE),IANG = 1,NANG)
+        ENDIF
 !
         IF (ITEST.GE.80) THEN
           WRITE (PRTEST, *) ' B. spectrum WW3 ', IBOUNC, XLON,
@@ -4846,7 +5152,7 @@
 !           the SWAN computational grid
 !
         NBGRPT_PREV = NBGRPT
-        CALL SWBCPT (  LBGP, XCGRID, YCGRID,                              40.41 40.31
+        CALL SWBCPT (  XCGRID, YCGRID,                                    BJXX 40.41 40.31
      &                 KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,
      &                 NBOUNC, DONALL )
 !       check if the grid points are on nested boundary.
@@ -4865,9 +5171,16 @@
 !     quantity on file is energy density
       BSPFIL%BFILED(17) = 1                                               40.31
 !
-      NHEDF = NHEDF + CEILING(NFRE/8.) + CEILING(NANG/7.)+1
-      NHEDS = 2
-!     NHEDT: calculated in the RBFILE subroutine for each time step
+!     number of heading lines: per file, per time, per spectrum
+      IF (BTYPE.EQ.'WW3F') THEN
+        NHEDF = NHEDF + CEILING(NFRE/8.) + CEILING(NANG/7.)+1
+!       NHEDT: calculated in the RBFILE subroutine for each time step
+        NHEDS = 2
+      ELSE
+        NHEDF = 3
+        NHEDT = 0
+        NHEDS = 1
+      ENDIF
 !
       ALLOCATE(BSPFIL%BSPLOC(NBOUNC))                                     40.31
       DO IBC = 1, NBOUNC
@@ -4904,12 +5217,18 @@
 !
 !      Rewind input file for proper start
       REWIND (NDSD)
+!     read per file heading lines
+      IF (BTYPE.EQ.'WW3U') THEN
+        DO IHD = 1, BSPFIL%BFILED(14)
+          READ (NDSD)
+        ENDDO
+      ENDIF
 
   81  FORMAT (' array BFILED: ', 2I4, 2(/,8I10))
   900 FORMAT (I8.8,I7.6)
-  901 FORMAT (A12,2F7.2,F10.1,2(F7.2,F6.1))
+  901 FORMAT (1X,A10,1X,2F7.2,F10.1,2(F7.2,F6.1))
   902 FORMAT (7E11.3)
- 1944 FORMAT (A23,1X,3I6,1X,A33)
+ 1944 FORMAT (1X,A21,1X,1X,3I6,1X,1X,A30,1X)
  1945 FORMAT (8E10.3)
  1946 FORMAT (7E11.3)
 
@@ -4921,7 +5240,7 @@
 
 !***********************************************************************
 !
-      SUBROUTINE SWBCPT ( LBGP, XCGRID, YCGRID,                           40.41 40.31
+      SUBROUTINE SWBCPT ( XCGRID, YCGRID,                                 BJXX 40.41 40.31
      &                    KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,
      &                    NBOUNC,DONALL )
 !
@@ -4950,7 +5269,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4975,6 +5294,7 @@
 !     40.31: Tim Campbell and John Cazes
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!     41.14: Nico Booij
 !
 !  1. Updates
 !
@@ -4983,6 +5303,7 @@
 !     40.31, Jul. 03: initializations XP0, XP1, YP0, YP1
 !     40.31, Nov. 03: removing POOL mechanism
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     41.14, Jul. 10: error in nesting unstructured grid corrected
 !
 !  2. Purpose
 !
@@ -5005,14 +5326,15 @@
 !
       INTEGER, INTENT(IN)     ::  IBOUNC,NBOUNC
 !
+      REAL                    ::  XP2, YP2         ! coordinates of a point in spectral file   41.14
       REAL, INTENT(IN)        ::  XCGRID(MXC,MYC), YCGRID(MXC,MYC)  ! coordinates of computational grid points
 !
 !     DONALL : logic arguments declare if the nesting boundary is open or close
 !              it is defined by the users
 !
       LOGICAL, INTENT(INOUT)  ::  DONALL
-
-      LOGICAL :: LBGP                                                     40.31
+!                                                                         BJXX
+!      LOGICAL :: LBGP                                                    BJXX 40.31
 !
 !  5. Parameter variables
 !
@@ -5033,8 +5355,9 @@
       INTEGER            :: IXP,IYP,IIPT1
 !
       REAL, SAVE         :: XP0=0., XP1=0., YP0=0., YP1=0.                40.31
-      REAL               :: XP2, YP2, XP, YP, RX, RY, RL2
-      REAL               :: DISXY, W2
+      REAL               :: XP, YP, RX, RY, RL2
+      REAL               :: DX1P, DY1P, DXP2, DYP2, DXCIRC(3)
+      REAL               :: DISXY, DOTR1, DOTR2, W2
       TYPE(BGPDAT), POINTER :: BGPTMP                                     40.31
 !
       TYPE(verttype), DIMENSION(:), POINTER :: vert                       40.80
@@ -5071,6 +5394,9 @@
 !
       CALL STRACE (IENT, 'SWBCPT')                                        40.41
 !
+      IF (NBOUNC.EQ.1) CALL MSGERR (2,                                    41.14
+     &  'Nesting procedure does not work if file has only 1 spectrum')    41.14
+!
 !     point to vertices
 !
       vert => gridobject%vert_grid                                        40.80
@@ -5078,96 +5404,160 @@
       IBSP2 = NBSPEC+IBOUNC
       IIPT1 = 0
 !
-      IF (OPTG.EQ.5) THEN                                                 40.80
-!
-!        in case of unstructured grid, no interpolation is needed,
-!        since this grid is nested in a coarse structured or
-!        unstructured grid run
-!
-!        Note that the variable DONALL has no effect, since we
-!        searching into the whole grid
-!
-         DO IXP = 1, nverts                                               40.80
-            IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                       40.80
-     &           vert(IXP)%atti(VBC) == 0 ) THEN                          40.80
-               RX = XP2 - vert(IXP)%attr(VERTX)
-               RY = YP2 - vert(IXP)%attr(VERTY)
-               DISXY = SQRT(RX**2 + RY**2)
-               IF (DISXY.LT.0.1) THEN
-                  vert(IXP)%atti(VBC) = 1                                 40.80
-                  NBGRPT = NBGRPT + 1                                     40.80
-                  ALLOCATE(BGPTMP)                                        40.80
-                  BGPTMP%BGP(1) = IXP                                     40.80
-                  BGPTMP%BGP(2) = 1                                       40.80
-                  BGPTMP%BGP(3) = 1000                                    40.80
-                  BGPTMP%BGP(4) = IBSP2                                   40.80
-                  BGPTMP%BGP(5) = 0                                       40.80
-                  BGPTMP%BGP(6) = IBSP2-1                                 40.80
-                  NULLIFY(BGPTMP%NEXTBGP)                                 40.80
-                  IF ( .NOT.LBGP ) THEN                                   40.80
-                     FBGP = BGPTMP                                        40.80
-                     CUBGP => FBGP                                        40.80
-                     LBGP = .TRUE.                                        40.80
-                  ELSE                                                    40.80
-                     CUBGP%NEXTBGP => BGPTMP                              40.80
-                     CUBGP => BGPTMP                                      40.80
-                  ENDIF                                                   40.80
-                  EXIT                                                    40.80
-               ENDIF
-            ENDIF                                                         40.80
-         ENDDO                                                            40.80
-         RETURN                                                           40.80
-      ENDIF                                                               40.80
-
-201   IF (IBOUNC.EQ.1) THEN
+ 201  IF (IBOUNC.EQ.1) THEN
+!        first point found in a spectral input file                       41.14
          XP0   = XP2
          YP0   = YP2
          IBSP0 = IBSP2
          IIPT1 = 1                                                        40.41
       ELSE
-         RX  = XP2 - XP1
+!        RX, RY difference vector between consecutive points of spectral file  41.14
+         IF (KSPHER.EQ.0) THEN
+            RX  = XP2 - XP1
+         ELSE
+            DXCIRC(1) = ( XP2 - XP1)-360.0
+            DXCIRC(2) = ( XP2 - XP1)
+            DXCIRC(3) = ( XP2 - XP1)+360.0
+            RX = DXCIRC(MINLOC(ABS(DXCIRC),1))
+         ENDIF
          RY  = YP2 - YP1
          RL2 = RX**2 + RY**2
          IF (RL2.GT.0.) THEN
-            RX  = RX/RL2
-            RY  = RY/RL2
+           RX  = RX/RL2
+           RY  = RY/RL2
+!           WRITE(PRINTF,'(A,2I6,6F12.4)') 'BC_SEARCH_1: ',IBSP1,IBSP2,
+!     &       XP1+XOFFS,YP1+YOFFS,XP2+XOFFS,YP2+YOFFS,RX,RY
 !
-!           loop over boundary of comp. grid, select points between
-!           (XP1,YP1) and (XP2,YP2)
+!          loop over boundary of computational grid, select boundary points
+!          between (XP1,YP1) and (XP2,YP2)
+!
+           IF (OPTG.EQ.5) THEN                                            40.80
+             DO IXP = 1, nverts                                           40.80
+               IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                    40.80
+     &              vert(IXP)%atti(VBC) == 0 ) THEN                       40.80
+                 XP = vert(IXP)%attr(VERTX)                               41.14
+                 YP = vert(IXP)%attr(VERTY)                               41.14
+!
+                 IF (KSPHER.EQ.0) THEN
+                    DX1P = XP  - XP1
+                    DY1P = YP  - YP1
+                    DXP2 = XP2 - XP
+                    DYP2 = YP2 - YP
+                 ELSE
+!                   compute delta_lon that allows for either, both,
+!                   or neither XP,XP1 to be -180 to 180 or 0 to 360
+                    DXCIRC(1) = ( XP - XP1)-360.0
+                    DXCIRC(2) = ( XP - XP1)
+                    DXCIRC(3) = ( XP - XP1)+360.0
+                    DX1P = DXCIRC(MINLOC(ABS(DXCIRC),1))
+                    DY1P = ( YP - YP1 )
+                    DXCIRC(1) = ( XP2 - XP)-360.0
+                    DXCIRC(2) = ( XP2 - XP)
+                    DXCIRC(3) = ( XP2 - XP)+360.0
+                    DXP2 = DXCIRC(MINLOC(ABS(DXCIRC),1))
+                    DYP2 = ( YP2 - YP )
+                 ENDIF
+!
+!                DISXY is relative distance from (XP,YP) to line
+!                (XP1,YP1) to (XP2,YP2) with respect to the length of that line
+!                DOTR1 is relative length of projection on line (XP1,YP1) to (XP2,YP2)
+!
+                 DISXY = ABS ( RX*DY1P - RY*DX1P )                        41.14
+                 DOTR1 = RX*DX1P + RY*DY1P
+                 DOTR2 = RX*DXP2 + RY*DYP2
+!                 WRITE(PRINTF,'(A,I6,5F12.4)') 'BC_SEARCH_2: ',IXP,
+!     &             XP+XOFFS,YP+YOFFS,DOTR1,DOTR2,DISXY
+!
+!                check if boundary point is between (XP1,YP1) and (XP2,YP2)
+                 IF ( DOTR1.GE.0.AND.DOTR2.GE.0.AND.DISXY.LE.0.1 ) THEN
+                    W2 = DOTR1
+                    IF (W2.LT.0.001) W2 = 0.                              41.14
+                    IF (W2.GT.0.999) W2 = 1.                              41.14
+                    IF (ITEST.GE.80) WRITE (PRTEST, *) ' B.pnt',
+     &                        IXP, XP, YP, W2, IBSP2, 1.-W2, IBSP1        41.14
+                    NBGRPT = NBGRPT + 1
+                    IIPT1  = IIPT1  + 1
+!                    WRITE(PRINTF,'(A,3I6,2(F6.3,I6))') 'BC_SEARCH_3: ',
+!     &              IXP,NBGRPT,IIPT1,1.-W2,IBSP1,W2,IBSP2
+!
+                    CALL CONSTRUCTOR(BGPTMP)                              BJXX 40.31
+                    BGPTMP%BGP(1) = IXP                                   40.31
+!                   next item indicates type of boundary condition
+                    BGPTMP%BGP(2) = 1                                     40.31
+                    BGPTMP%BGP(3) = NINT(1000. * W2)                      40.31
+                    BGPTMP%BGP(4) = IBSP2                                 40.31
+                    BGPTMP%BGP(5) = NINT(1000. * (1.-W2))                 40.31
+                    BGPTMP%BGP(6) = IBSP1                                 40.31
+                    vert(IXP)%atti(VBC) = 1                               40.80
+                    NULLIFY(BGPTMP%NEXTBGP)                               40.80
+                    IF ( .NOT.LBGP ) THEN                                 40.80
+                       FBGP = BGPTMP                                      40.80
+                       CUBGP => FBGP                                      40.80
+                       LBGP = .TRUE.                                      40.80
+                    ELSE                                                  40.80
+                       CUBGP%NEXTBGP => BGPTMP                            40.80
+                       CUBGP => BGPTMP                                    40.80
+                    ENDIF                                                 40.80
+                 ENDIF                                                    41.14
+               ENDIF                                                      40.80
+             ENDDO                                                        40.80
+           ELSE
+!
 !           KGRBND grid addresses on boundary points, NGRBND number of grid points
 !           on computational grid boundary
 !
-            DO IGRBND = 1, NGRBND
-              IXP = KGRBND(2*IGRBND-1)
-              IYP = KGRBND(2*IGRBND)
+             DO IGRBND = 1, NGRBND
+               IXP = KGRBND(2*IGRBND-1)
+               IYP = KGRBND(2*IGRBND)
 !
-              IF (IXP.GT.0 .AND.IYP.GT.0) THEN
+               IF (IXP.GT.0 .AND.IYP.GT.0) THEN
+                 INDXGR = KGRPNT(IXP,IYP)
+                 XP = XCGRID(IXP,IYP)
+                 YP = YCGRID(IXP,IYP)
 !
-!               (IXP,IYP) is a valid boundary point
+                 IF (KSPHER.EQ.0) THEN
+                    DX1P = XP  - XP1
+                    DY1P = YP  - YP1
+                    DXP2 = XP2 - XP
+                    DYP2 = YP2 - YP
+                 ELSE
+!                   compute delta_lon that allows for either, both,
+!                   or neither XP,XP1 to be -180 to 180 or 0 to 360
+                    DXCIRC(1) = ( XP - XP1)-360.0
+                    DXCIRC(2) = ( XP - XP1)
+                    DXCIRC(3) = ( XP - XP1)+360.0
+                    DX1P = DXCIRC(MINLOC(ABS(DXCIRC),1))
+                    DY1P = ( YP - YP1 )
+                    DXCIRC(1) = ( XP2 - XP)-360.0
+                    DXCIRC(2) = ( XP2 - XP)
+                    DXCIRC(3) = ( XP2 - XP)+360.0
+                    DXP2 = DXCIRC(MINLOC(ABS(DXCIRC),1))
+                    DYP2 = ( YP2 - YP )
+                 ENDIF
 !
-                INDXGR = KGRPNT(IXP,IYP)
-                XP = XCGRID(IXP,IYP)
-                YP = YCGRID(IXP,IYP)
+!                DISXY is relative distance from (XP,YP) to line
+!                (XP1,YP1) to (XP2,YP2) with respect to the length of that line
+!                DOTR1 is relative length of projection on line (XP1,YP1) to (XP2,YP2)
 !
-!               DISXY is relative distance from (XP,YP) to line
-!               (XP1,YP1) to (XP2,YP2) with respect to the
-!               length of that line
+                 DISXY = ABS( RX*DY1P - RY*DX1P )
+                 DOTR1 = RX*DX1P + RY*DY1P
+                 DOTR2 = RX*DXP2 + RY*DYP2
+!                 WRITE(PRINTF,'(A,2I6,5F12.4)') 'BC_SEARCH_2: ',IXP,IYP,
+!     &             XP+XOFFS,YP+YOFFS,DOTR1,DOTR2,DISXY
 !
-                DISXY = ABS(RX*(YP-YP1)-RY*(XP-XP1))
-!
-                IF (DISXY.LT.0.1) THEN
-!                 W2 is relative length of projection on line
-!                 (XP1,YP1) to (XP2,YP2)
-                  W2 = RX*(XP-XP1)+RY*(YP-YP1)
-                  IF (W2.GT.-0.001 .AND. W2.LT.1.001) THEN
-                    IF (W2.LT.0.01) W2 = 0.
-                    IF (W2.GT.0.99) W2 = 1.
+!                check if boundary point is between (XP1,YP1) and (XP2,YP2)
+                 IF ( DOTR1.GE.0.AND.DOTR2.GE.0.AND.DISXY.LE.0.1 ) THEN
+                    W2 = DOTR1
+                    IF (W2.LT.0.001) W2 = 0.
+                    IF (W2.GT.0.999) W2 = 1.
                     IF (ITEST.GE.80) WRITE (PRTEST, *) ' B.pnt',
-     &                       IXP, IYP, XP, YP, W2, IBSP2, 1.-W2, IBSP1    40.41
+     &                        IXP, XP, YP, W2, IBSP2, 1.-W2, IBSP1        40.41
                     NBGRPT = NBGRPT + 1
-                    IIPT1 = IIPT1 + 1
+                    IIPT1  = IIPT1  + 1
+!                    WRITE(PRINTF,'(A,4I6,2(F6.3,I6))') 'BC_SEARCH_3: ',
+!     &              IXP,IYP,NBGRPT,IIPT1,1.-W2,IBSP1,W2,IBSP2
 !
-                    ALLOCATE(BGPTMP)                                      40.31
+                    CALL CONSTRUCTOR(BGPTMP)                              BJXX 40.31
                     BGPTMP%BGP(1) = INDXGR                                40.31
 !                   next item indicates type of boundary condition
                     BGPTMP%BGP(2) = 1                                     40.31
@@ -5197,19 +5587,19 @@
  223                       FORMAT (' B.pnt', 2I5, 2F9.0, F6.3, 2I3)
                       ENDDO
                     ENDIF
-                  ENDIF
-                ENDIF
-              ENDIF
-            ENDDO
+                 ENDIF
+               ENDIF
+             ENDDO
+           ENDIF
          ENDIF
       ENDIF
 !
-      IF (IIPT1.EQ.0) THEN
-         WRITE (PRINTF, 218) XP1+XOFFS, YP1+YOFFS,
-     &   XP2+XOFFS, YP2+YOFFS
- 218     FORMAT (' Warning: no grid points on interval from ', 2F12.4,
-     &           ' to ', 2F12.4)
-      ENDIF
+!      IF (IIPT1.EQ.0) THEN
+!         WRITE (PRINTF, 218) XP1+XOFFS, YP1+YOFFS,
+!     &   XP2+XOFFS, YP2+YOFFS
+! 218     FORMAT (' Warning: no grid points on interval from ', 2F12.4,
+!     &           ' to ', 2F12.4)
+!      ENDIF
 !
       XP1   = XP2
       YP1   = YP2
@@ -5252,7 +5642,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -5393,6 +5783,7 @@
 !                                                                    *
 !*********************************************************************
 !
+      USE OCPCOMM2                                                        40.95
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
       USE SWCOMM2                                                         40.41
@@ -5401,6 +5792,7 @@
       USE OUTP_DATA                                                       40.31
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+!PUN      USE SIZES                                                           40.95
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -5414,7 +5806,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -5442,6 +5834,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -5458,6 +5851,7 @@
 !     40.31, Dec. 03: removing POOL-mechanism
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Jun. 07: extension to unstructured grids
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. PURPOSE
 !
@@ -5490,6 +5884,8 @@
 !
       INTEGER LXYTST, MPTST                                               40.80 30.82
       INTEGER XYTST(LXYTST)                                               40.80 30.82
+      INTEGER ICHECK1,ICHECK2 ! for checking that                         41.75
+                              ! hardwired # quantities is correct         41.75
 !
 !  5. SUBROUTINES CALLING
 !
@@ -5626,7 +6022,7 @@
 !
 !     generate output point set 'TESTPNTS'
 !
-  60  ALLOCATE(OPSTMP)                                                    40.31
+  60  CALL CONSTRUCTOR(OPSTMP)                                            BJXX 40.31
       OPSTMP%PSNAME = 'TESTPNTS'                                          40.31
       OPSTMP%PSTYPE = 'P'                                                 40.31
       OPSTMP%MIP    = NPTST                                               40.31
@@ -5668,6 +6064,7 @@
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
   99       FORMAT('-',I3.3)                                               40.30
         END IF                                                            40.30
+!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFPAR, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -5708,7 +6105,14 @@
            ENDDO                                                          40.80
         ENDIF                                                             40.80
  106    FORMAT (2(1X,F12.2))
-        WRITE (IFPAR, 132) 8                                              40.00
+! NB: If list of variables is expanded, the following hardwired integers
+!   must be increased:
+        IF(IWCAP.NE.8)THEN                                                41.75 40.88
+          ICHECK1=12
+        ELSE
+          ICHECK1=13
+        ENDIF
+        WRITE (IFPAR, 132) ICHECK1                                        41.75 40.32 40.55 40.00
  132    FORMAT ('QUANT', /, I6, T41, 'number of quantities in table')     40.00
         WRITE (IFPAR, 102) OVSNAM(10), OVLNAM(10)                         40.00
         WRITE (IFPAR, 102) OVUNIT(10), 'unit'                             40.00
@@ -5717,24 +6121,55 @@
         WRITE (IFPAR, 102) OVSNAM(28), OVLNAM(28)                         40.41 40.00
         WRITE (IFPAR, 102) OVUNIT(28), 'unit'                             40.41 40.00
         WRITE (IFPAR, 104) OVEXCV(28), 'exception value'                  40.41 40.00
+        ICHECK2=3
         WRITE (IFPAR, 102) 'Swind',  'wind source term (of var. dens.)'   40.00
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.00
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFPAR, 102) 'Swcap',  'whitecapping dissipation'           40.00
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.00
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        IF(IWCAP.EQ.8)THEN                                                40.88
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Sswell', 'swell dissipation'                  40.88
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.88
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.88
+        ENDIF                                                             40.88
+        ICHECK2=ICHECK2+1
         WRITE (IFPAR, 102) 'Sfric',  'bottom friction dissipation'        40.00
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.00
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Svege',  'vegetation dissipation'             40.55
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.55
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.55
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Sturb',  'turbulent dissipation'              40.35
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.35
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.35
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Smud',  'fluid mud dissipation'               40.59
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.59
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.59
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Sice',   'dissipation by sea ice'             41.75
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               41.75
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    41.75
+        ICHECK2=ICHECK2+1
         WRITE (IFPAR, 102) 'Ssurf',  'surf breaking dissipation'          40.00
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.00
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFPAR, 102) 'Snl3',   'total absolute 3-wave interaction'  40.13
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.13
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFPAR, 102) 'Snl4',   'total absolute 4-wave interaction'  40.13
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.13
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
+           CALL MSGERR (3,'Internal error: mismatch in # quantities')
+        ENDIF
       ENDIF
 !
 !     open output file for source terms if requested
@@ -5748,6 +6183,7 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
         END IF                                                            40.30
+!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFS1D, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -5791,28 +6227,66 @@
           WRITE (IFS1D, 214) SPCSIG(IS)/PI2                               40.00
  214      FORMAT (F10.4)                                                  40.00
  220    CONTINUE                                                          40.00
-        WRITE (IFS1D, 132) 7
+! NB: If list of variables is expanded, the following hardwired integers
+!   must be increased:
+        IF(IWCAP.NE.8)THEN                                                41.75 40.88
+          ICHECK1=11
+        ELSE
+          ICHECK1=12
+        ENDIF
+        WRITE (IFS1D, 132) ICHECK1                                        41.75 40.55
         WRITE (IFS1D, 102) 'VaDens', 'variance densities'                 40.00
         WRITE (IFS1D, 102) 'm2/Hz',  'unit'                               40.00
         WRITE (IFS1D, 104) 0.,       'exception value'                    40.00
+        ICHECK2=2
         WRITE (IFS1D, 102) 'Swind',  'wind source term'                   40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS1D, 102) 'Swcap',  'whitecapping dissipation'           40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        IF(IWCAP.EQ.8) THEN
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Sswell', 'swell dissipation'                  40.88
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.88
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.88
+        ENDIF
+        ICHECK2=ICHECK2+1
         WRITE (IFS1D, 102) 'Sfric',  'bottom friction dissipation'        40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Svege',  'vegetation dissipation'             40.55
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.55
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.55
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Sturb',  'turbulent dissipation'              40.35
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.35
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.35
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Smud',  'fluid mud dissipation'               40.59
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.59
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.59
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Sice',   'dissipation by sea ice'             41.75
+        WRITE (IFS1D, 102) 'm2',     'unit'                               41.75
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    41.75
+        ICHECK2=ICHECK2+1
         WRITE (IFS1D, 102) 'Ssurf',  'surf breaking dissipation'          40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS1D, 102) 'Snl3',   'triad interactions'                 40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS1D, 102) 'Snl4',   'quadruplet interactions'            40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
+           CALL MSGERR (3,'Internal error: mismatch in # quantities')
+        ENDIF
       ENDIF
 !     2D source terms
       CALL INKEYW ('STA', ' ')                                            40.00
@@ -5824,6 +6298,7 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
         END IF                                                            40.30
+!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFS2D, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -5874,28 +6349,66 @@
           WRITE (IFS2D, 324) SPCDIR(ID,1)*180./PI                         30.82
  324      FORMAT (F10.4)                                                  40.00
  330    CONTINUE                                                          40.00
-        WRITE (IFS2D, 132) 7
+! NB: If list of variables is expanded, the following hardwired integers
+!   must be increased:
+        IF(IWCAP.NE.8)THEN                                                41.75 40.88
+          ICHECK1=11
+        ELSE
+          ICHECK1=12
+        ENDIF
+        WRITE (IFS2D, 132) ICHECK1                                        41.75 40.55
         WRITE (IFS2D, 102) 'VaDens', 'variance densities'                 40.00
         WRITE (IFS2D, 102) 'm2/Hz/degr', 'unit'                           40.00
         WRITE (IFS2D, 104) 0.,       'exception value'                    40.00
+        ICHECK2=2
         WRITE (IFS2D, 102) 'Swind',  'wind source term'                   40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Swcap',  'whitecapping dissipation'           40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        IF(IWCAP.EQ.8) THEN
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Sswell', 'swell dissipation'                  40.88
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.88
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.88
+        ENDIF
+        ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Sfric',  'bottom friction dissipation'        40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Svege',  'vegetation dissipation'             40.55
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.55
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.55
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Sturb',  'turbulent dissipation'              40.35
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.35
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.35
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Smud',  'fluid mud dissipation'               40.59
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.59
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.59
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Sice',  'dissipation by sea ice'              41.75
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               41.75
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    41.75
+        ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Ssurf',  'surf breaking dissipation'          40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Snl3',   'triad interactions'                 40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Snl4',   'quadruplet interactions'            40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
+           CALL MSGERR (3,'Internal error: mismatch in # quantities')
+        ENDIF
       ENDIF
       RETURN
 !     end of subroutine RETSTP

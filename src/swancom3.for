@@ -31,7 +31,7 @@
      &                   DEP2  ,WIND10,GENC0 ,GENC1 ,                     40.85 32.06
      &                   THETAW,AC2   ,KWAVE ,IMATRA,IMATDA,              32.06
      &                   SPCSIG,CGO   ,ALIMW ,GROWW ,ETOTW ,              32.06
-     &                   PLWNDA,PLWNDB,SPCDIR,ITER            )           32.06
+     &                   PLWNDS,PLWNDD,SPCDIR,ITER,AICELOC    )           41.75 32.06
 !
 !****************************************************************
 !
@@ -53,7 +53,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -81,6 +81,7 @@
 !     40.00: Nico Booij (Nonstationary boundary conditions)
 !     40.41: Marcel Zijlema
 !     40.85: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -96,6 +97,7 @@
 !     40.41, Aug. 04: COS(THETA-THETAW) replaced by sumrule to make it cheaper
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.85, Aug. 08: store wind input for output purposes
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -223,6 +225,7 @@
 !        THETAW      Mean direction of the relative wind vector
 !        TWOPI       Two times pi
 !        WIND10      Velocity of the relative wind vector
+!        AICELOC     Local ice fraction
 !
 !        one and more dimensional arrays:
 !        ---------------------------------
@@ -234,8 +237,8 @@
 !        LOGSIG    1D    Logaritmic distribution of frequency
 !        IMATRA    2D    Coefficients of right hand side of vector
 !        IMATDA    2D    Coefficients of the diagonal
-!        PLWNDA    3D    Values of source term for test point
-!        PLWNDB    3D    Values of source term for test point
+!        PLWNDS    3D    Values of explicit part of wind input for test point
+!        PLWNDD    3D    Values of implicit part of wind input for test point
 !        SPCDIR    1D    Spectral direction of wave component
 !        IDCMIN    1D    Minimum counter
 !        IDCMAX    1D    Maximum counter in directional space
@@ -275,7 +278,11 @@
 !
 !     8. REMARKS
 !
-!        ---
+!     Regarding ICEWIND variable :
+!        factor_on_Sin=(1-aice*(1-icewind))    (1)
+!        This can be re-written as :
+!        factor_on_Sin=awater+aice*icewind     (2)
+!        where a_water is open water fraction and a_water+aice==1.0 by definition
 !
 !     9. STRUCTURE
 !
@@ -322,19 +329,21 @@
      &         SIGPK ,SIGPKD,DND   ,ETOTW ,ALIM1D,
      &         CTW   ,STW   ,COSDIF,                                      40.41
      &         DIRDIS,AC2CEN,DTHETA
+      REAL, INTENT(IN) :: AICELOC                                         41.75
 !
       REAL  :: AC2(MDC,MSC,MCGRD)
       REAL  :: ALIMW(MDC,MSC)
       REAL  :: IMATDA(MDC,MSC), IMATRA(MDC,MSC)
 !     Changed ICMAX to MICMAX, since MICMAX doesn't vary over gridpoint   40.22
       REAL  :: KWAVE(MSC,MICMAX)                                          40.22
-      REAL  :: PLWNDA(MDC,MSC,NPTST)                                      40.00
-      REAL  :: PLWNDB(MDC,MSC,NPTST)
+      REAL  :: PLWNDS(MDC,MSC,NPTST)                                      40.00
+      REAL  :: PLWNDD(MDC,MSC,NPTST)
       REAL  :: GENC0(MDC,MSC,MGENR)                                       40.85
       REAL  :: GENC1(MDC,MSC,MGENR)                                       40.85
       REAL  :: DEP2(MCGRD)
 !     Changed ICMAX to MICMAX, since MICMAX doesn't vary over gridpoint   40.22
       REAL  :: CGO(MSC,MICMAX)                                            40.22
+      REAL  :: FACTOR_ON_SIN ! See remarks.                               41.75
 !
       INTEGER  IDCMIN(MSC)           ,
      &         IDCMAX(MSC)
@@ -365,6 +374,8 @@
       FPM    = SIGPKD                                                     30.75
       CTW    = COS(THETAW)                                                40.41
       STW    = SIN(THETAW)                                                40.41
+
+      FACTOR_ON_SIN = (1.-AICELOC*(1.-ICEWIND))                           41.75
 !
       IF ( IWIND .EQ. 1 ) THEN
 !
@@ -488,19 +499,24 @@
      &                 ( PWIND(4) * GRAV * TWOPI**2 )
             ENDIF
             SWIND_EXP = TAUINV * ALIMW(ID,IS)
-            SWIND_IMP = -TAUINV
+            SWIND_IMP = TAUINV
             ADUM = ALIMW(ID,IS)
             BDUM = TAUINV
           END IF
 !
+          IF ( AICELOC.GT.0. ) THEN                                       41.75
+             SWIND_EXP = SWIND_EXP * FACTOR_ON_SIN                        41.75
+             SWIND_IMP = SWIND_IMP * FACTOR_ON_SIN                        41.75
+          ENDIF                                                           41.75
+!
 !         *** store results in IMATDA and IMATRA ***
 !
           IMATRA(ID,IS) = IMATRA(ID,IS) + SWIND_EXP
-          IMATDA(ID,IS) = IMATDA(ID,IS) - SWIND_IMP
-          IF (TESTFL) PLWNDA(ID,IS,IPTST) = SWIND_EXP                     40.13
-          IF (TESTFL) PLWNDB(ID,IS,IPTST) = SWIND_IMP                     40.13
+          IMATDA(ID,IS) = IMATDA(ID,IS) + SWIND_IMP
+          IF (TESTFL) PLWNDS(ID,IS,IPTST) = SWIND_EXP                     40.13
+          IF (TESTFL) PLWNDD(ID,IS,IPTST) = -1.*SWIND_IMP                 40.13
           GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWIND_EXP                     40.85
-          GENC1(ID,IS,1) = GENC1(ID,IS,1) + SWIND_IMP                     40.85
+          GENC1(ID,IS,1) = GENC1(ID,IS,1) - SWIND_IMP                     40.85
 !
 !         *** test output ***
 !
@@ -537,7 +553,11 @@
      &                   FPM        ,UFRIC      ,
      &                   WX2        ,WY2        ,
      &                   ANYWND     ,SPCDIR     ,                         40.00
-     &                   UX2        ,UY2        ,SPCSIG     )             30.70
+     &                   UX2        ,UY2        ,
+     &                   SPCSIG     ,AC2                                  30.70 41.33
+!ADC     &                  ,NodeNumber                                       41.20
+     &                  ,GENC0      ,KWAVE                                40.88
+     &                  )
 !
 !****************************************************************
 !
@@ -549,6 +569,10 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
+      USE SDSBABANIN
+!ADC      USE WIND, ONLY: WindDrag                                            41.20
+!
+      IMPLICIT NONE
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -562,7 +586,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -587,6 +611,8 @@
 !     32.06: Roeland Ris
 !     40.00: Nico Booij (Nonstationary boundary conditions)
 !     40.41: Marcel Zijlema
+!     41.20: Casey Dietrich
+!     41.33: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -600,6 +626,9 @@
 !     32.06, June 99: Reformulation of wind speed in terms of friction
 !                     velocity for first and second generation
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     41.20, Jun. 10: use ADCIRC's new sector-based wind drag
+!     41.33, Mar. 12: extension drag coefficient based on 2nd order polynomial
+!     41.33, Aug. 12: extension drag coefficient based on cross swell
 !
 !  2. Purpose
 !
@@ -621,7 +650,7 @@
 !     b. For SWIND3 (wind input according to Snyder (1981) ***
 !
 !       - wind friction velocity according to Wu (1982):
-!           *                                                -3
+!          *                                                 -3
 !         U  =  UFRIC = wind10 sqrt( (0.8 + 0.065 wind10 ) 10  )
 !
 !     c. For SWIND4 (wind input according to Janssen 1991)
@@ -634,7 +663,7 @@
 !
 !          else wind friction velocity according to Wu (1982):
 !
-!         *                                                -3
+!          *                                                 -3
 !         U  =  UFRIC = wind10 sqrt( (0.8 + 0.065 wind10 ) 10  )
 !
 !     d.
@@ -727,15 +756,33 @@
 !
 !***********************************************************************
 !
+!ADC      INTEGER, OPTIONAL :: NodeNumber                                     41.20
+!ADC!
       INTEGER      IDWMIN ,IDWMAX                                         30.70
+      INTEGER      IENT   ,ID    ,IDDUM, IS
 !
       REAL         WIND10 ,THETAW ,                                       30.70
      &             UFRIC  ,FPM    ,CDRAG  ,SDMEAN                         30.70
+!
+      REAL         UREF   ,UTL    ,PP, QQ, RR                             41.33
+      PARAMETER (UREF=31.5, PP=0.55, QQ=2.97, RR=-1.49)                   41.33
+      REAL         UREF1, UTL1, NSL1, NSH1, CS, CA,CB,CC, NA,NB,NC,       41.33
+     &             UREF2, UTL2, NSL2, NSH2,     CD,CE,    ND,NE           41.33
+      PARAMETER (UREF1=27.5,NA=1.05,NB=1.25,NC=1.4,CA=0.7,CB=1.1,CC=6.,   41.33
+     &           NSL1=30.,NSH1=80.,CS=50.,                                41.33
+     &           UREF2=54.,ND=2.3,NE=10.,CD=8.2,CE=2.5,                   41.33
+     &           NSL2=45.,NSH2=55.)                                       41.33
+      REAL         A, B, C, D, E                                          41.33
+      REAL         ETOTS ,EEX   ,EEY   , EAD   ,SIGMA1,                   41.33
+     &             COSDIR,SINDIR,DETOT , FAC   ,DSPR                      41.33
 !
       REAL         WX2(MCGRD)   ,
      &             WY2(MCGRD)   ,
      &             UX2(MCGRD)   ,                                         30.70
      &             UY2(MCGRD)                                             30.70
+      REAL         AC2(MDC,MSC,MCGRD)                                     41.33
+      REAL         KWAVE(MSC,MICMAX)
+      REAL         GENC0(MDC,MSC,MGENR)
 !
       LOGICAL      ANYWND(MDC)
 !
@@ -834,6 +881,34 @@
 !
       ENDDO
 !
+!     --- determine directional spreading for cross swell
+!
+      IF ( IDRAG.EQ.3 ) THEN
+         EEX   = 0.
+         EEY   = 0.
+         ETOTS = 0.
+         DO ID = 1, MDC
+            EAD = 0.
+            DO IS = 1, MSC
+               SIGMA1 = SPCSIG(IS)
+               DETOT  = SIGMA1**2 * AC2(ID,IS,KCGRD(1))
+               EAD    = EAD + DETOT
+            ENDDO
+            ETOTS = ETOTS + EAD
+            EEX   = EEX + EAD * SPCDIR(ID,2)
+            EEY   = EEY + EAD * SPCDIR(ID,3)
+         ENDDO
+         IF ( ETOTS.GT.0. ) THEN
+            COSDIR = EEX / ETOTS
+            SINDIR = EEY / ETOTS
+            FAC    = MIN( 1., SQRT(COSDIR**2+SINDIR**2) )
+            DSPR   = SQRT(2.-2.*FAC)
+         ELSE
+            DSPR   = 0.
+         ENDIF
+         DSPR = DSPR * 180. / PI
+      ENDIF
+!
 !     *** compute the Pierson Moskowitz frequency ***
 !
       IF ( IWIND .EQ. 1 .OR. IWIND .EQ. 2 ) THEN
@@ -846,12 +921,76 @@
 !       *** determine U friction in case predictor is obtained ***
 !       *** with second genaration wave model                  ***
 !
-        IF ( WIND10 .GT. 7.5 ) THEN
-          UFRIC = WIND10 * SQRT (( 0.8 + 0.065 * WIND10 ) * 0.001 )
-        ELSE
-          CDRAG = 0.0012873
-          UFRIC = SQRT ( CDRAG ) * WIND10
+!ADC!       added the default option to use the ADCIRC drag formulation
+!ADC        IF ( IDRAG.EQ.0 ) THEN
+!ADC           IF ( WIND10 .GT. 7.5 ) THEN
+!ADC              CDRAG = WindDrag(DBLE(WIND10),NodeNumber)
+!ADC           ELSE
+!ADC              CDRAG = 0.0012875
+!ADC           ENDIF
+!ADC        ENDIF
+        IF ( IDRAG.EQ.1 ) THEN
+!          Wu (1982) drag formulation
+           IF ( WIND10 .GT. 7.5 ) THEN
+             CDRAG = ( 0.8 + 0.065 * WIND10 ) * 0.001
+             CDRAG = MIN ( CDCAP, CDRAG )
+           ELSE
+             CDRAG = 0.0012875
+           ENDIF
+        ELSE IF ( IDRAG.EQ.2 ) THEN
+!          Zijlema et al (2012) drag formulation
+           UTL   = WIND10/UREF
+           CDRAG = ( PP + QQ*UTL + RR*UTL*UTL ) * 0.001
+           CDRAG = MIN ( CDCAP, CDRAG )
+        ELSE IF ( IDRAG.EQ.3 ) THEN
+!          drag based on swell
+           UTL1  = WIND10/UREF1
+           UTL2  = WIND10/UREF2
+!
+           IF ( DSPR.NE.CS ) THEN
+!             no swell, opposing or following swell
+              A = NA
+              B = NB
+              C = NC
+              D = ND
+              E = NE
+              IF ( DSPR.GT.NSL1 .AND. DSPR.LT.CS ) THEN
+                 FAC = (DSPR-NSL1) / (CS-NSL1)
+                 A = A + FAC * (CA-NA)
+                 B = B + FAC * (CB-NB)
+                 C = C + FAC * (CC-NC)
+                 IF ( DSPR.GT.NSL2 ) THEN
+                    FAC = (DSPR-NSL2) / (CS-NSL2)
+                    D = D + FAC * (CD-ND)
+                    E = E + FAC * (CE-NE)
+                 ENDIF
+              ELSE IF ( DSPR.GT.CS .AND. DSPR.LT.NSH1 ) THEN
+                 FAC = (DSPR-NSH1) / (CS-NSH1)
+                 A = A + FAC * (CA-NA)
+                 B = B + FAC * (CB-NB)
+                 C = C + FAC * (CC-NC)
+                 IF ( DSPR.LT.NSH2 ) THEN
+                    FAC = (DSPR-NSH2) / (CS-NSH2)
+                    D = D + FAC * (CD-ND)
+                    E = E + FAC * (CE-NE)
+                 ENDIF
+              ENDIF
+           ELSE
+!             cross swell
+              A = CA
+              B = CB
+              C = CC
+              D = CD
+              E = CE
+           ENDIF
+!
+           CDRAG = MIN ( A+B*UTL1**C, D*(1-UTL2**E) )
+           CDRAG = MAX ( 0.7  , CDRAG )
+           CDRAG = CDRAG * 0.001
+           CDRAG = MIN ( CDCAP, CDRAG )
         ENDIF
+!
+        UFRIC = SQRT ( CDRAG ) * WIND10
 !
 !     Reformulation of the wind speed in terms of friction velocity.      32.06
 !     This formulation is based on Bouws (1986) and described in Delft    32.06
@@ -863,19 +1002,118 @@
       ELSE IF (IWIND .GE. 3 ) THEN
 !
 !       *** Calculate the wind friction velocity  ***
-!       *** according to Wu (1982)                ***
+!       *** based on wind drag formulation        ***
+!       *** apply cd-cap if appropriate           ***
 !
-        IF ( WIND10 .GT. 7.5 ) THEN
-          UFRIC = WIND10 * SQRT (( 0.8 + 0.065 * WIND10 ) * 0.001 )
-        ELSE
-          CDRAG = 0.0012873
-          UFRIC = SQRT ( CDRAG ) * WIND10
-        ENDIF
+!ADC!       added the default option to use the ADCIRC drag formulation
+!ADC        IF ( IDRAG.EQ.0 ) THEN
+!ADC           IF ( WIND10 .GT. 7.5 ) THEN
+!ADC              CDRAG = WindDrag(DBLE(WIND10),NodeNumber)
+!ADC           ELSE
+!ADC              CDRAG = 0.0012875
+!ADC           ENDIF
+!ADC           UFRIC = SQRT ( CDRAG ) * WIND10
+!ADC        ENDIF
+        IF ( IDRAG.EQ.1 ) THEN
+!          Wu (1982) drag formulation
+           IF ( WIND10 .GT. 7.5 ) THEN
+             CDRAG = ( 0.8 + 0.065 * WIND10 ) * 0.001
+             CDRAG = MIN ( CDCAP, CDRAG )
+!            this call is deprecated
+!ADC!             CDRAG = WindDrag(DBLE(WIND10),NodeNumber)
+           ELSE
+             CDRAG = 0.0012875
+           ENDIF
+           UFRIC = SQRT ( CDRAG ) * WIND10
+        ELSE IF ( IDRAG.EQ.2 ) THEN
+!          Zijlema et al (2012) drag formulation
+           UTL   = WIND10/UREF
+           CDRAG = ( PP + QQ*UTL + RR*UTL*UTL ) * 0.001
+           CDRAG = MIN ( CDCAP, CDRAG )
+           IF ( WIND10 .GT. 50.7 ) THEN
+              UFRIC = 1.9441
+           ELSE
+              UFRIC = SQRT ( CDRAG ) * WIND10
+           ENDIF
+        ELSE IF ( IDRAG.EQ.3 ) THEN
+!          drag based on swell
+           UTL1  = WIND10/UREF1
+           UTL2  = WIND10/UREF2
 !
-!       *** Wind friction velocity and PM-frequency ***
+           IF ( DSPR.NE.CS ) THEN
+!             no swell, opposing or following swell
+              A = NA
+              B = NB
+              C = NC
+              D = ND
+              E = NE
+              IF ( DSPR.GT.NSL1 .AND. DSPR.LT.CS ) THEN
+                 FAC = (DSPR-NSL1) / (CS-NSL1)
+                 A = A + FAC * (CA-NA)
+                 B = B + FAC * (CB-NB)
+                 C = C + FAC * (CC-NC)
+                 IF ( DSPR.GT.NSL2 ) THEN
+                    FAC = (DSPR-NSL2) / (CS-NSL2)
+                    D = D + FAC * (CD-ND)
+                    E = E + FAC * (CE-NE)
+                 ENDIF
+              ELSE IF ( DSPR.GT.CS .AND. DSPR.LT.NSH1 ) THEN
+                 FAC = (DSPR-NSH1) / (CS-NSH1)
+                 A = A + FAC * (CA-NA)
+                 B = B + FAC * (CB-NB)
+                 C = C + FAC * (CC-NC)
+                 IF ( DSPR.LT.NSH2 ) THEN
+                    FAC = (DSPR-NSH2) / (CS-NSH2)
+                    D = D + FAC * (CD-ND)
+                    E = E + FAC * (CE-NE)
+                 ENDIF
+              ENDIF
+           ELSE
+!             cross swell
+              A = CA
+              B = CB
+              C = CC
+              D = CD
+              E = CE
+           ENDIF
 !
+           CDRAG = MIN ( A+B*UTL1**C, D*(1-UTL2**E) )
+           CDRAG = MAX ( 0.7  , CDRAG )
+           CDRAG = CDRAG * 0.001
+           CDRAG = MIN ( CDCAP, CDRAG )
+           UFRIC = SQRT ( CDRAG ) * WIND10
+        ELSE IF (IDRAG.EQ.4) THEN
+!          Hwang (2011) drag formulation
+!
+! Sep 1 2010 : Wu formula replaced with Hwang eq 10.
+!              Source Hwang, "A note on the ocean surface roughness spectrum"
+!              Successfully tested with Hurricane Frances and Ivan in February 2011.
+!              Cap is necessary or CDRAG = 0 when winds reach > or = to 70 m/s.
+!              Capped at maximum Ustar for winds greater than 50.33 m/s.
+!              Hwang formulation added to wave age calculation on 2/15/11 in swanout1.f.
+! Dec 28 2016: CDFAC added to (optionally) counter bias in wind speeds
+!            : Important: this is applied *after* the cap on UFRIC
+
+           CDRAG = (-0.016*WIND10**2 + 0.967*WIND10 + 8.058) * 0.0001
+           UFRIC = SQRT ( CDRAG ) * WIND10
+           IF ( WIND10.GT.50.33 ) UFRIC = 2.02558
+           UFRIC = MIN(USCAP,UFRIC) * SQRT(CDFAC)
+!
+        ELSE IF (IDRAG.EQ.5) THEN
+!          Fan et al (2012) drag formulation
+           CALL SURF_ROUGH_FAN (FPI, WIND10, UFRIC, CDRAG)
+           FPM = GRAV / ( 28.0 * UFRIC )
+        ELSE IF (IDRAG.EQ.6) THEN
+!          ECMWF drag formulation
+           CALL SURF_ROUGH_ECMWF(WIND10, UFRIC, GENC0, SPCSIG, KWAVE)
+        END IF
+!
+!       *** adapted wind friction velocity and PM-frequency ***
+!
+        IF (IDRAG.LT.5) THEN
         UFRIC = MAX ( 1.E-15 , UFRIC)
         FPM =  GRAV / ( 28.0 * UFRIC )
+        END IF
 
       END IF
 !
@@ -927,7 +1165,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1160,7 +1398,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1316,14 +1554,17 @@
 !
       SUBROUTINE SWIND0 (IDCMIN  ,IDCMAX  ,ISSTOP  ,
      &                   SPCSIG  ,THETAW  ,ANYWND  ,
-     &                   UFRIC   ,FPM     ,PLWNDA  ,
-     &                   IMATRA  ,SPCDIR  ,GENC0   )
+     &                   UFRIC   ,FPM     ,PLWNDS  ,
+     &                   IMATRA  ,SPCDIR  ,GENC0   ,
+     &                   KWAVE   ,AICELOC )                               41.75
 !
 !****************************************************************
 !
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OCPCOMM4                                                        40.41
+!
+      IMPLICIT NONE
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1337,7 +1578,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1361,6 +1602,7 @@
 !     30.82: IJsbrand Haagsma
 !     40.41: Marcel Zijlema
 !     40.85: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -1369,6 +1611,7 @@
 !     40.41, Aug. 04: COS(THETA-THETAW) replaced by sumrule to make it cheaper
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.85, Aug. 08: store wind input for output purposes
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. PURPOSE
 !
@@ -1429,6 +1672,7 @@
 !        THETA       Spectral direction
 !        THETAW      Mean direction of the relative wind vector
 !        UFRIC       Wind friction velocity
+!        AICELOC     Local ice fraction
 !
 !        one and more dimensional arrays:
 !        ---------------------------------
@@ -1456,7 +1700,41 @@
 !
 !     8. REMARKS
 !
-!        ---
+! E. Rogers, May 16 2012: I have noticed that for computations beyond 1 Hz,
+! the stress contribution from this term could be quite large. This is because
+! 1) it is a linear term, so the smallness of E(f) in the tail does not make Sin(f) smaller
+! 2) the linear term is flat, plotted as a function of frequency
+! 3) the stress contribution is something like tau(f)=integral of Sin(f) / C df , so tau
+!    increases with frequency
+! And some other remarks:
+! 1) Equation (5) in Cavaleri and Rizzoli (JGR 1981) does not make sense to me:
+!    the units in particular do not seem correct.
+! 2) I cannot see how equation (4) in Cavaleri and Rizzoli (JGR 1981) follows from
+!    his source material. In particular, where does the "80" come from? There
+!    appears to be at least one step missing in getting from Luigi's source material
+!    to his equation (4).
+! 3) I cannot see how eq (5) in Tolman (JPO 1992) follows from his source material
+!    which is Luigi's paper. Again, there appears to be at least one step missing,
+!    this time in getting from Luigi's eq (5) to Tolman's eq (10).
+! 4) In particular, Luigi's eq (5) is proportional to (sigma)/(g^2*k^2), which is
+!    for deep water sigma^-3. This dependency is completely missing in Tolman's eq (10)!
+!
+! ....so what to do?
+! I don't want to make drastic changes to this formulation without knowing more about the
+! highly suspicious genesis of the formulation, even though I have a strong feeling now
+! that it is wrong. So, for now, I'll just apply the sigma^-3 drop-off for frequencies
+! beyond 1 Hz. Thus, it won't affect most simulations, which stop at 1 Hz.
+! Source for the sigma^-3 drop-off: Luigi eq (5)
+! Source for the 1 Hz application/bending point: mostly arbitrary, intended to have
+!   zero effect on typical simulations (which stop at 1 Hz)
+! Alternate bending point: fpm, though this would have a much more noticeable effect on
+!   typical simulations.
+!
+!     Regarding ICEWIND variable :
+!        factor_on_Sin=(1-aice*(1-icewind))    (1)
+!        This can be re-written as :
+!        factor_on_Sin=awater+aice*icewind     (2)
+!        where a_water is open water fraction and a_water+aice==1.0 by definition
 !
 !     9. STRUCTURE
 !
@@ -1471,16 +1749,20 @@
 !
 !***********************************************************************
 !
-      INTEGER  IDDUM   ,ID      ,IS      ,ISSTOP
+      INTEGER  IENT, IDDUM   ,ID      ,IS      ,ISSTOP
 !
       REAL     FPM     ,UFRIC   ,THETA   ,THETAW  ,
      &         SWINEA  ,SIGMA   ,TEMP1   ,TEMP2   ,
      &         CTW     ,STW     ,COSDIF  ,                                40.41
-     &         TEMP3   ,FILTER
+     &         TEMP3   ,FILTER  ,ARGU    ,REDUC   ,FREQ1
+      REAL     TAUX    ,TAUY    ,CINV2   ,CTH     ,STH
+      REAL, INTENT(IN) :: AICELOC                                         41.75
 !
       REAL    IMATRA(MDC,MSC)      ,
-     &        PLWNDA(MDC,MSC,NPTST)                                       40.00
+     &        PLWNDS(MDC,MSC,NPTST)                                       40.00
       REAL    GENC0(MDC,MSC,MGENR)                                        40.85
+      REAL    KWAVE(MSC,MICMAX)
+      REAL    FACTOR_ON_SIN ! See remarks.                                41.75
 !
       INTEGER IDCMIN(MSC)          ,
      &        IDCMAX(MSC)
@@ -1497,6 +1779,10 @@
       STW = SIN(THETAW)                                                   40.41
       FPM =  GRAV / ( 28.0 * UFRIC )
       TEMP1 = PWIND(31) / ( GRAV**2 * 2. * PI )                           7/MAR
+      IF ( AICELOC.GT.0. ) THEN                                           41.75
+         FACTOR_ON_SIN = (1.-AICELOC*(1.-ICEWIND))                        41.75
+         TEMP1 = TEMP1 * FACTOR_ON_SIN                                    41.75
+      ENDIF                                                               41.75
       DO IS = 1, ISSTOP
         SIGMA  = SPCSIG(IS)                                               30.72
 !
@@ -1506,6 +1792,8 @@
 !       **** with some computers to handle small numbers          ***
         ARGU   = MIN (2., FPM / SIGMA)                                    30.00
         FILTER = EXP ( - ARGU**4 )                                        20.87
+!       note that SIGMA below is not in eq A-2 of Ris (1997)
+!       thus, we are calculating "A/sigma" here, not "A"
         TEMP2  = TEMP1 / SIGMA
         DO IDDUM = IDCMIN(IS), IDCMAX(IS)
           ID = MOD ( IDDUM - 1 + MDC, MDC ) + 1
@@ -1514,9 +1802,17 @@
             COSDIF = SPCDIR(ID,2)*CTW + SPCDIR(ID,3)*STW                  40.41
             TEMP3  = ( UFRIC *  MAX( 0. , COSDIF))**4                     40.41
             SWINEA = MAX( 0. , TEMP2 * TEMP3 * FILTER )
+!           see above remarks for rationale on reduction above 1 Hz
+            FREQ1 = SIGMA/PI2                                             40.88
+            IF ( FREQ1.GT.1. ) THEN
+              REDUC = FREQ1**(-3)
+            ELSE
+              REDUC = 1.
+            ENDIF
+            SWINEA = REDUC * SWINEA
             IMATRA(ID,IS) = IMATRA(ID,IS) + SWINEA
-            IF(TESTFL) PLWNDA(ID,IS,IPTST) = SWINEA/SIGMA                 40.85 40.00
-            GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWINEA/SIGMA                40.85
+            IF(TESTFL) PLWNDS(ID,IS,IPTST) = SWINEA                       40.85 40.00
+            GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWINEA                      40.85
 !
 !           *** test output ***
 !
@@ -1528,9 +1824,30 @@
         ENDDO
       ENDDO
 !
+! calculate stress (test point only)
+      IF (ITEST.GE.40.AND.TESTFL) THEN
+         TAUX=0.
+         TAUY=0.
+         DO IS = 1, MSC
+            CINV2=KWAVE(IS,1)/SPCSIG(IS)
+            DO ID = 1, MDC
+               CTH = SPCDIR(ID,2) ! new local variable = cos(theta)
+               STH = SPCDIR(ID,3) ! new local variable = sin(theta)
+! SPCSIG(IS) replaces "EN" as used in SWIND_Donelan: Thus, factor AC2 is removed, EN=sig*ac2
+               TAUX   =TAUX +CTH*CINV2*PLWNDS(ID,IS,IPTST)
+     &                 *SPCSIG(IS)*DDIR*FRINTF*SPCSIG(IS)
+               TAUY   =TAUY +STH*CINV2*PLWNDS(ID,IS,IPTST)
+     &                 *SPCSIG(IS)*DDIR*FRINTF*SPCSIG(IS)
+            ENDDO
+         ENDDO
+         TAUX=TAUX*PWIND(17)*GRAV
+         TAUY=TAUY*PWIND(17)*GRAV
+         WRITE(PRINTF,*)'SWIND0: TAUX,TAUY = ',TAUX,TAUY
+      ENDIF
+!
 !     *** test output ***
 !
-      IF (ITEST.GE. 60.AND.TESTFL) THEN
+      IF (ITEST.GE.60.AND.TESTFL) THEN
         WRITE(PRINTF,400) KCGRD(1), THETAW*180./PI
  400    FORMAT(' SWIND0: POINT  THETAW       :',I5,E12.4)
         WRITE(PRINTF,500) TEMP1, FPM, UFRIC
@@ -1556,13 +1873,17 @@
       SUBROUTINE SWIND3 (SPCSIG  ,THETAW  ,
      &                   KWAVE   ,IMATRA  ,GENC0   ,
      &                   IDCMIN  ,IDCMAX  ,AC2     ,UFRIC   ,
-     &                   FPM     ,PLWNDA  ,ISSTOP  ,SPCDIR  ,ANYWND)
+     &                   FPM     ,PLWNDS  ,ISSTOP  ,SPCDIR  ,
+     &                   ANYWND  ,AICELOC )                               41.75
 !
 !****************************************************************
 !
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OCPCOMM4                                                        40.41
+!ESMF      USE M_GENARR, ONLY: SAVE_SINBAC, SINBAC
+!
+      IMPLICIT NONE
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1576,7 +1897,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1600,6 +1921,7 @@
 !     30.82: IJsbrand Haagsma
 !     40.41: Marcel Zijlema
 !     40.85: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -1608,6 +1930,7 @@
 !     40.41, Aug. 04: COS(THETA-THETAW) replaced by sumrule to make it cheaper
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.85, Aug. 08: store wind input for output purposes
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. PURPOSE
 !
@@ -1617,7 +1940,7 @@
 !     1)  Exponential input term, (Snyder et al. 1981, which
 !         expression has been modified by Komen et al. 1984).
 !
-!         This input term should be combinated with the dissipation
+!         This input term should be combined with the dissipation
 !         term of Komen et al. (1984)
 !
 !  3. METHOD
@@ -1659,11 +1982,13 @@
 !
       REAL    SPCDIR(MDC,6)                                               30.82
       REAL    SPCSIG(MSC)                                                 30.72
+      REAL, INTENT(IN) :: AICELOC
 !
 !        IS          Counter of relative frequency band
 !        ID          Counter of directional distribution
 !        MSC         Maximum counter of relative frequency
 !        MDC         Maximum counter of directional distribution
+!        ISSTOP      Maximum frequency counter in this sweep
 !
 !        REALS:
 !        ---------
@@ -1671,6 +1996,10 @@
 !        THETA       Spectral direction
 !        THETAW      Mean direction of the relative wind vector
 !        UFRIC       Wind friction velocity
+!        GENC0       generation coeff.
+!        AC2         action density
+!        PLWNDS      Values of wind input for test point
+!        AICELOC     Local ice fraction
 !
 !        one and more dimensional arrays:
 !        ---------------------------------
@@ -1699,7 +2028,11 @@
 !
 !     8. REMARKS
 !
-!        ---
+!     Regarding ICEWIND variable :
+!        factor_on_Sin=(1-aice*(1-icewind))    (1)
+!        This can be re-written as :
+!        factor_on_Sin=awater+aice*icewind     (2)
+!        where a_water is open water fraction and a_water+aice==1.0 by definition
 !
 !     9. STRUCTURE
 !
@@ -1714,7 +2047,7 @@
 !
 !***********************************************************************
 !
-      INTEGER  IDDUM ,ID    ,IS    ,ISSTOP
+      INTEGER  IENT, IDDUM ,ID    ,IS    ,ISSTOP
 !
       REAL     FPM   ,UFRIC ,THETA ,THETAW,SIGMA ,SWINEB,TEMP1,
      &         CTW   ,STW   ,COSDIF,                                      40.41
@@ -1722,9 +2055,10 @@
 !
       REAL    AC2(MDC,MSC,MCGRD)   ,
      &        IMATRA(MDC,MSC)      ,
-     &        KWAVE(MSC,ICMAX)     ,
-     &        PLWNDA(MDC,MSC,NPTST)                                       40.00
+     &        KWAVE(MSC,MICMAX)    ,
+     &        PLWNDS(MDC,MSC,NPTST)                                       40.00
       REAL  :: GENC0(MDC,MSC,MGENR)                                       40.85
+      REAL  :: FACTOR_ON_SIN ! See remarks.                               41.75
 !
       INTEGER IDCMIN(MSC)          ,
      &        IDCMAX(MSC)
@@ -1740,6 +2074,10 @@
       CTW   = COS(THETAW)                                                 40.41
       STW   = SIN(THETAW)                                                 40.41
       TEMP1 = 0.25 * PWIND(9)
+      IF ( AICELOC.GT.0. ) THEN                                           41.75
+         FACTOR_ON_SIN = (1.-AICELOC*(1.-ICEWIND))                        41.75
+         TEMP1 = TEMP1 * FACTOR_ON_SIN                                    41.75
+      ENDIF                                                               41.75
       TEMP2 = 28.0 * UFRIC
       DO IS = 1, ISSTOP
         SIGMA = SPCSIG(IS)                                                30.72
@@ -1754,8 +2092,11 @@
             SWINEB = MAX ( 0. , SWINEB * SIGMA )
 !
             IMATRA(ID,IS) = IMATRA(ID,IS) + SWINEB * AC2(ID,IS,KCGRD(1))
-            IF (TESTFL) PLWNDA(ID,IS,IPTST) = SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
+            IF (TESTFL) PLWNDS(ID,IS,IPTST) = PLWNDS(ID,IS,IPTST) +
+     &                                        SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
             GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWINEB*AC2(ID,IS,KCGRD(1))  40.85
+!ESMF            IF (SAVE_SINBAC) SINBAC(ID,IS,KCGRD(1)) =
+!ESMF     &        SINBAC(ID,IS,KCGRD(1)) + SWINEB*AC2(ID,IS,KCGRD(1))
 !
           END IF
         ENDDO
@@ -1771,7 +2112,7 @@
      &         '  IS ID1 ID2       Wind source term')
         DO IS = 1, MSC
           WRITE(PRTEST,6200) IS, IDCMIN(IS), IDCMAX(IS),
-     &    (PLWNDA(ID,IS,IPTST), ID=IDCMIN(IS), IDCMAX(IS))
+     &    (PLWNDS(ID,IS,IPTST), ID=IDCMIN(IS), IDCMAX(IS))
  6200     FORMAT(3I4, 600e12.4)
         ENDDO
         WRITE(PRTEST,*)
@@ -1787,8 +2128,8 @@
      &                   SPCSIG  ,WIND10  ,THETAW  ,XIS     ,
      &                   DD      ,KWAVE   ,IMATRA  ,GENC0   ,
      &                   IDCMIN  ,IDCMAX  ,AC2     ,UFRIC   ,
-     &                   PLWNDA  ,ISSTOP  ,ITER    ,USTAR   ,ZELEN   ,
-     &                   SPCDIR  ,ANYWND  ,IT               )
+     &                   PLWNDS  ,ISSTOP  ,ITER    ,USTAR   ,ZELEN   ,
+     &                   SPCDIR  ,ANYWND  ,IT      ,TAUWV   ,AICELOC )    41.75
 !
 !******************************************************************
 !
@@ -1796,6 +2137,9 @@
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OCPCOMM4                                                        40.41
+!ESMF      USE M_GENARR, ONLY: SAVE_SINBAC, SINBAC
+!
+      IMPLICIT NONE
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1809,7 +2153,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1836,6 +2180,7 @@
 !     40.41: Marcel Zijlema
 !     40.61: Roop Lalbeharry
 !     40.85: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -1847,6 +2192,7 @@
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.61, Nov. 06: improvements to WAM4 based on WAM4.5
 !     40.85, Aug. 08: store wind input for output purposes
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -1905,6 +2251,7 @@
 !        WIND10      Velocity of the relative wind vector
 !        UFRIC       Wind friction velocity
 !        ZALP        Wave growth parameter used in WAM4                   40.61
+!        AICELOC     Local ice fraction
 !
 !        one and more dimensional arrays:
 !        ---------------------------------
@@ -1941,7 +2288,11 @@
 !
 !     8. REMARKS
 !
-!        ---
+!     Regarding ICEWIND variable :
+!        factor_on_Sin=(1-aice*(1-icewind))    (1)
+!        This can be re-written as :
+!        factor_on_Sin=awater+aice*icewind     (2)
+!        where a_water is open water fraction and a_water+aice==1.0 by definition
 !
 !     9. STRUCTURE
 !
@@ -1970,16 +2321,26 @@
 !
       REAL    AC2(MDC,MSC,MCGRD)   ,                                      30.21
      &        IMATRA(MDC,MSC)      ,
-     &        KWAVE(MSC,ICMAX)     ,
-     &        PLWNDA(MDC,MSC,NPTST),
+     &        KWAVE(MSC,MICMAX)    ,
+     &        PLWNDS(MDC,MSC,NPTST),
      &        USTAR(MCGRD)         ,
-     &        ZELEN(MCGRD)
+     &        ZELEN(MCGRD)         ,
+     &        TAUWV(MCGRD)
       REAL    GENC0(MDC,MSC,MGENR)                                        40.85
+!
+      REAL, INTENT(IN) :: AICELOC                                         41.75
+      REAL    FACTOR_ON_SIN ! See remarks.                                41.75
 !
       INTEGER IDCMIN(MSC)          ,
      &        IDCMAX(MSC)
 !
       LOGICAL ANYWND(MDC)                                                 40.41
+!
+      INTEGER IENT , ITER,  IT,   J,  II
+      REAL ZTEN,  RATIO,  BETAMX,  TXHFR,  TYHFR,  CW2,  X1,  X2,
+     & ZARG1,  ZARG2,  GAMHF,  SIGMAX,  SIGHF1,  SIGHF2,  ZCNHF1,
+     & ZCNHF2,  AUX,  COS3,  ZAHF1,  ZAHF2,  FACHFR, FA, FB, FC, FD, FE,
+     & FCEN, FF1, FF2, FF3, DCEN, TAUNEW, XFAC2, BETA, ZLOG
 !
       SAVE IENT
       DATA IENT/0/
@@ -2000,6 +2361,7 @@
       ZALP   = 0.011                                                      40.61
       CTW    = COS(THETAW)                                                40.41
       STW    = SIN(THETAW)                                                40.41
+      FACTOR_ON_SIN = (1.-AICELOC*(1.-ICEWIND))                           41.75
 !
       IF ( NSTATC.EQ.1 .AND. IT.EQ.1 ) THEN                               40.41 40.00
 !
@@ -2216,8 +2578,8 @@
 !
           FCEN = FD * FE - SQRT(RHOA) * WIND10 * XKAPPA
           FF1  = 0.5 * FE / FD
-          FF2  = 0.5 * TAUW * FC / FA**2 - FA * FB
-          FF3  = TAUTOT**1.5 * ( FC + 1. )
+          FF2  = 0.5 * TAUW * FC / FA - FA * FB
+          FF3  = TAUTOT**1.5 * ( FC + FA )
           DCEN = FF1 + FF2 / FF3
 !
 !         *** new total stress ***
@@ -2255,6 +2617,7 @@
 !
         USTAR(KCGRD(1)) = UFRIC
         ZELEN(KCGRD(1)) = ZE
+        TAUWV(KCGRD(1)) = TAUW
 !
       ENDIF
 !
@@ -2289,9 +2652,15 @@
 !           *** compute the factor B and store result in array ***
 !
             SWINEB = RHOAW * BETA * XFAC2 * COS2 * SIGMA
+            IF ( AICELOC.GT.0. ) THEN                                     41.75
+               SWINEB = SWINEB * FACTOR_ON_SIN                            41.75
+            ENDIF                                                         41.75
             IMATRA(ID,IS) = IMATRA(ID,IS) + SWINEB * AC2(ID,IS,KCGRD(1))  30.21
-            IF (TESTFL) PLWNDA(ID,IS,IPTST) = SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
+            IF (TESTFL) PLWNDS(ID,IS,IPTST) = PLWNDS(ID,IS,IPTST) +
+     &                                        SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
             GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWINEB*AC2(ID,IS,KCGRD(1))  40.85
+!ESMF            IF (SAVE_SINBAC) SINBAC(ID,IS,KCGRD(1)) =
+!ESMF     &        SINBAC(ID,IS,KCGRD(1)) + SWINEB*AC2(ID,IS,KCGRD(1))
 !
 !           *** test output ***
 !
@@ -2333,14 +2702,17 @@
 !
       SUBROUTINE SWIND5 (SPCSIG  ,THETAW  ,ISSTOP  ,
      &                   UFRIC   ,KWAVE   ,IMATRA  ,IDCMIN  ,
-     &                   IDCMAX  ,AC2     ,ANYWND  ,PLWNDA  ,
-     &                   SPCDIR  ,GENC0                     )
+     &                   IDCMAX  ,AC2     ,ANYWND  ,PLWNDS  ,
+     &                   SPCDIR  ,GENC0   ,AICELOC          )             41.75
 !
 !****************************************************************
 !
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OCPCOMM4                                                        40.41
+!ESMF      USE M_GENARR, ONLY: SAVE_SINBAC, SINBAC
+!
+      IMPLICIT NONE
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -2354,7 +2726,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2379,6 +2751,7 @@
 !     40.41: Marcel Zijlema
 !     40.53: Andre van der Westhuysen
 !     40.85: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -2389,6 +2762,7 @@
 !     40.53, Aug. 04: changes parameters of Yan formulae in case of Alves and
 !                     Banner whitecapping method
 !     40.85, Aug. 08: store wind input for output purposes
+!     41.75, Jan. 19: adding sea ice
 !
 ! 2. Purpose
 !
@@ -2400,7 +2774,7 @@
 !     spectrum (strongly forced wave components). The expression
 !     reduces to the Snyder (1982) expression form for spectral
 !     wave components with weak wind forcing and to the Plant (1982)
-!     form for more strongly forced wave components:
+!     form for more strongly forced wave components.
 !
 !  3. Method
 !
@@ -2437,6 +2811,7 @@
 !        THETA       Spectral direction
 !        THETAW      Mean direction of the relative wind vector
 !        UFRIC       Wind friction velocity
+!        AICELOC     Local ice fraction
 !
 !        one and more dimensional arrays:
 !        ---------------------------------
@@ -2463,7 +2838,11 @@
 !
 !     8. REMARKS
 !
-!        ---
+!     Regarding ICEWIND variable :
+!        factor_on_Sin=(1-aice*(1-icewind))    (1)
+!        This can be re-written as :
+!        factor_on_Sin=awater+aice*icewind     (2)
+!        where a_water is open water fraction and a_water+aice==1.0 by definition
 !
 !     9. STRUCTURE
 !
@@ -2478,17 +2857,20 @@
 !
 !***********************************************************************
 !
-      INTEGER  IDDUM  ,ID     ,IS     ,ISSTOP
+      INTEGER  IENT, IDDUM  ,ID     ,IS     ,ISSTOP
 !
-      REAL     UFRIC  ,THETA  ,THETAW ,SIGMA  ,SWINEB ,
+      REAL     UFRIC  ,THETA  ,THETAW ,SIGMA  ,SWINEB , TEMP3,
      &         CTW    ,STW    ,COSDIF ,                                   40.41
      &         USTAC1 ,USTAC2 ,COF1   ,COF2   ,COF3   ,COF4
 !
       REAL    AC2(MDC,MSC,MCGRD)   ,
      &        IMATRA(MDC,MSC)      ,
-     &        KWAVE(MSC,ICMAX)     ,
-     &        PLWNDA(MDC,MSC,NPTST)
+     &        KWAVE(MSC,MICMAX)    ,
+     &        PLWNDS(MDC,MSC,NPTST)
       REAL    GENC0(MDC,MSC,MGENR)                                        40.85
+!
+      REAL, INTENT(IN) :: AICELOC                                         41.75
+      REAL    FACTOR_ON_SIN ! See remarks.                                41.75
 !
       INTEGER IDCMIN(MSC)          ,
      &        IDCMAX(MSC)
@@ -2517,6 +2899,7 @@
 !
       CTW  = COS(THETAW)                                                  40.41
       STW  = SIN(THETAW)                                                  40.41
+      FACTOR_ON_SIN = (1.-AICELOC*(1.-ICEWIND))                           41.75
       DO IS = 1, ISSTOP
         SIGMA  = SPCSIG(IS)
         USTAC1 = ( UFRIC * KWAVE(IS,1) ) / SIGMA
@@ -2529,9 +2912,15 @@
             COSDIF = SPCDIR(ID,2)*CTW + SPCDIR(ID,3)*STW                  40.41
             SWINEB = TEMP3 * COSDIF - COF4                                40.41
             SWINEB = MAX ( 0. , SWINEB * SIGMA )
+            IF ( AICELOC.GT.0. ) THEN                                     41.75
+               SWINEB = SWINEB * FACTOR_ON_SIN                            41.75
+            ENDIF                                                         41.75
             IMATRA(ID,IS) = IMATRA(ID,IS) + SWINEB * AC2(ID,IS,KCGRD(1))
-            IF (TESTFL) PLWNDA(ID,IS,IPTST) = SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
+            IF (TESTFL) PLWNDS(ID,IS,IPTST) = PLWNDS(ID,IS,IPTST) +
+     &                                        SWINEB*AC2(ID,IS,KCGRD(1))  40.85 40.00
             GENC0(ID,IS,1) = GENC0(ID,IS,1) + SWINEB*AC2(ID,IS,KCGRD(1))  40.85
+!ESMF            IF (SAVE_SINBAC) SINBAC(ID,IS,KCGRD(1)) =
+!ESMF     &        SINBAC(ID,IS,KCGRD(1)) + SWINEB*AC2(ID,IS,KCGRD(1))
           END IF
         ENDDO
       ENDDO

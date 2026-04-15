@@ -26,10 +26,23 @@
 !
 !***********************************************************************
 !                                                                      *
+#ifdef SWANEXE
       PROGRAM SWAN
+#else
+!ADC      SUBROUTINE SWAN
+!COH      SUBROUTINE SWAN (COMM1)
+      SUBROUTINE SWAN (COMM1)
+#endif
 !                                                                      *
 !***********************************************************************
 !
+!PUN      USE MESSENGER                                                       40.95
+#ifndef SWANEXE
+!COH      USE MPI                                                             41.61
+      USE MPI
+!COH      USE M_PARALL, ONLY: COMM                                            41.61
+      USE M_PARALL, ONLY: COMM
+#endif
       IMPLICIT NONE
 !
 !
@@ -44,7 +57,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -72,6 +85,8 @@
 !     40.30: Marcel Zijlema
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
+!     40.95: Marcel Zijlema
+!COH!     41.61: Homayoon Komijani
 !
 !  1. Updates
 !
@@ -85,11 +100,20 @@
 !     40.31, Dec. 03: removing POOL mechanism and reconsidering
 !                     this main program
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
+!     40.95, Jun. 08: parallelization of unSWAN using MESSENGER of ADCIRC
+!COH!     41.61, Aug. 14: coupling with COHERENS
 !
 !  2. Purpose
 !
 !     Main program
 !
+#ifndef SWANEXE
+!COH!  4. Argument variables
+!COH!
+!COH      INTEGER COMM1                                                       41.61
+      INTEGER COMM1
+!COH!
+#endif
 !  8. Subroutines used
 !
 !     SWEXITMPI                                                           40.30
@@ -98,15 +122,30 @@
 !
       LOGICAL STPNOW                                                      40.30 34.01
 !
+! 11. Remarks
+!
+!     In case of coupling with ADCIRC, this program will not be executed  41.20
+!     Instead, SWAN initialization and run will be done by PADCSWAN_INIT  41.20
+!     and PADCSWAN_RUN, respectively, as they will pass a time step to    41.20
+!     routine SWMAIN. See couple2swan.F                                   41.20
+!
 ! 13. Source Code
 !
+#ifndef SWANEXE
+!COH!     --- the communicator to be used in the wave subgroup of processors  41.61
+!COH      COMM = COMM1                                                        41.61
+      COMM = COMM1
+!COH
+#endif
 !     --- initialize the MPI execution environment                        40.30
 
       CALL SWINITMPI                                                      40.30
       IF (STPNOW()) GOTO 999                                              40.30
+!PUN      CALL MSG_INIT()                                                     40.95
 
 !     --- start SWAN run
 
+!     the main SWAN routine is called from the ADCIRC driver
       CALL SWMAIN                                                         40.31 34.01
 
 999   CONTINUE
@@ -114,6 +153,7 @@
 !     --- stop MPI                                                        40.30
 
       CALL SWEXITMPI                                                      40.30
+!PUN      CALL MSG_FINI()                                                     40.95
 !
 !     --- end of MAIN PROGRAM
 !
@@ -121,10 +161,12 @@
 !***********************************************************************
 !                                                                      *
       SUBROUTINE SWMAIN                                                   40.31 34.01
+!ADC      SUBROUTINE SWMAIN ( ITIME, IT )                                     41.20 40.31 34.01
 !                                                                      *
 !***********************************************************************
 !
       USE TIMECOMM                                                        40.41
+!COH      USE OCPCOMM1, ONLY: REFDAY                                          41.61
       USE OCPCOMM2                                                        40.41
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
@@ -135,6 +177,14 @@
       USE M_GENARR                                                        40.31
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+!PUN      USE MESSENGER                                                       40.95
+!ADC      USE Couple2Adcirc                                                   41.20
+!ADC      USE Couple2Swan, ONLY: ComputeRadiationStresses,                    41.20
+!ADC     &                       CouplingInterval,
+!ADC     &                       SwanOutput
+!ADC     &                      ,WriteSwanHotStart
+!ADC      USE GLOBAL,      ONLY: ADCIRC_DTDP => DTDP,                         41.20
+!ADC     &                       ADCIRC_STATIM => STATIM
 !
       IMPLICIT NONE
 !
@@ -150,7 +200,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -188,6 +238,10 @@
 !     40.41: Marcel Zijlema
 !     40.51: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     40.95: Marcel Zijlema
+!     41.20: Casey Dietrich
+!     41.36: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -226,6 +280,10 @@
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.51, Feb. 05: re-design output process in parallel mode
 !     40.80, Jun. 07: extension to unstructured grids
+!     40.95, Jun. 08: parallelization of unSWAN using MESSENGER of ADCIRC
+!     41.20, Mar. 10: extension to tightly coupled ADCIRC+SWAN model
+!     41.36, Jun. 12: collecting data for PunSWAN
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -236,6 +294,8 @@
 !     ---
 !
 !  4. Argument variables
+!ADC!
+!ADC      INTEGER IT, ITIME                                                   41.20
 !
 !  6. Local variables
 !
@@ -260,17 +320,58 @@
       INTEGER   IOSTAT, IT0, IT, SAVITE, ILEN                             40.30
       INTEGER   INERR                                                     40.31
       INTEGER   ISTAT, IF1, IL1                                           40.41
-      CHARACTER PTYPE, PNAME *8, COMPUT *4, DTTIWR*18                     40.00
+      CHARACTER COMPUT *4, DTTIWR*18                                      40.00
       CHARACTER*20 NUMSTR, CHARS(1)                                       40.41
       CHARACTER*80 MSGSTR                                                 40.41
       LOGICAL   LOPEN                                                     34.01
+!ADC!     some variables and arrays have been moved to the                    41.20
+!ADC!     Couple2Adcirc module so that they will persist in memory            41.20
+!ADC      CHARACTER DTTIWR*18                                                 41.20
+!ADC      CHARACTER*20 NUMSTR                                                 41.20
 
       INTEGER, ALLOCATABLE :: CROSS(:)                                    40.80 40.31
       INTEGER, ALLOCATABLE :: BGRIDP(:)                                   40.31
       REAL   , ALLOCATABLE :: BSPECS(:,:,:,:)                             40.31
       REAL   , ALLOCATABLE :: AC1(:,:,:), COMPDA(:,:)                     40.31
 !
-      REAL, ALLOCATABLE    :: BLKND(:), BLKNDC(:), OURQT(:)               40.51 40.41
+      REAL, ALLOCATABLE    :: BLKND(:), BLKNDC(:)                         40.51 40.41
+      REAL*8, ALLOCATABLE  :: OURQT(:)                                    40.51 40.41
+!COH!
+!COH!     uv2w         : switch for online current exchange from COHERENS to SWAN
+!COH!     z2w          : switch for online water depth exchange from COHERENS to SWAN
+!COH!     d2w          : switch for online depth exchange from COHERENS to SWAN
+!COH!     us2H         : switch for online Stokes drift exchange from SWAN to COHERENS
+!COH!     f2h          : switch for online wave induced dissipation force exchange from SWAN to COHERENS
+!COH!     r2h          : switch for online spectrally averaged parameters exchange from SWAN to COHERENS
+!COH!     p2h          : switch for wave induced pressure
+!COH!     hs2COH       : significant wave height to be sent to COHERENS  [m]
+!COH!     tp2COH       : peak period to be sent to COHERENS              [s]
+!COH!     dirm2COH     : mean direction of wave propagation to be sent to COHERENS  [rad]
+!COH!     ubot2COH     : near bottom wave orbital velocity to be sent to COHERENS  [m/s]
+!COH!     botexcur2COH : near bottom excursion amplitue to be sent to COHERENS  [m]
+!COH!     fsurx2COH    : depth integrated wave induced force due to breaking (x opmp.) to be sent to COHERENS  [m^2/s^2]
+!COH!     fsury2COH    : depth integrated wave induced force due to breaking (y opmp.) to be sent to COHERENS  [m^2/s^2]
+!COH!     fbotx2COH    : depth integrated wave induced force due to bottom friction (x opmp.) to be sent to COHERENS  [m^2/s^2]
+!COH!     fboty2COH    : depth integrated wave induced force due to bottom friction (y opmp.) to be sent to COHERENS  [m^2/s^2]
+!COH!     ustx2COH     : depth averaged Stokes drift (x comp.) to be sent to COHERENS   [m/s]
+!COH!     usty2COH     : depth averaged Stokes drift (y comp.) to be sent to COHERENS   [m/s]
+!COH!     wavpres2COH  : wave induced pressure [Pa]
+!COH!     COH_uvel     : depth averaged mean flow velocity (x comp.) imported from COHERENS [m/s]
+!COH!     COH_vvel     : depth averaged mean flow velocity (x comp.) imported from COHERENS [m/s]
+!COH!     COH_wlev     : water level imported from COHERENS [m]
+!COH!     COH_dep      : water depth imported from COHERENS [m]
+!COH!
+!COH      LOGICAL           :: d2w,z2w,uv2w,s2h,b2h,us2h,p2h,f2h              41.61
+!COH      LOGICAL           :: logsw(8)                                       41.61
+!COH      REAL, ALLOCATABLE :: hs2COH(:,:),tp2COH(:,:),dirm2COH(:,:)          41.61
+!COH      REAL, ALLOCATABLE :: ubot2COH(:,:),botexcur2COH(:,:)                41.61
+!COH      REAL, ALLOCATABLE :: fsurx2COH(:,:),fsury2COH(:,:)                  41.61
+!COH      REAL, ALLOCATABLE :: fbotx2COH(:,:),fboty2COH(:,:)                  41.61
+!COH      REAL, ALLOCATABLE :: ustx2COH(:,:),usty2COH(:,:),wavpres2COH(:,:)   41.61
+!COH      REAL, ALLOCATABLE :: COH_wlev(:,:),COH_dep(:,:)                     41.61
+!COH      REAL, ALLOCATABLE :: COH_uvel(:,:),COH_vvel(:,:)                    41.61
+!COH      REAL, ALLOCATABLE :: mask2COH(:,:)                                  41.61
+!COH      INTEGER           :: COORDTYP, GRDTYPE, IP, IX, IY                  41.61
 !
 !  7. Common blocks used
 !
@@ -301,6 +402,8 @@
 !     TXPBLA : Removes leading and trailing blanks in string              40.41
 !
       LOGICAL STPNOW                                                      34.01
+!     DDNAME : Name associated with the open unit
+      CHARACTER DDNAME*(LENFNM)                                           BJXX
 !
 !  9. Subroutines calling
 !
@@ -341,6 +444,9 @@
 !     ----------------------------------------------------------------
 !
 ! 13. Source text
+!ADC!
+!ADC!     --- do the initialization for coupled ADCIRC+SWAN model             41.20
+!ADC      IF ( IT.EQ.0 ) THEN
 !
 !     --- initialize various data
 !TIMG
@@ -352,9 +458,20 @@
       MAXERR=1                                                            34.01
       ITRACE=0                                                            40.23
       INERR =0                                                            40.31
+      ISTAT =0
+      LORQ             =.FALSE.                                           BJXX
+      NREOQ            =0                                                 BJXX
+      SwanBndStruc_done=.FALSE.                                           BJXX
+      RUNMADE          =.FALSE.                                           BJXX
+      LOPS             =.FALSE.                                           BJXX
 
 !TIMG      CALL SWTSTA(2)                                                      40.23
       CALL SWINIT (INERR)                                                 40.31 34.01
+!PUN      IF ( MNPROC>1 ) THEN                                                40.95
+!PUN         CALL SwanReadfort18                                              40.95
+!PUN!NADC         CALL MSG_TABLE()                                                 40.95
+!PUN!NADC         CALL MSG_START()                                                 40.95
+!PUN      ENDIF                                                               40.95
 !TIMG      CALL SWTSTO(2)                                                      40.23
       IF (INERR.GT.0) RETURN                                              34.01
       IF (STPNOW()) RETURN                                                34.01
@@ -377,9 +494,11 @@
         IF (COMPUT.EQ.'STOP') THEN                                        40.13
           IUNIT  = 0                                                      40.13
           IOSTAT = 0                                                      40.13
+          IF (INODE.EQ.MASTER) THEN
           FILENM = 'norm_end'                                             40.13
           CALL FOR (IUNIT, FILENM, 'UF', IOSTAT)                          40.13
           WRITE (IUNIT, *) ' Normal end of run ', PROJNR                  40.13
+          ENDIF
           GOTO 900                                                        40.13
         ENDIF                                                             40.13
 
@@ -436,6 +555,10 @@
 !TIMG        CALL SWTSTA(5)                                                    40.23
         CALL SWRBC(COMPDA)                                                40.31
 !TIMG        CALL SWTSTO(5)                                                    40.23
+
+!       --- setup a vertex list
+
+        IF (OPTG.EQ.5) CALL SwanVertlist(COMPDA)
 
 !       --- allocate AC1 in case of non-stationary situation or in case   40.31
 !           of using the S&L scheme                                       40.31
@@ -503,13 +626,84 @@
           ELSE
             IT0 = 1
           ENDIF
+!ADC
+!ADC!       --- end the LEVERR.GT.MAXERR IF statement                         41.20
+!ADC        ENDIF
+!ADC!
+!ADC!     --- end the initialization for coupled ADCIRC+SWAN                  41.20
+!ADC      ENDIF
+!ADC!
+!ADC!     --- re-open the error IF statement                                  41.20
+!ADC      IF (LEVERR.LE.MAXERR) THEN
 
 !         --- synchronize nodes                                           40.30
 
           CALL SWSYNC                                                     40.30
           IF (STPNOW()) RETURN                                            40.30
 
+!COH!=======================================================================
+!COH!         Begin of inserting lines in order to couple SWAN and COHERENS   41.61
+!COH!
+!COH      GRDTYPE = MERGE(1,3,OPTG.EQ.1)
+!COH      CALL wav2coh_params(MXCGL,MYCGL,GRDTYPE,KSPHER,
+!COH     &                    COH_TINIC,COH_TFINC,DT,(/XPC,YPC,DX,DY/))
+!COH      CALL wav2coh_grid(XGRDGL,YGRDGL,KGRPGL.GT.1)
+!COH      CALL wav2coh_switches(logsw)
+!COH      d2w  = logsw(1)
+!COH      z2w  = logsw(2)
+!COH      uv2w = logsw(3)
+!COH      s2h  = logsw(4)
+!COH      b2h  = logsw(5)
+!COH      us2h = logsw(6)
+!COH      p2h  = logsw(7)
+!COH      f2h  = logsw(8)
+!COH!
+!COH      CALL wav2coh_coupler(MXC,MYC,MXF,MYF,
+!COH     &                   (/MERGE(0,IHALOX,LMXF), MERGE(0,IHALOX,LMXL),
+!COH     &                     MERGE(0,IHALOY,LMYF), MERGE(0,IHALOY,LMYL)/))
+!COH!
+!COH          ALLOCATE(hs2COH(MXC,MYC))
+!COH          ALLOCATE(tp2COH(MXC,MYC))
+!COH          ALLOCATE(dirm2COH(MXC,MYC))
+!COH          ALLOCATE(ubot2COH(MXC,MYC))
+!COH          ALLOCATE(botexcur2COH(MXC,MYC))
+!COH!
+!COH          ALLOCATE(fsurx2COH(MXC,MYC))
+!COH          ALLOCATE(fsury2COH(MXC,MYC))
+!COH          ALLOCATE(fbotx2COH(MXC,MYC))
+!COH          ALLOCATE(fboty2COH(MXC,MYC))
+!COH!
+!COH          ALLOCATE(ustx2COH(MXC,MYC))
+!COH          ALLOCATE(usty2COH(MXC,MYC))
+!COH!
+!COH          ALLOCATE(wavpres2COH(MXC,MYC))
+!COH!
+!COH          ALLOCATE(COH_uvel(MXC,MYC))
+!COH          ALLOCATE(COH_vvel(MXC,MYC))
+!COH          ALLOCATE(COH_wlev(MXC,MYC))
+!COH          ALLOCATE(COH_dep(MXC,MYC))
+!COH          ALLOCATE(mask2COH(MXC,MYC))
+!COH
+!COH          IF (z2w) then
+!COH             IFLDYN(7) = 1
+!COH             VARWLV    = .TRUE.
+!COH             DYNDEP    = .TRUE.
+!COH          ENDIF
+!COH
+!COH          IF (d2w) then
+!COH             IFLDYN(1) = 1
+!COH             DYNDEP    = .TRUE.
+!COH             VARWLV    = .TRUE.
+!COH          ENDIF
+!COH
+!COH          IF (uv2w) then
+!COH             ICUR = 1
+!COH          ENDIF
+!COH!         End of inserting lines in order to couples SWAN and COHERENS    41.61
+!COH!=======================================================================
+!COH
 !         --- loop over time steps                                        40.00
+!ADC!             time stepping in the coupled model is handled elsewhere     41.20
 
           DO 500 IT = IT0, MTC                                            40.00
 !
@@ -519,6 +713,7 @@
  6030         FORMAT(' ** No continuation of computation because ',       30.82
      &               'of error level:',I3)                                30.82
               EXIT                                                        40.30
+!ADC              RETURN                                                      41.20
             ENDIF                                                         30.82
 
 !           --- synchronize nodes
@@ -532,7 +727,10 @@
             CALL SNEXTI ( BSPECS, BGRIDP, COMPDA, AC1   , AC2   ,         40.31
      &                    SPCSIG, SPCDIR, XCGRID, YCGRID, KGRPNT,         40.31
      &                    XYTST , DEPTH , WLEVL , FRIC  , UXB   ,         40.31
-     &                    UYB   , WXI   , WYI   )                         40.31
+     &                    UYB   , NPLAF , TURBF , MUDLF , WXI   ,         40.59 40.35 40.55 40.31
+     &                    AICEF , HICEF ,                                 41.75
+     &                    WYI   )
+!COH     &                    WYI   , z2w   , uv2w  )                         41.61
 !TIMG            CALL SWTSTO(7)                                                40.23
             IF (STPNOW()) RETURN                                          34.01
 !
@@ -579,6 +777,85 @@
 
             ENDIF
 !
+!COH!=======================================================================
+!COH!    Begin of inserting lines in order to couple SWAN and COHERENS
+!COH!
+!COH!    call wave calculator to obtain some spectra integrated parameters to use in COHERENS
+!COH            CALL wavecalculator(    AC2  ,
+!COH     &                   COMPDA(:,JDP2)  , SPCSIG               ,
+!COH     &                   SPCDIR          , KGRPNT               ,
+!COH     &                   COMPDA(:,JDSXB) , COMPDA(:,JDSXS)      ,
+!COH     &                   COMPDA(:,JDSXW) , COMPDA(:,JUBOT)      ,
+!COH     &                   COMPDA(:,JPBOT) , COMPDA(:,JHS)        ,
+!COH     &                   hs2COH          , tp2COH, dirm2COH     ,
+!COH     &                   ubot2COH        , botexcur2COH         ,
+!COH     &                   fbotx2COH       , fboty2COH            ,
+!COH     &                   fsurx2COH       , fsury2COH            ,
+!COH     &                   ustx2COH        , usty2COH             ,
+!COH     &                   wavpres2CoH     , mask2COH             ,
+!COH     &                   s2h             , b2h                  ,
+!COH     &                   us2h            , p2h, f2h             )
+!COH!
+!COH!           receive water level, depth and current velocities from COHERENS
+!COH
+!COH            CALL wav2coh_recv(COH_dep,COH_wlev,COH_uvel,COH_vvel)
+!COH
+!COH!           hs2COH  = XCGRID
+!COH!           tp2COH  = YCGRID
+!COH
+!COH            IF (z2w) THEN
+!COH               WRITE(PRINTF,*) 'Using water levels from Coherens'
+!COH               COMPDA(1:MCGRD,JWLV1) = COMPDA(1:MCGRD,JWLV2)
+!COH               DO IX=1,MXC
+!COH                  DO IY=1,MYC
+!COH                     IP = KGRPNT(IX,IY)
+!COH                     IF (IP.GT.1) THEN
+!COH                        COMPDA(IP,JWLV2) = COH_wlev(IX,IY)
+!COH                        COMPDA(IP,JWLV3) = COH_wlev(IX,IY)
+!COH                     ENDIF
+!COH                  ENDDO
+!COH               ENDDO
+!COH            ENDIF
+!COH
+!COH            IF (d2w) THEN
+!COH               WRITE(PRINTF,*) 'Using bathymetry from Coherens'
+!COH               COMPDA(1:MCGRD,JDP1)  = COMPDA(1:MCGRD,JDP2)
+!COH               DO IX=1,MXC
+!COH                  DO IY=1,MYC
+!COH                     IP = KGRPNT(IX,IY)
+!COH                     IF (IP.GT.1) THEN
+!COH                        COMPDA(IP,JDP2) = COH_dep(IX,IY)
+!COH                        COMPDA(IP,JDP3) = COH_dep(IX,IY)
+!COH                     ENDIF
+!COH                  ENDDO
+!COH               ENDDO
+!COH            ENDIF
+!COH
+!COH            IF (uv2w) THEN
+!COH               WRITE(PRINTF,*) 'Using velocities from Coherens'
+!COH               COMPDA(1:MCGRD,JVX1)  = COMPDA(1:MCGRD,JVX2)
+!COH               COMPDA(1:MCGRD,JVY1)  = COMPDA(1:MCGRD,JVY2)
+!COH               DO IX=1,MXC
+!COH                  DO IY=1,MYC
+!COH                     IP = KGRPNT(IX,IY)
+!COH                     IF (IP.GT.1) THEN
+!COH                        COMPDA(IP,JVX2) = COH_uvel(IX,IY)
+!COH                        COMPDA(IP,JVX3) = COH_uvel(IX,IY)
+!COH                        COMPDA(IP,JVY2) = COH_vvel(IX,IY)
+!COH                        COMPDA(IP,JVY3) = COH_vvel(IX,IY)
+!COH                     ENDIF
+!COH                  ENDDO
+!COH               ENDDO
+!COH            ENDIF
+!COH
+!COH!           send wave parameters to COHERENS
+!COH            CALL wav2coh_send(mask2COH, ustx2COH, usty2COH, fsurx2COH,
+!COH     &               fsury2COH , fbotx2COH , fboty2COH ,wavpres2COH,
+!COH     &               hs2COH , tp2COH , dirm2COH, ubot2COH, botexcur2COH)  41.61
+!COH!
+!COH!    End of inserting lines in order to couples SWAN and COHERENS
+!COH!=======================================================================
+!COH!
             IF ( IT.EQ.IT0 .AND. .NOT.ALLOCATED(OURQT) ) THEN             40.51 40.31
                ALLOCATE (OURQT(MAX_OUTP_REQ))                             40.51 40.30
                OURQT = -9999.                                             40.51 40.30
@@ -586,6 +863,14 @@
 !
             SAVITE = ITEST                                                30.21
             IF (IOUTES .GT. ITEST) ITEST = IOUTES
+!ADC
+!ADC!           --- perform output of SWAN quantities                         41.20
+!ADC            CALL SwanOutput ( ITIME, IT )
+!ADC!           --- write the SWAN hot-start file, if necessary               41.20
+!ADC            IF ( WriteSwanHotStart ) THEN
+!ADC               CALL BACKUP ( AC2,SPCSIG,SPCDIR,KGRPNT,XCGRID,YCGRID )
+!ADC               WriteSwanHotStart = .FALSE.
+!ADC            ENDIF
 
 !           --- synchronize nodes
 
@@ -605,10 +890,12 @@
 
 !           --- update time
 
-            IF (NSTATM.EQ.1) THEN                                         40.00
-              IF (NSTATC.EQ.1 .AND. IT.LT.MTC) TIMCO = TIMCO + DT         40.00
-              CHTIME = DTTIWR(ITMOPT, TIMCO)                              40.00
-              IF (NSTATC.EQ.1) WRITE (PRINTF, 222) CHTIME, TIMCO          40.00
+            IF (NSTATC.EQ.1) THEN                                         40.00
+              IF (IT.LT.MTC) THEN
+                 TIMCO = TIMCO + DT                                       40.00
+                 CHTIME = DTTIWR(ITMOPT, TIMCO)                           40.00
+                 WRITE (PRINTF, 222) CHTIME, TIMCO                        40.00
+              ENDIF
  222          FORMAT(' Time of computation ->  ',A,' in sec:', F12.0)     40.00
             ENDIF                                                         40.00
 
@@ -621,14 +908,50 @@
       END DO
 !
  900  CONTINUE
+!ADC!
+!ADC!     --- make sure that radiation stresses are up-to-date                41.20
+!ADC      IF ( IT.NE.MTC ) THEN
+!ADC         CALL ComputeRadiationStresses ( AC2, SPCDIR, SPCSIG )
+!ADC      ENDIF
 !
 !TIMG      CALL SWTSTO(1)                                                      40.23
+!ADC!
+!ADC      IF ( IT.EQ.MTC ) THEN                                               41.20
 !
       DO IUNIT=1,HIOPEN                                                   34.01
         INQUIRE(UNIT=IUNIT,OPENED=LOPEN)                                  34.01
-        IF (LOPEN.AND.IUNIT.NE.PRINTF) CLOSE(IUNIT)                       40.30
+        IF (LOPEN.AND.IUNIT.NE.PRINTF) THEN                               BJXX 40.30
+            INQUIRE(UNIT=IUNIT,NAME=DDNAME)                               BJXX
+            IF (DDNAME.NE.'CONOUT$'.AND.DDNAME.NE.'CONIN$') THEN          BJXX
+               CLOSE(IUNIT)                                               BJXX 40.30
+            END IF                                                        BJXX
+        END IF                                                            BJXX
       END DO                                                              34.01
 
+!COH!=======================================================================
+!COH!    Begin of inserting lines in order to couple SWAN and COHERENS
+!COH!
+!COH      IF (ALLOCATED(hs2COH      )) DEALLOCATE (hs2COH      )
+!COH      IF (ALLOCATED(tp2COH      )) DEALLOCATE (tp2COH      )
+!COH      IF (ALLOCATED(dirm2COH    )) DEALLOCATE (dirm2COH    )
+!COH      IF (ALLOCATED(ubot2COH    )) DEALLOCATE (ubot2COH    )
+!COH      IF (ALLOCATED(botexcur2COH)) DEALLOCATE (botexcur2COH)
+!COH      IF (ALLOCATED(fsurx2COH   )) DEALLOCATE (fsurx2COH   )
+!COH      IF (ALLOCATED(fsury2COH   )) DEALLOCATE (fsury2COH   )
+!COH      IF (ALLOCATED(fbotx2COH   )) DEALLOCATE (fbotx2COH   )
+!COH      IF (ALLOCATED(fboty2COH   )) DEALLOCATE (fboty2COH   )
+!COH      IF (ALLOCATED(ustx2COH    )) DEALLOCATE (ustx2COH    )
+!COH      IF (ALLOCATED(usty2COH    )) DEALLOCATE (usty2COH    )
+!COH      IF (ALLOCATED(COH_uvel    )) DEALLOCATE (COH_uvel    )
+!COH      IF (ALLOCATED(COH_vvel    )) DEALLOCATE (COH_vvel    )
+!COH      IF (ALLOCATED(COH_wlev    )) DEALLOCATE (COH_wlev    )
+!COH      IF (ALLOCATED(COH_dep     )) DEALLOCATE (COH_dep     )
+!COH      IF (ALLOCATED(mask2COH    )) DEALLOCATE (mask2COH    )
+!COH      CALL wav2coh_end
+!COH!
+!COH!    End of inserting lines in order to couples SWAN and COHERENS
+!COH!=======================================================================
+!COH
 !     --- collect contents of individual process files for                40.30
 !         output requests in case of parallel computation                 40.30
 
@@ -637,17 +960,30 @@
       IF ( PARLL ) THEN                                                   40.30
          ALLOCATE (BLKND(MXC*MYC))                                        40.51 40.41
          BLKND = REAL(INODE)                                              40.41
-         IF ( INODE.EQ.MASTER ) THEN
+         IF ( IAMMASTER ) THEN                                            40.95
             ALLOCATE(BLKNDC(MXCGL*MYCGL))                                 40.51 40.41
             BLKNDC = 0.                                                   40.96
          END IF
          CALL SWCOLLECT ( BLKNDC, BLKND, .TRUE. )                         40.51 40.41
          IF (STPNOW()) RETURN                                             40.41
-         IF ( INODE.EQ.MASTER ) THEN                                      40.30
+         IF ( IAMMASTER ) THEN                                            40.95 40.30
             CALL SWCOLOUT ( OURQT, BLKNDC )                               40.51 40.41 40.30
             DEALLOCATE(BLKNDC)                                            40.41 40.30
          END IF                                                           40.30
       END IF                                                              40.30
+!PUN      !
+!PUN      IF ( MNPROC>1 ) THEN                                                41.36
+!PUN         IF ( IAMMASTER ) THEN                                            41.36
+!PUN            ALLOCATE(BLKNDC(nvertsg))                                     41.36
+!PUN            BLKNDC = 0.                                                   41.36
+!PUN         ENDIF                                                            41.36
+!PUN         CALL SwanPunCollect ( BLKNDC )                                   41.36
+!PUN         IF (STPNOW()) RETURN                                             41.36
+!PUN         IF ( IAMMASTER ) THEN                                            41.36
+!PUN            CALL SWCOLOUT ( OURQT, BLKNDC )                               41.36
+!PUN            DEALLOCATE(BLKNDC)                                            41.36
+!PUN         ENDIF                                                            41.36
+!PUN      ENDIF                                                               41.36
 !TIMG      CALL SWTSTO(9)                                                      40.30
 !
 !TIMG      CALL SWPRTI                                                         40.23
@@ -665,6 +1001,8 @@
       IF (ALLOCATED(OURQT )) DEALLOCATE(OURQT )                           40.51 40.30
       IF (ALLOCATED(BLKND )) DEALLOCATE(BLKND )                           40.41
       CALL SWCLME                                                         40.31
+!ADC!
+!ADC      ENDIF                                                               41.20
 !
       RETURN                                                              30.82
 !     end of subroutine SWMAIN
@@ -688,6 +1026,7 @@
       USE M_BNDSPEC                                                       40.31
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+      USE OUTP_DATA
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -701,7 +1040,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -747,6 +1086,9 @@
 !     40.61: Marcel Zijlema
 !     40.64: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.13: Nico Booij
+!     41.62: Andre van der Westhuysen
+!     41.75 : Erick Rogers
 !
 !  1. Updates
 !
@@ -795,14 +1137,21 @@
 !     40.30, Mar. 03: introduction distributed-memory approach using MPI
 !     40.08, Mar. 03: Unneccessary variable deleted
 !     40.31, Nov. 03: removing POOL construction and HPGL functionality
+!     40.35, Jun. 04: output variables DISTUR and TURB added
 !     40.41, Sep. 04: output variables TMM10 and RTMM10 added
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.51, Feb. 05: output variable TMBOT added
 !     40.51, Sep. 05: output variables WATLEV and BOTLEV added
 !     40.51, Feb. 06: output variable TPS added
 !     40.61, Sep. 06: output variables DISBOT, DISSRF and DISWCP added
+!     40.61, Sep. 06: output variable DISMUD added
+!     40.61, Sep. 06: output variable DISVEG added
 !     40.64, Apr. 07: output variables Qp and BFI added
 !     40.80, Jun. 07: extension to unstructured grids
+!     41.12, Apr. 10: output quantity NPL added
+!     41.13, Jul. 10: LWDATE introduced in view of nesting in WAM
+!     41.62, Nov. 15: included output quantities for wave partitioning
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -851,15 +1200,8 @@
 !
 ! 13. Source text
 !
-      VERTXT = BLANK                                                      40.03
-      VERNUM = 40.72
-      WRITE (VERTXT, '(F5.2)') VERNUM                                     40.03
-      CALL BUGFIX ('A')
-      CALL BUGFIX ('B')
-      CALL BUGFIX ('C')
-      CALL BUGFIX ('D')
-      CALL BUGFIX ('E')
-      VERTXT = TRIM(VERTXT) // '.1'
+      VERNUM = 41.31
+      VERTXT ='41.31A.1'
 !
       CALL OCPINI ('swaninit', .TRUE.,INERR)                              34.01
       IF (INERR.GT.0) RETURN                                              34.01
@@ -872,7 +1214,7 @@
      &        /,20X,'DELTARES VERSION NUMBER ', A,                        40.03
      &        /,20X,'---------------------------------------',//)
 !
-      IF (SCREEN.NE.PRINTF.AND.INODE.EQ.MASTER) WRITE (SCREEN,6020)       40.30
+      IF (SCREEN.NE.PRINTF.AND.IAMMASTER) WRITE (SCREEN,6020)             40.95 40.30
  6020 FORMAT (/, ' SWAN is preparing computation',/)
 !
 !     ***** initial values for common variables *****
@@ -900,6 +1242,8 @@
       GRAV   = 9.81
       WLEV   = 0.
       CASTD  = 0.               ! const. air-sea temp diff                40.03
+      CDCAP  = 99999.
+      USCAP  = 99999.                                                     40.88
       PI     = 4.*ATAN(1.)                                                40.31
       PI2    = 2.*PI
       UNDFLW = 1.E-15
@@ -918,6 +1262,7 @@
       NGRBND  = 0                                                         40.00
       NGRBGL  = 0                                                         40.30
       nverts  = 0                                                         40.80
+      nvertsg = 0                                                         40.95
 !     time of computation                                                 40.00
       TIMCO = -1.E10                                                      40.00
       CHTIME = '    '                                                     40.00
@@ -965,8 +1310,12 @@
       ALPC   = 0.
       FULCIR = .TRUE.
       SPDIR1 = 0.
+      asort  = -999.                                                      41.48
+      usort  = -999.                                                      41.68
+      nsweep = -999                                                       41.68
+      CCURV  = .FALSE.                                                    41.53
 !     number of points needed in computational stencil:
-      ICMAX  = 3
+      ICMAX  = 5
 !     ***** numerical scheme *****
       NCOR   = 1
       NSTATM = -1                                                         40.00
@@ -989,16 +1338,29 @@
       IREFR  = 1                                                          40.02
       ITFRE  = 1
       IWIND  = 0
+!     when coupled with ADCIRC, the default is to use ADCIRC drag formulation
+      IDRAG  = 2                                                          41.49 41.33
+!ADC      IDRAG  = 0
       IGEN   = 3                                                          32.06
       IQUAD  = 2                                                          30.72
       IWCAP  = 1                                                          21/MAY
       ISURF  = 1
       IBOT   = 0
       ITRIAD = 0
+      IMUD   = 0                                                          40.59
+      IVEG   = 0                                                          40.55
+      ITURBV = 0                                                          40.35
+      IICE   = 0                                                          41.75
+      ICEWIND= 0.                                                         41.75
       VARWI  = .FALSE.
       VARFR  = .FALSE.
       VARWLV = .FALSE.                                                    20.38
       VARAST = .FALSE.       ! True means spatially variable air-sea t.d. 40.03
+      VARMUD = .FALSE.                                                    40.59
+      VARAICE= .FALSE.                                                    41.75
+      VARHICE= .FALSE.                                                    41.75
+      VARNPL = .FALSE.                                                    40.55
+      VARTUR = .FALSE.                                                    40.35
       U10    = 0.
       WDIP   = 0.
       INRHOG = 0                                                          30.20
@@ -1009,7 +1371,7 @@
       YOFFS  = 0.
       LXOFFS = .FALSE.
       DYNDEP = .FALSE.                                                    40.00
-      NWAMN = 0
+      LWDATE = 0                                                          41.13
       MXOUTAR = 0
 !
       FBS%NBS = -999                                                      40.31
@@ -1034,6 +1396,7 @@
       ACUPDA = .TRUE.                                                     40.07
       OFFSRC = .FALSE.                                                    40.80
       LADDS  = .FALSE.                                                    40.85
+      LSPNAR = .FALSE.
       HSRERR = 0.1                                                        32.01
 !
 !     higher order propagation and spherical coordinates                  33.08
@@ -1061,6 +1424,10 @@
 !
       IFRSRF = 0                                                          41.06
 !
+!     flag for wave directionality in surf breaking                       41.47
+!
+      IDISRF = 0                                                          41.47
+!
 !     PSETUP(1) is currently unused, but can be used as setup nesting flag
 !     PSETUP(2) is the user defined correction for the level of the setup
 !
@@ -1070,14 +1437,15 @@
 !     *** ACCURACY criterion ***
 !
 !     *** relative error in significant wave height and mean period ***
-      PNUMS(1)  = 0.02                                                    30.82
+      PNUMS(1)  = 0.01                                                    30.82
 !     *** absolute error in significant wave heigth (m) ***
-      PNUMS(2)  = 0.03
+      PNUMS(2)  = 0.005
 !     *** absolute error in mean wave period (s) ***
-      PNUMS(3)  = 0.3
+!      PNUMS(3)  = 0.3
+      PNUMS(3)  = 1000.
 !     *** total number of wet gridpoints were accuracy has ***
 !     *** been reached                                     ***
-      PNUMS(4)  = 98.00
+      PNUMS(4)  = 99.50
 !
 !     *** DIFFUSION schemes ***
 !
@@ -1139,8 +1507,11 @@
 !     The allowed global errors in the iteration procedure:               30.82
 !     PNUMS(15) for Hs and PNUMS(16) for Tm01                             30.82
 !
-      PNUMS(15) = 0.02                                                    30.82
-      PNUMS(16) = 0.02                                                    30.82
+!      PNUMS(15) = 0.02                                                    30.82
+!      PNUMS(16) = 0.02                                                    30.82
+!     The next two values are meant for STOPC command
+      PNUMS(15) = 0.005
+      PNUMS(16) = 1000.
 !
 !     coefficient for limitation of Ctheta                                30.80
 !     default no limitation on refraction                                 40.02
@@ -1158,7 +1529,7 @@
 !
 !     --- coefficient for type stopping criterion                         40.41
 !
-      PNUMS(21) = -9.                                                     40.80 40.41
+      PNUMS(21) = 1.                                                      40.80 40.41
 !
 !     --- under-relaxation factor
 !
@@ -1172,14 +1543,22 @@
 !
 !     --- computation of Ctheta based on wave number
 !
-      PNUMS(32) = 0.                                                      41.07
+      PNUMS(32) = 1.                                                      41.07
+!
+!     --- parameters for limiting Csigma and Ctheta
+!
+      PNUMS(33) = 0.0                                                     41.35
+      PNUMS(34) = 0.9                                                     41.35
+      PNUMS(35) = 0.0                                                     41.35
+      PNUMS(36) = 0.9                                                     41.35
 !
 !     *** (1) and (2): Komen et al. (1984) formulation ***
 !
       PWCAP(1)  = 2.36E-5
       PWCAP(2)  = 3.02E-3
       PWCAP(9)  = 2.                                                      34.00
-      PWCAP(10) = 0.                                                      34.00
+!     note that delta has been set to 1 since version 40.91A              41.41
+      PWCAP(10) = 1.                                                      41.41 34.00
       PWCAP(11) = 1.                                                      34.00
 !
 !     *** (3): Coefficient for Janssen(1989,1991) formulation ***
@@ -1205,23 +1584,60 @@
       PWCAP(13) = 0.                                                      41.11
       PWCAP(14) = 0.                                                      41.11
       PWCAP(15) = 1.0                                                     41.11
+!       parameters to be used for Babanin physics and swell               40.88
+      A1SDS       = 2.8E-6
+      A2SDS       = 3.5E-5
+      P1SDS       = 4.
+      P2SDS       = 4.
+      UPWARDS     = .TRUE.
+      FESWELL     = 0.
+      CDSV        = 1.2
+      RDCOEF      = 0.
+      WNDSCL      = 32.     ! see notes in SdsBabanin.f90
+      CDFAC       = 1.      ! factor on Cdrag to counter bias in winds
+      B1Z         = 0.00025
+      ! Ref: B1Z=0.0014 was from Young et al. (2013)
+      !      B1Z=0.00025 is from Zieger et al. (2015)
+      ROGERS      = .FALSE.
+      ARDHUIN     = .TRUE.
+      ZIEGER      = .FALSE.
+      FPI         = 1.
 !
-!     PBOT(1)   = 0.005          modified
       PBOT(1)   = 0.0                                                     20.68
       PBOT(2)   = 0.015                                                   20.68
-      PBOT(3)   = 0.067
+      PBOT(3)   = 0.038                                                   41.49
       PBOT(4)   = -0.08
       PBOT(5)   = 0.05
+      PBOT(6)   = 2.65                                                    41.51
+      PBOT(7)   = 0.0001                                                  41.51
 !
       PSURF(1)  = 1.0
       PSURF(2)  = 0.73                                                    20.67
 !
+      PMUD(1)   = 0.                                                      40.59
+      PMUD(2)   = 1300.                                                   40.59
+      PMUD(3)   = 0.0076                                                  40.59
+      PMUD(4)   = RHO                                                     40.59
+      PMUD(5)   = 1.3E-6                                                  40.59
+!
+!     dissipation by sea ice, method IC4M2 : all values (1:8) set to zero
+      PIC4M2    = 0.                                                      41.75
+!
 !     triad interactions
-      PTRIAD(1)  = 0.05                                                   40.61 30.82
-      PTRIAD(2)  = 2.5                                                    40.61 40.55 30.82
+      PTRIAD(1)  = 0.8                                                    41.44 40.61 30.82
+      PTRIAD(2)  = 2.5                                                    40.61 40.56 30.82
       PTRIAD(3)  = 10.                                                    40.23
       PTRIAD(4)  = 0.2                                                    40.13
       PTRIAD(5)  = 0.01                                                   40.23
+      PTRIAD(6)  = 0.95                                                   41.46
+!     original value of B=-0.75 in SPB appears to be reasonable
+!     for unidirectional laboratory cases
+!     however, this choice may not be appropriate for true
+!     2D cases as it does not scale with the wave field
+!     thus, B = 0 (for now)
+!      PTRIAD(7)  = -0.75                                                  41.46
+      PTRIAD(7)  = 0.                                                     41.46
+      PTRIAD(8)  = 0.                                                     41.46
 !
 !     quadruplet interactions
       PQUAD(1) = 0.25                                                     34.00
@@ -1257,6 +1673,13 @@
 !     default is 0; can be made non-zero in command GEN3 or GROWTH
       PWIND(31) = 0.                                                      7/MAR
 !
+!     for DBYB wind input term, decide whether to integrate stress as a
+!     vector (true) or a scalar (false)
+      VECTOR_TAU = .TRUE.                                                 40.88
+!     also for DBYB wind input term, decide whether to use U10 as given
+!     in DBYB or use 28*ustar as a proxy
+      TRUE_U10 = .FALSE.                                                  40.88
+!
 !     --- coefficients for diffraction approximation                      40.21
 !
       IDIFFR    = 0                                                       40.21
@@ -1289,7 +1712,8 @@
       JHSIBC = 25                                                         40.00
       JHS    = 26                                                         40.13
       JURSEL = 27                                                         40.13
-      MCMVAR = 27                                                         40.65 40.61 40.51 40.13
+      JBOTLV = 28                                                         41.38 40.65
+      MCMVAR = 28                                                         41.38 40.65 40.61 40.51 40.13
 !     subarray sequence number 1 is used only for unused subarrays        40.13
       JFRC2 = 1                                                           40.00
       JFRC3 = 1                                                           40.00
@@ -1300,6 +1724,24 @@
 !     added for air-sea temp. diff.:
       JASTD2= 1                                                           40.03
       JASTD3= 1                                                           40.03
+!     added for fluid mud layer                                           40.59
+      JMUDL1= 1                                                           40.59
+      JMUDL2= 1                                                           40.59
+      JMUDL3= 1                                                           40.59
+!     added for number of plants per square meter                         40.55
+      JNPLA2= 1                                                           40.55
+      JNPLA3= 1                                                           40.55
+!     added for turbulent viscosity                                       40.35
+      JTURB2= 1                                                           40.35
+      JTURB3= 1                                                           40.35
+      JGAMMA = 1                                                          41.38
+      JRESPL = 1                                                          41.38
+!
+!     added for ice input fields                                          41.75
+      JAICE2= 1                                                           41.75
+      JAICE3= 1                                                           41.75
+      JHICE2= 1                                                           41.75
+      JHICE3= 1                                                           41.75
 !
 !     *** added for wave setup ***                                        32.01
 !
@@ -1309,10 +1751,14 @@
 !     --- added for output purposes                                       40.65
 !
       JPBOT  = 1                                                          40.65 40.51
-      JBOTLV = 1                                                          40.65
       JDSXB  = 1                                                          40.65 40.61
       JDSXS  = 1                                                          40.65 40.61
       JDSXW  = 1                                                          40.65 40.61
+      JDSXM  = 1                                                          40.65 40.61
+      JDSXV  = 1                                                          40.65 40.61
+      JDSXT  = 1                                                          40.35
+      JDSXI  = 1                                                          41.75
+      JDSXL  = 1                                                          40.88
       JGENR  = 1                                                          40.85
       JGSXW  = 1                                                          40.85
       JREDS  = 1                                                          40.85
@@ -1326,15 +1772,20 @@
 !
 !     Next pointers are for the plot of the source terms (SWTSDA)         40.31
 !
-      JPWNDA = 1
-      JPWNDB = 2
+      JPWNDS = 1
+      JPWNDD = 2
       JPWCAP = 3
       JPBTFR = 4
       JPWBRK = 5
       JP4S   = 6
       JP4D   = 7
       JPTRI  = 8
-      MTSVAR = 8
+      JPVEGT = 9                                                          40.55
+      JPTURB = 10                                                         40.35
+      JPMUD  = 11                                                         40.59
+      JPICE  = 13                                                         41.75
+      MTSVAR = 13
+      JPSWEL = 1                                                          40.88
 !
 !     ***** test output control *****
       ITEST  = 1                                                          40.41
@@ -1435,7 +1886,7 @@
       IVTYPE = 6
       OVKEYW(IVTYPE) = 'UBOT'                                             40.00
       OVSNAM(IVTYPE) = 'Ubot'
-      OVLNAM(IVTYPE) = 'Orbital velocity at the bottom'
+      OVLNAM(IVTYPE)='RMS of maxima of orbital velocity near the bottom'
       OVUNIT(IVTYPE) = UV
       OVSVTY(IVTYPE) = 1
       OVLLIM(IVTYPE) = 0.
@@ -1771,7 +2222,7 @@
       IVTYPE = 34                                                         20.67
       OVKEYW(IVTYPE) = 'URMS'                                             40.00
       OVSNAM(IVTYPE) = 'Urms'
-      OVLNAM(IVTYPE) = 'RMS of orbital velocity at the bottom'
+      OVLNAM(IVTYPE) = 'RMS of orbital velocity near the bottom'
       OVUNIT(IVTYPE) = UV
       OVSVTY(IVTYPE) = 1
       OVLLIM(IVTYPE) = 0.
@@ -1880,7 +2331,7 @@
 !                                                        new              40.00
       IVTYPE = 43
       OVKEYW(IVTYPE) = 'RPER'                                             40.00
-      OVSNAM(IVTYPE) = 'RPeriod'                                          40.41 40.00
+      OVSNAM(IVTYPE) = 'RPer'                                             40.41 40.00
       OVLNAM(IVTYPE) = 'Average relative wave period'
       OVUNIT(IVTYPE) = UT
       OVSVTY(IVTYPE) = 1
@@ -1965,7 +2416,7 @@
       IVTYPE = 50                                                         40.51
       OVKEYW(IVTYPE) = 'TMBOT'
       OVSNAM(IVTYPE) = 'TmBot'
-      OVLNAM(IVTYPE) = 'Bottom wave period'
+      OVLNAM(IVTYPE) = 'Near bottom wave period'
       OVUNIT(IVTYPE) = UT
       OVSVTY(IVTYPE) = 1
       OVLLIM(IVTYPE) = 0.
@@ -2038,6 +2489,18 @@
       OVKEYW(IVTYPE) = 'DISW'                                             40.61
       OVSNAM(IVTYPE) = 'Swcap'                                            40.85
       OVLNAM(IVTYPE) = 'Whitecapping dissipation'
+      OVUNIT(IVTYPE) = 'm2/s'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 0.1
+      OVEXCV(IVTYPE) = -9.
+!
+      IVTYPE = 57
+      OVKEYW(IVTYPE) = 'DISV'                                             40.61
+      OVSNAM(IVTYPE) = 'Sveg'                                             40.85
+      OVLNAM(IVTYPE) = 'Vegetation dissipation'
       OVUNIT(IVTYPE) = 'm2/s'
       OVSVTY(IVTYPE) = 1
       OVLLIM(IVTYPE) = 0.
@@ -2190,6 +2653,1014 @@
       OVHEXP(IVTYPE) = 0.1
       OVEXCV(IVTYPE) = -9.
 !
+      IVTYPE = 70
+      OVKEYW(IVTYPE) = 'NPL'                                              41.12
+      OVSNAM(IVTYPE) = 'Nplant'
+      OVLNAM(IVTYPE) = 'Plants per m2'
+      OVUNIT(IVTYPE) = '1/m2'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 100.
+      OVEXCV(IVTYPE) = -9.
+!
+      IVTYPE = 71
+      OVKEYW(IVTYPE) = 'LWAVP'                                            41.15
+      OVSNAM(IVTYPE) = 'Lwavp'
+      OVLNAM(IVTYPE) = 'Peak wave length'
+      OVUNIT(IVTYPE) = UL
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 200.
+      OVEXCV(IVTYPE) = -9.
+!
+      IVTYPE = 72
+      OVKEYW(IVTYPE) = 'DISTU'
+      OVSNAM(IVTYPE) = 'Stur'
+      OVLNAM(IVTYPE) = 'Turbulent dissipation'
+      OVUNIT(IVTYPE) = 'm2/s'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 0.1
+      OVEXCV(IVTYPE) = -9.
+!
+      IVTYPE = 73
+      OVKEYW(IVTYPE) = 'TURB'
+      OVSNAM(IVTYPE) = 'Turb'
+      OVLNAM(IVTYPE) = 'Turbulent viscosity'
+      OVUNIT(IVTYPE) = 'm2/s'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 10.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 100.
+      OVEXCV(IVTYPE) = -99.
+!
+      IVTYPE = 74
+      OVKEYW(IVTYPE) = 'DISM'                                             40.61
+      OVSNAM(IVTYPE) = 'Smud'                                             40.85
+      OVLNAM(IVTYPE) = 'Fluid mud dissipation'
+      OVUNIT(IVTYPE) = 'm2/s'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 0.1
+      OVEXCV(IVTYPE) = -9.
+
+      IVTYPE = 75
+      OVKEYW(IVTYPE) = 'DISSW'                                            40.88
+      OVSNAM(IVTYPE) = 'Sswell'
+      OVLNAM(IVTYPE) = 'Swell dissipation'
+      OVUNIT(IVTYPE) = 'm2/s'
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 0.1
+      OVEXCV(IVTYPE) = -9.
+
+      IVTYPE = POS_FHSWE                                                   40.00
+      OVKEYW(IVTYPE) = 'FHSWE'                                             40.00
+      OVSNAM(IVTYPE) = 'FHswel'
+      OVLNAM(IVTYPE) = 'FEWS Hm0 swell'
+      OVUNIT(IVTYPE) = UH
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 100.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 10.
+      OVEXCV(IVTYPE) = -9.      
+      
+      IVTYPE = POS_FTM01                                                   40.00
+      OVKEYW(IVTYPE) = 'FTM01'                                             40.00
+      OVSNAM(IVTYPE) = 'FTM01'
+      OVLNAM(IVTYPE) = 'FEWS TM01 swell'
+      OVUNIT(IVTYPE) = UT
+      OVSVTY(IVTYPE) = 1
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 1000.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 100.
+      OVEXCV(IVTYPE) = -9.      
+      
+      IVTYPE = POS_FDIR                                                   40.00
+      OVKEYW(IVTYPE) = 'FDIR'                                             40.00
+      OVSNAM(IVTYPE) = 'FDIR'
+      OVLNAM(IVTYPE) = 'FEWS DIR swell'
+      OVUNIT(IVTYPE) = UDI                                                30.72
+      OVSVTY(IVTYPE) = 2
+      OVLLIM(IVTYPE) = 0.
+      OVULIM(IVTYPE) = 360.
+      OVLEXP(IVTYPE) = 0.
+      OVHEXP(IVTYPE) = 360.
+      OVEXCV(IVTYPE) = -999.          
+!
+      IVTYPE = 76                                                         41.75
+      OVKEYW(IVTYPE)  = 'DISI'
+      OVSNAM(IVTYPE)  = 'Sice'
+      OVLNAM(IVTYPE)  = 'Sea ice dissipation'
+      OVUNIT(IVTYPE)  = 'm2/s'
+      OVSVTY(IVTYPE)  = 1
+      OVLLIM(IVTYPE)  = 0.
+      OVULIM(IVTYPE)  = 1000.
+      OVLEXP(IVTYPE)  = 0.
+      OVHEXP(IVTYPE)  = 0.1
+      OVEXCV(IVTYPE)  = -9.
+!
+      IVTYPE = 77                                                         41.75
+      OVKEYW(IVTYPE)  = 'AICE'
+      OVSNAM(IVTYPE)  = 'aice'
+      OVLNAM(IVTYPE)  = 'ice concentration (fraction)'
+      OVUNIT(IVTYPE)  = ' '
+      OVSVTY(IVTYPE)  = 1
+      OVLLIM(IVTYPE)  = 0.
+      OVULIM(IVTYPE)  = 1.0
+      OVLEXP(IVTYPE)  = 0.
+      OVHEXP(IVTYPE)  = 1.0
+      OVEXCV(IVTYPE)  = -9.
+!
+      IVTYPE = 78                                                         41.75
+      OVKEYW(IVTYPE)  = 'HICE'
+      OVSNAM(IVTYPE)  = 'hice'
+      OVLNAM(IVTYPE)  = 'ice thickness'
+      OVUNIT(IVTYPE)  = 'm'
+      OVSVTY(IVTYPE)  = 1
+      OVLLIM(IVTYPE)  = 0.
+      OVULIM(IVTYPE)  = 100.
+      OVLEXP(IVTYPE)  = 0.
+      OVHEXP(IVTYPE)  = 10.
+      OVEXCV(IVTYPE)  = -9.
+!
+      IVTYPE = 100                                                        41.62
+      OVKEYW(IVTYPE) = 'PTHS'                                             41.62
+      OVSNAM(IVTYPE) = 'HsPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 01'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 101                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 02'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 102                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 03'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 103                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 04'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 104                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 05'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 105                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 06'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 106                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 07'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 107                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 08'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 108                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 09'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 109                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10HS'                                           41.62
+      OVSNAM(IVTYPE) = 'HsPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave height of partition 10'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 110                                                        41.62  !make sure these defs are SWAN-consistent!
+      OVKEYW(IVTYPE) = 'PTRTP'                                            41.62
+      OVSNAM(IVTYPE) = 'TpPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 01'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 111                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 02'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 112                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 03'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 113                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 04'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 114                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 05'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 115                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 06'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 116                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 07'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 117                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 08'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 118                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 09'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 119                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10RTP'                                          41.62
+      OVSNAM(IVTYPE) = 'TpPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Relative peak period of partition 10'             41.62
+      OVUNIT(IVTYPE) = UT                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 100.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 120                                                        41.62
+      OVKEYW(IVTYPE) = 'PTWLEN'                                           41.62
+      OVSNAM(IVTYPE) = 'WlPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 01'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 121                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 02'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 122                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 03'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 123                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 04'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 124                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 05'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 125                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 06'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 126                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 07'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 127                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 08'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 128                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 09'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 129                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10WLEN'                                         41.62
+      OVSNAM(IVTYPE) = 'WlPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave length of partition 10'              41.62
+      OVUNIT(IVTYPE) = UL                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1000.                                              41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 200.                                               41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 130                                                        41.62  !make sure these defs are SWAN-consistent!
+      OVKEYW(IVTYPE) = 'PTDIR'                                            41.62
+      OVSNAM(IVTYPE) = 'DrPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 01'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 131                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 02'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 132                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 03'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 133                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 04'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 134                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 05'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 135                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 06'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 136                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 07'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 137                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 08'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 138                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 09'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 139                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10DIR'                                          41.62
+      OVSNAM(IVTYPE) = 'DrPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Average wave direction of partition 10'           41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 2                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 360.                                               41.62
+      OVEXCV(IVTYPE) = -999.                                              41.62
+!
+      IVTYPE = 140                                                        41.62  !make sure these defs are SWAN-consistent!
+      OVKEYW(IVTYPE) = 'PTDSPR'                                           41.62
+      OVSNAM(IVTYPE) = 'DsPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 01'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 141                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 02'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 142                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 03'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 143                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 04'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 144                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 05'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 145                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 06'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 146                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 07'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 147                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 08'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 148                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 09'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 149                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10DSPR'                                         41.62
+      OVSNAM(IVTYPE) = 'DsPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Directional spreading of partition 10'            41.62
+      OVUNIT(IVTYPE) = UDI                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 360.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 60.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 150                                                        41.62
+      OVKEYW(IVTYPE) = 'PTWFRAC'                                          41.62
+      OVSNAM(IVTYPE) = 'WfPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 01'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 151                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 02'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 152                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 03'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 153                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 04'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 154                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 05'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 155                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 06'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 156                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 07'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 157                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 08'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 158                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 09'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 159                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10WFRAC'                                        41.62
+      OVSNAM(IVTYPE) = 'WfPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Wind fraction of partition 10'                    41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 1.                                                 41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 160                                                        41.62
+      OVKEYW(IVTYPE) = 'PTSTEE'                                           41.62
+      OVSNAM(IVTYPE) = 'StPT01'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 01'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 161                                                        41.62
+      OVKEYW(IVTYPE) = 'PT02STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT02'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 02'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 162                                                        41.62
+      OVKEYW(IVTYPE) = 'PT03STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT03'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 03'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 163                                                        41.62
+      OVKEYW(IVTYPE) = 'PT04STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT04'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 04'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 164                                                        41.62
+      OVKEYW(IVTYPE) = 'PT05STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT05'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 05'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 165                                                        41.62
+      OVKEYW(IVTYPE) = 'PT06STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT06'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 06'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 166                                                        41.62
+      OVKEYW(IVTYPE) = 'PT07STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT07'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 07'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 167                                                        41.62
+      OVKEYW(IVTYPE) = 'PT08STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT08'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 08'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 168                                                        41.62
+      OVKEYW(IVTYPE) = 'PT09STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT09'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 09'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 169                                                        41.62
+      OVKEYW(IVTYPE) = 'PT10STEE'                                         41.62
+      OVSNAM(IVTYPE) = 'StPT10'                                           41.62
+      OVLNAM(IVTYPE) = 'Wave steepness of partition 10'                   41.62
+      OVUNIT(IVTYPE) = ' '                                                41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 1.                                                 41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 0.1                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 170                                                        41.62
+      OVKEYW(IVTYPE) = 'PARTIT'                                           41.62
+      OVSNAM(IVTYPE) = 'PARTIT'                                           41.62
+      OVLNAM(IVTYPE) = 'Spectral partions of all parameters'              41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
+      IVTYPE = 171                                                        41.62
+      OVKEYW(IVTYPE) = 'NPART'                                            41.62
+      OVSNAM(IVTYPE) = 'Npart'                                            41.62
+      OVLNAM(IVTYPE) = 'Number of spectral partions'                      41.62
+      OVUNIT(IVTYPE) = UH                                                 41.62
+      OVSVTY(IVTYPE) = 1                                                  41.62
+      OVLLIM(IVTYPE) = 0.                                                 41.62
+      OVULIM(IVTYPE) = 100.                                               41.62
+      OVLEXP(IVTYPE) = 0.                                                 41.62
+      OVHEXP(IVTYPE) = 10.                                                41.62
+      OVEXCV(IVTYPE) = -9.                                                41.62
+!
 !     various parameters for computation of output quantities             40.00
 !
 !     reference time for TSEC
@@ -2205,6 +3676,8 @@
       OUTPAR(4) = 0.
 !     frequency limit for swell
       OUTPAR(5) = 0.1
+!     number of output partitions
+      OUTPAR(51) = 5.
 !     0=integration over [0,inf], 1=integration over [fmin,fmax]
       OUTPAR(6:20) = 0.                                                   40.87
 !     lower bound of integration range for output parameters
@@ -2228,6 +3701,7 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
+      USE M_OBSTA                                                         41.71
       USE M_BNDSPEC                                                       40.31
       USE M_PARALL                                                        40.31
       USE M_DIFFR                                                         40.21
@@ -2245,7 +3719,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2337,15 +3811,21 @@
 !       ----------------------------------------------------------------
 !
 ! 10. SOURCE TEXT
+      PARAMETER  (NUNT=20)                        ! m2/s
       INTEGER   KGRPNT(MXC,MYC), CROSS(2,MCGRD)
       INTEGER   BGRIDP(6*NBGRPT)                                          40.31
       REAL      BSPECS(MDC,MSC,NBSPEC,2)                                  40.31
       INTEGER, ALLOCATABLE :: CROSSGL(:,:)                                40.31
+      INTEGER   IUNT(NUNT)
 !
       TYPE(BSDAT) , POINTER :: CURRBS                                     40.31
       TYPE(BGPDAT), POINTER :: CURBGP                                     40.31
+      TYPE(OBSTDAT), POINTER :: COBST                                     41.71
       SAVE IENT
       DATA IENT/0/
+      SAVE IUNT
+      DATA IUNT /7, 9, 54, 55, 56, 57, 60, 61, 62, 63,
+     &           64, 65, 66, 67, 68, 69, 72, 73, 74, 75/
       CALL STRACE (IENT, 'SWPREP')
 !
       IF ( ITEST.GE.100 ) THEN                                            40.31
@@ -2387,6 +3867,12 @@
 !
       IF (LEDS(4).EQ.2) VARFR = .TRUE.
 !
+      IF (VARFR .AND. IBOT.EQ.5) THEN                                     41.51
+         CALL MSGERR (1,
+     &           'Ripples model active, space varying friction ignored')
+         VARFR = .FALSE.
+      ENDIF
+!
       IF (LEDS(5).EQ.2) THEN
         IF (LEDS(6).NE.2)
      &  CALL MSGERR (3, 'WY not read, while WX is read')
@@ -2402,6 +3888,69 @@
       IF (IFLDYN(1).EQ.1 .OR. IFLDYN(7).EQ.1) DYNDEP = .TRUE.             40.00
 !
       IF (OPTG.EQ.5) BNDCHK = .FALSE.                                     40.80
+!
+!     check number of sweeps meant for unstructured grid
+      IF ( nsweep.EQ.-999 ) THEN                                          41.68
+!        if nsweep = 1, the original crest method is recovered, however   41.68
+!        for stationary runs including refraction and source terms,       41.68
+!        nsweep is set to 3 (CPU time enhanced, but number of             41.68
+!        iterations decreased compared to nsweep = 1)                     41.68
+         nsweep = 3                                                       41.68
+         IF ( IREFR == 0 ) nsweep = 4                                     41.68
+         IF ( IQUAD == 0 .AND. IWCAP == 0 .AND. ISURF == 0 ) nsweep = 4   41.68
+         IF ( OFFSRC ) nsweep = 4                                         41.68
+         IF ( NSTATM == 1 ) nsweep = 1                                    41.68
+      ENDIF
+!
+!     adapt units in case of true energy
+      IF ( INRHOG.EQ.1 ) THEN
+         DO J = 1, NUNT
+            IVTYPE = IUNT(J)
+            OVUNIT(IVTYPE) = 'W/m2'
+         ENDDO
+         OVUNIT(19) = 'W/m'
+         OVUNIT(21) = 'Js/m2'
+         OVUNIT(22) = 'J/m2'
+         OVUNIT(29) = 'J/m2'
+      ENDIF
+!
+!     check wind drag
+      IF (IWIND.EQ.8) THEN                                                40.88
+!        apply Hwang if wrong wind drag
+         IF (IDRAG.LT.4) IDRAG = 4
+      ELSE
+!        apply parabolic fit if wrong wind drag
+         IF (IDRAG.GT.3) IDRAG = 2
+      ENDIF
+      IF (IBOT.EQ.5) IDRAG = 1                                            41.51
+!ADC      IDRAG = 0
+!
+!     initialize reduction factor for wind input term
+!     - this array contains at most 100 frequencies (see module SWCOMM3)
+!     - this factor will be assigned to LFACTOR in SdsBabanin.f90
+      RDFSIN = 0.
+!
+!     check negative wind input, if appropriate
+      IF ( ZIEGER ) THEN
+         IF ( RDCOEF.LT.0. .OR. RDCOEF.GT.1. ) THEN
+            CALL MSGERR (2,'NEGATINP convention: it should be a '
+     &                     //'positive fraction')
+         END IF
+      ELSE IF ( ROGERS ) THEN
+         IF ( RDCOEF.NE.0. ) THEN
+            CALL MSGERR (1,'NEGATINP and ROGERS are incompatible ')
+            RDCOEF = 0.
+         END IF
+      ELSE IF ( ARDHUIN ) THEN
+         IF ( RDCOEF.NE.0. ) THEN
+            CALL MSGERR (1,'NEGATINP and ARDHUIN are incompatible ')
+            RDCOEF = 0.
+         END IF
+      END IF
+!
+      IF (IWCAP.EQ.8) THEN
+         JPSWEL = 12
+      ENDIF
 !
 !     close input files containing stationary input fields                40.00
 !
@@ -2477,11 +4026,37 @@
         ENDIF
       ENDIF
 !
+!     check freeboard dependent transmission/reflection
+!
+      IF ( NUMOBS.GT.0 ) THEN                                             41.71
+         COBST => FOBSTAC                                                 41.71
+         DO II = 1, NUMOBS                                                41.71
+            IFREE = COBST%FBTYP1                                          41.71
+            ITRAS = COBST%TRTYPE                                          41.71
+            IRFRD = COBST%RFTYP3                                          41.71
+            IF ( IFREE.EQ.1 .AND. (ITRAS.NE.0 .OR. IRFRD.EQ.1) ) THEN     41.71
+               CALL MSGERR(1,'freeboard dependent factors cannot be')     41.71
+               CALL MSGERR(1,'applied to nonconstant transmission or')    41.71
+               CALL MSGERR(1,'reflection coefficients')                   41.71
+               IFREE = 0                                                  41.71
+            ENDIF                                                         41.71
+            COBST%FBTYP1 = IFREE                                          41.71
+            IF (.NOT.ASSOCIATED(COBST%NEXTOBST)) EXIT                     41.71
+            COBST => COBST%NEXTOBST                                       41.71
+         ENDDO                                                            41.71
+      ENDIF                                                               41.71
+!
+      ATMP = -999.                                                        41.48
+      J    = 0                                                            41.48
+!
       CURRBS => FBS                                                       40.31
       DO                                                                  40.31
          NBS = CURRBS%NBS                                                 40.31
          IF (NBS.EQ.-999) EXIT                                            40.31
          SPPARM(1:4) = CURRBS%SPPARM(1:4)                                 40.31
+         J = J + 1                                                        41.48
+         IF ( J.EQ.1 ) ATMP = 0.                                          41.48
+         ATMP = ATMP + SPPARM(3)                                          41.48
          FSHAPE      = CURRBS%FSHAPE                                      40.31
          DSHAPE      = CURRBS%DSHAPE                                      40.31
          CALL SSHAPE (BSPECS(1,1,NBS,1), SPCSIG, SPCDIR,                  40.31
@@ -2489,6 +4064,26 @@
          IF (.NOT.ASSOCIATED(CURRBS%NEXTBS)) EXIT                         40.31
          CURRBS => CURRBS%NEXTBS                                          40.31
       END DO                                                              40.31
+
+      IF (J.GT.0) ATMP = ATMP/REAL(J)                                     41.48
+!
+      IF ( ATMP.NE.-999. ) THEN                                           41.48
+         ATMP = DEGCNV (ATMP)
+         ALTMP = ATMP / 360.
+         ATMP = PI2 * (ALTMP - NINT(ALTMP))
+      ENDIF
+!
+!     set sweep direction based on either incoming wave direction
+!     or wind direction, if user-given direction not specified
+      IF ( .NOT. asort.NE.-999. ) THEN                                    41.48
+         IF ( NSTATM == 0 .OR. NBFILS == 0 ) THEN
+            IF (ATMP.NE.-999. .OR. IWIND.EQ.0 .OR. VARWI) THEN
+               asort = ATMP
+            ELSE
+               asort = WDIP
+            ENDIF
+         ENDIF
+      ENDIF
 
       BGRIDP = 0                                                          40.31
       IF (OPTG.NE.5) THEN                                                 40.80
@@ -2571,7 +4166,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2713,6 +4308,9 @@
 !
 !     ***** test location of computational grid *****
 !
+      IF (ITEST.GE.10) WRITE (PRTEST, '(A)')
+     &                            'Check location of computational grid'
+!
       IF (OPTG .EQ. 1) THEN                                               30.21
 !
 !       regular grid
@@ -2807,6 +4405,9 @@
 !
 !         friction grid is excluded from the test
           IF (SNAME.EQ.'FRICGRID') GOTO 100
+!
+          IF (ITEST.GE.10) WRITE (PRTEST, '(A)')
+     &                 'Check location of output pointset '//TRIM(SNAME)
 !
           STYPE = CUOPS%PSTYPE                                            40.31
 !                                                                         32.02
@@ -2954,7 +4555,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2985,6 +4586,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -3006,6 +4608,7 @@
 !     40.31, Dec. 03: removing POOL construction
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Sep. 07: extension to unstructured grids
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -3097,6 +4700,8 @@
       IF (VARFR) THEN
         COMPDA(1,JFRC2) = 0.                                              40.00
         COMPDA(1,JFRC3) = 0.                                              40.00
+      ELSEIF (JFRC2.GT.1) THEN                                            41.51
+        COMPDA(1,JFRC2) = 0.                                              41.51
       ENDIF
       IF (VARWI) THEN
         COMPDA(1,JWX2) = 0.                                               40.00
@@ -3107,6 +4712,27 @@
       IF (VARAST) THEN
         COMPDA(1,JASTD2) = 0.                                             40.03
         COMPDA(1,JASTD3) = 0.                                             40.03
+      ENDIF
+      IF (VARMUD) THEN                                                    40.59
+        COMPDA(1,JMUDL1) = 0.                                             40.59
+        COMPDA(1,JMUDL2) = 0.                                             40.59
+        COMPDA(1,JMUDL3) = 0.                                             40.59
+      ENDIF
+      IF (VARNPL) THEN                                                    40.55
+        COMPDA(1,JNPLA2) = 0.                                             40.55
+        COMPDA(1,JNPLA3) = 0.                                             40.55
+      ENDIF
+      IF (VARTUR) THEN                                                    40.35
+        COMPDA(1,JTURB2) = 0.                                             40.35
+        COMPDA(1,JTURB3) = 0.                                             40.35
+      ENDIF
+      IF (VARAICE) THEN                                                   41.75
+        COMPDA(1,JAICE2) = 0.                                             41.75
+        COMPDA(1,JAICE3) = 0.                                             41.75
+      ENDIF
+      IF (VARHICE) THEN                                                   41.75
+        COMPDA(1,JHICE2) = 0.                                             41.75
+        COMPDA(1,JHICE3) = 0.                                             41.75
       ENDIF
       COMPDA(1,JBOTLV) = 0.                                               40.65
 !
@@ -3158,7 +4784,7 @@
                 CGFACT = CGMAX / VTOT
                 UU = UU * CGFACT
                 VV = VV * CGFACT
-                IF (ERRPTS.GT.0.AND.INODE.EQ.MASTER) THEN                 40.30
+                IF (ERRPTS.GT.0.AND.IAMMASTER) THEN                       40.95 40.30
                   WRITE (ERRPTS, 211) IX+MXF-1, IY+MYF-1, 1
  211              FORMAT (I4, 1X, I4, 1X, I2)
                 ENDIF
@@ -3211,6 +4837,53 @@
              ASTD = SVALQI (XP, YP, 10, ASTDF, 1 ,IX ,IY)                 40.31 40.03
              COMPDA(INDX,JASTD2) = ASTD                                   40.03
              COMPDA(INDX,JASTD3) = ASTD                                   40.03
+          ENDIF
+!
+!     ***** compute number of plants per square meter *****               40.55
+!
+          IF (VARNPL) THEN
+             XNPL = SVALQI (XP, YP, 11, NPLAF, 1 ,IX ,IY)                 40.55
+             COMPDA(INDX,JNPLA2) = XNPL                                   40.55
+             COMPDA(INDX,JNPLA3) = XNPL                                   40.55
+          ENDIF
+!
+!     ***** compute turbulent viscosity *****                             40.35
+!
+          IF (VARTUR) THEN
+             IF (PTURBV(2).LT.0.) THEN
+                XTUR = SVALQI (XP, YP, 12, TURBF, 0 ,IX ,IY)              40.35
+             ELSE
+                UU = COMPDA(INDX,JVX2)
+                VV = COMPDA(INDX,JVY2)
+                XTUR = PTURBV(2) * SQRT(UU*UU+VV*VV) * COMPDA(INDX,JDP2)  40.35
+             ENDIF
+             COMPDA(INDX,JTURB2) = XTUR                                   40.35
+             COMPDA(INDX,JTURB3) = XTUR                                   40.35
+          ENDIF
+!
+!     ***** compute fluid mud layer *****                                 40.59
+!
+          IF (VARMUD) THEN
+             XMUD = SVALQI (XP, YP, 13, MUDLF, 1 ,IX ,IY)                 40.59
+             COMPDA(INDX,JMUDL1) = XMUD                                   40.59
+             COMPDA(INDX,JMUDL2) = XMUD                                   40.59
+             COMPDA(INDX,JMUDL3) = XMUD                                   40.59
+          ENDIF
+!
+!     ***** compute ice concentration (fraction) *****                    41.75
+!
+          IF (VARAICE) THEN
+             XAICE = SVALQI (XP, YP, 14, AICEF, 1 ,IX ,IY)                41.75
+             COMPDA(INDX,JAICE2) = XAICE                                  41.75
+             COMPDA(INDX,JAICE2) = XAICE                                  41.75
+          ENDIF
+!
+!     ***** compute ice thickness in meters *****                         41.75
+!
+          IF (VARHICE) THEN
+             XHICE = SVALQI (XP, YP, 15, HICEF, 1 ,IX ,IY)                41.75
+             COMPDA(INDX,JHICE2) = XHICE                                  41.75
+             COMPDA(INDX,JHICE2) = XHICE                                  41.75
           ENDIF
 !
    10   CONTINUE
@@ -3331,6 +5004,73 @@
             COMPDA(INDX,JASTD3) = ASTD                                    40.80
          ENDIF
 !
+!     ***** compute number of plants per square meter *****               40.80
+!
+          IF (VARNPL) THEN
+             IF ( IGTYPE(11).EQ.3 ) THEN
+                XNPL = NPLAF(INDX)
+             ELSE
+                XNPL = SVALQI (XP, YP, 11, NPLAF, 1 ,0, 0)                40.80
+             ENDIF
+             COMPDA(INDX,JNPLA2) = XNPL                                   40.80
+             COMPDA(INDX,JNPLA3) = XNPL                                   40.80
+          ENDIF
+!
+!     ***** compute turbulent viscosity *****                             40.35
+!
+          IF (VARTUR) THEN
+             IF (PTURBV(2).LT.0.) THEN
+                IF ( IGTYPE(12).EQ.3 ) THEN
+                   XTUR = TURBF(INDX)
+                ELSE
+                   XTUR = SVALQI (XP, YP, 12, TURBF, 0 ,0, 0)             40.35
+                ENDIF
+             ELSE
+                UU = COMPDA(INDX,JVX2)
+                VV = COMPDA(INDX,JVY2)
+                XTUR = PTURBV(2) * SQRT(UU*UU+VV*VV) * COMPDA(INDX,JDP2)  40.35
+             ENDIF
+             COMPDA(INDX,JTURB2) = XTUR                                   40.35
+             COMPDA(INDX,JTURB3) = XTUR                                   40.35
+          ENDIF
+!
+!     ***** compute fluid mud layer *****                                 40.80
+!
+          IF (VARMUD) THEN
+             IF ( IGTYPE(13).EQ.3 ) THEN
+                XMUD = MUDLF(INDX)
+             ELSE
+                XMUD = SVALQI (XP, YP, 13, MUDLF, 1 ,0, 0)                40.80
+             ENDIF
+             COMPDA(INDX,JMUDL1) = XMUD                                   40.80
+             COMPDA(INDX,JMUDL2) = XMUD                                   40.80
+             COMPDA(INDX,JMUDL3) = XMUD                                   40.80
+          ENDIF
+!
+!     ***** compute aice, ice concentration (fraction)  *****             41.75
+!                                                                         41.75
+          IF (VARAICE) THEN                                               41.75
+             IF ( IGTYPE(12).EQ.3 ) THEN                                  41.75
+                XAICE = AICEF(INDX)                                       41.75
+             ELSE                                                         41.75
+                XAICE = SVALQI (XP, YP, 12, AICEF, 1 ,0, 0)               41.75
+             ENDIF                                                        41.75
+             COMPDA(INDX,JAICE2) = XAICE                                  41.75
+             COMPDA(INDX,JAICE3) = XAICE                                  41.75
+          ENDIF                                                           41.75
+!
+!     ***** compute hice, ice thickness (m)  *****                        41.75
+!                                                                         41.75
+          IF (VARHICE) THEN                                               41.75
+             IF ( IGTYPE(13).EQ.3 ) THEN                                  41.75
+                XHICE = HICEF(INDX)                                       41.75
+             ELSE                                                         41.75
+                XHICE = SVALQI (XP, YP, 13, HICEF, 1 ,0, 0)               41.75
+             ENDIF                                                        41.75
+             COMPDA(INDX,JHICE2) = XHICE                                  41.75
+             COMPDA(INDX,JHICE3) = XHICE                                  41.75
+          ENDIF                                                           41.75
+!
       ENDDO                                                               40.80
 !
 !     *** initialise setup and saved depth ***                            32.02
@@ -3346,12 +5086,18 @@
       COMPDA(:,JHSIBC) = 0.                                               40.41
 !
 !     --- initialize ZELEN and USTAR                                      40.41
-      COMPDA(:,JZEL  ) = 2.E-33                                           40.41
+      COMPDA(:,JZEL  ) = 1.E-4                                            40.41
       COMPDA(:,JUSTAR) = 1.E-15                                           40.41
 !
 !     --- initialize UBOT and TMBOT                                       40.94
       COMPDA(:,JUBOT) = 0.                                                40.94
       IF (JPBOT.GT.1) COMPDA(:,JPBOT) = 0.                                40.94
+!
+!     --- initialize GAMBR and RESPL                                      41.38
+      IF (ISURF.EQ.6) THEN
+         COMPDA(:,JGAMMA) = PSURF( 2)
+         COMPDA(:,JRESPL) = PSURF(13)*COMPDA(:,JDP2)
+      ENDIF
 !
       RETURN
 ! * end of subroutine SWRBC *
@@ -3380,7 +5126,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3463,9 +5209,9 @@
 !
 !     IGRID    Grid indicator
 !     IXC      Counter for X-coordinate in computational grid (used
-!              in curvi-linear case)
+!              in curvilinear case)
 !     IYC      Counter for Y-coordinate in computational grid (used
-!              in curvi-linear case)
+!              in curvilinear case)
 !     ZERO     If ZERO=0, then value outside the grid is zero, otherwise
 !              the value is extrapolated
 !
@@ -3672,7 +5418,7 @@
       ELSE IF (ABS(STAGX(IGRID)) .LT. 0.01 .AND.                          32.03
      &         ABS(STAGY(IGRID)) .LT. 0.01) THEN                          32.03
 !
-!     Curvi-linear and non-staggered input grid:                          32.03
+!     Curvilinear and non-staggered input grid:                           32.03
 !
         IB1   = IXCGL
         JB1   = IYCGL
@@ -3680,7 +5426,7 @@
         SVALQI = ARRINP(II)
       ELSE
 !
-!     Curvi-linear and staggered input grid:                              32.03
+!     Curvilinear and staggered input grid:                               32.03
 !
         INGRD = .TRUE.
         IF (IXCGL .EQ. 1) THEN
@@ -3759,7 +5505,7 @@
  6010 FORMAT(' Test SVALQI:',5F10.3)
 !
       RETURN
-!     end of subroutine SVALQI
+!     end of function SVALQI
       END
 !***********************************************************************
 !                                                                      *
@@ -3783,7 +5529,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -3912,7 +5658,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4028,6 +5774,7 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE M_PARALL                                                        40.31
+!PUN      USE SIZES, ONLY: MNPROC
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -4041,7 +5788,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4176,6 +5923,14 @@
         SINCMP = .TRUE.                                                   40.80
         CALL SwanFindPoint ( XP, YP, K )                                  40.80
         IF ( K.LT.0 ) SINCMP = .FALSE.                                    40.80
+!
+!PUN!       --- check if output location is in global subdomain               40.95
+!PUN!
+!PUN        IF ( MNPROC.GT.1 .AND. .NOT.SINCMP ) THEN                         40.95
+!PUN           IF ( XP.GE.XCGMIN .AND. XP.LE.XCGMAX .AND.                     40.95
+!PUN     &          YP.GE.YCGMIN .AND. YP.LE.YCGMAX ) SINCMP = .TRUE.         40.95
+!PUN        ENDIF                                                             40.95
+!PUN!
       ENDIF
 !
 !     --- check if output location is in global subdomain                 40.31
@@ -4208,7 +5963,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4307,7 +6062,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4418,20 +6173,6 @@
         PROPSC = PROPSS                                                   40.31
       ENDIF                                                               40.31
 !
-!     --- set default setting for stopping criterion                      40.80
-!
-      IF ( PNUMS(21).EQ.-9. ) THEN                                        40.80
-         IF (OPTG.NE.5) THEN                                              40.80
-            PNUMS(21) = 0.                                                40.80
-         ELSE                                                             40.80
-            PNUMS(21) = 1.                                                40.80
-            PNUMS( 1) = 0.01                                              40.80
-            PNUMS( 2) = 0.005                                             40.80
-            PNUMS( 4) = 99.5                                              40.80
-            PNUMS(15) = 0.005                                             40.80
-         ENDIF                                                            40.80
-      ENDIF                                                               40.80
-!
 !     --- reset PWIND(9) and PWIND(17) if RHO has a user value            40.96
 !
       PWIND( 9) = PWIND(16)/RHO                                           40.96
@@ -4445,7 +6186,7 @@
 !
 !     *** Check formulation for whitecapping ***
 !
-      IF ( IWCAP.GT.7 ) THEN
+      IF ( IWCAP.GT.8 ) THEN
          WRITE (MSGSTR, '(A,I2,A)')
      &               'Unknown method for whitecapping (IWCAP=',IWCAP,')'
          CALL MSGERR( 1, TRIM(MSGSTR) )
@@ -4455,7 +6196,7 @@
          PWCAP(1)  = 2.36E-5
          PWCAP(2)  = 3.02E-3
          PWCAP(9)  = 2.
-         PWCAP(10) = 0.
+         PWCAP(10) = 1.                                                   41.41
          PWCAP(11) = 1.
       ENDIF
 !
@@ -4472,6 +6213,15 @@
         CALL MSGERR(1,'Activate wind option Yan (1987) in case of')       40.53
         CALL MSGERR(1,'Alves & Banner (2003) white-capping method')       40.53
       END IF                                                              40.53
+
+      IF  ( IWCAP.EQ.8 .AND. IWIND.NE.8 ) THEN                            40.88
+        CALL MSGERR(1,'Babanin dissipation with non-Babanin input')       40.88
+        CALL MSGERR(1,'has not been tested                       ')       40.88
+      END IF                                                              40.88
+      IF  ( IWIND.EQ.8 .AND. IWCAP.NE.8 ) THEN                            40.88
+        CALL MSGERR(1,'Babanin input with non-Babanin dissipation')       40.88
+        CALL MSGERR(1,'has not been tested                       ')       40.88
+      END IF                                                              40.88
 !
 !     *** WAM cycle 4 physics ***
 !
@@ -4496,6 +6246,16 @@
           WRITE(PRINTF,*)
         ENDIF
       END IF
+!
+      IF ( LSPNAR .AND. BRESCL ) THEN
+         CALL MSGERR(1,'Rescaling is turned off since the directional')
+         CALL MSGERR(1,'resolution is too coarse to represent energy')
+         CALL MSGERR(1,'distribution properly, which deteriorates')
+         CALL MSGERR(1,'the act of rescaling.')
+         CALL MSGERR(1,'Also full upwind scheme in theta space is set.')
+         BRESCL   = .FALSE.
+         PNUMS(6) = 1.
+      ENDIF
 !
 !     check combination of REPeating option and grid type and dimension   33.09
 !
@@ -4538,7 +6298,16 @@
 !     used in the CGRID command. This error should be corrected
 !     in the future
 !
-      IF (IWIND.EQ.3 .OR. IWIND.EQ.4) THEN                                30.60
+      IF (ICUR.NE.0 .AND. (IQUAD.EQ.1 .OR. IQUAD.EQ.2)) THEN              41.55
+         CALL MSGERR(1,'Quadruplets will be updated per iteration')       41.55
+         CALL MSGERR(1,'instead of per sweep. This will increase')        41.55
+         CALL MSGERR(1,'amount of internal memory with a factor 2')       41.55
+         IQUAD = 3                                                        41.55
+      ENDIF                                                               41.55
+!
+      IF (IWIND.EQ.3 .OR. IWIND.EQ.4
+     &               .OR. IWIND.EQ.8                                      40.88
+     &                              ) THEN                                30.60
         IF (IQUAD .EQ. 0) THEN
           CALL MSGERR(2,'Quadruplets should be activated when SWAN  ')    30.60
           CALL MSGERR(2,'is running in a third generation mode and  ')    30.60
@@ -4636,7 +6405,10 @@
       SUBROUTINE SNEXTI (BSPECS, BGRIDP, COMPDA, AC1   , AC2   ,          40.31
      &                   SPCSIG, SPCDIR, XCGRID, YCGRID, KGRPNT,          40.31
      &                   XYTST , DEPTH , WLEVL , FRIC  , UXB   ,          40.31
-     &                   UYB   , WXI   , WYI   )                          40.31
+     &                   UYB   , NPLAF , TURBF , MUDLF , WXI   ,          40.59 40.35 40.55 40.31
+     &                   AICEF , HICEF ,                                  41.75
+     &                   WYI   )
+!COH     &                   WYI   , z2w   , uv2w  )                          41.61
 !                                                                    *
 !*********************************************************************
 !
@@ -4662,7 +6434,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -4695,6 +6467,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
@@ -4718,6 +6491,7 @@
 !     40.31, Nov. 03: removing POOL-mechanism
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Sep. 07: extension to unstructured grids
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -4748,6 +6522,8 @@
 ! i   SPCSIG: Relative frequencies in computational domain in sigma-space 30.72
 ! i   XCGRID: Coordinates of computational grid in x-direction            30.72
 ! i   YCGRID: Coordinates of computational grid in y-direction            30.72
+!COH!     uv2w  : switch for online current exchange from COHERENS to SWAN    41.61
+!COH!     z2w   : switch for online wlevl exchange from COHERENS to SWAN      41.61
 !
       REAL     AC1(MDC,MSC,MCGRD)                                         40.00
       REAL     AC2(MDC,MSC,MCGRD)                                         30.21
@@ -4757,7 +6533,11 @@
       REAL     SPCSIG(MSC)                                                30.01
       REAL     XCGRID(MXC,MYC), YCGRID(MXC,MYC)                           30.21
       REAL     DEPTH(*), WLEVL(*), FRIC(*), UXB(*), UYB(*),               40.31
+     &         NPLAF(*), TURBF(*),                                        40.35 40.55
+     &         MUDLF(*),                                                  40.59
+     &         AICEF(*), HICEF(*),                                        41.75
      &         WXI(*), WYI(*)                                             40.31
+!COH      LOGICAL  uv2w, z2w                                                  41.61
 !
 !     TIMCO ..... Time (date) of computation
 !     TFINC ..... Final time (date) of computation
@@ -4799,7 +6579,6 @@
 !
 ! 13. Source text
 !
-      CHARACTER   PTYPE*1                                                 30.74
       INTEGER     IERR
       REAL        TSTVAL(10)                                              40.00
       TYPE(BSPCDAT), POINTER :: CURBFL                                    40.31
@@ -4986,7 +6765,7 @@
 
 !     field 4: friction coeff.
       IF (IFLDYN(4) .EQ. 1) THEN
-        CALL FLFILE ( 4, 0, FRIC, 0.,                                     40.31
+        CALL FLFILE ( 4, 0, FRIC, (/0./),                                 40.31
      &               0, JFRC2, JFRC3, 0, 0, 0,
      &               1., 0.,                                              40.31 30.90
      &               COMPDA, XCGRID, YCGRID,
@@ -5013,11 +6792,13 @@
 
 !     field 7: water level
       IF (IFLDYN(7) .EQ. 1) THEN
-        CALL FLFILE ( 7, 0, WLEVL, 0.,                                    40.31
+!COH        IF (.NOT.z2w) THEN
+        CALL FLFILE ( 7, 0, WLEVL, (/0./),                                40.31
      &               JWLV1, JWLV2, JWLV3, 0, 0, 0,
      &               1., 0.,                                              40.31 30.90
      &               COMPDA, XCGRID, YCGRID,
      &               KGRPNT, IERR)
+!COH        ENDIF
         IF (STPNOW()) RETURN                                              34.01
 !       Add bottom level to obtain depth
 !       structured grid                                                   40.80
@@ -5076,11 +6857,13 @@
 
 !     field 2 and 3: current velocity
       IF (IFLDYN(2) .EQ. 1) THEN
+!COH        IF (.NOT. uv2w) THEN
         CALL FLFILE ( 2, 3, UXB, UYB,                                     40.31
      &               JVX1, JVX2, JVX3, JVY1, JVY2, JVY3,
      &               COSVC, SINVC,                                        40.31 30.90
      &               COMPDA, XCGRID, YCGRID,
      &               KGRPNT, IERR)
+!COH        ENDIF
         IF (STPNOW()) RETURN                                              34.01
 !       reduce current velocity if Froude number is larger than PNUMS(18)
 !       structured grid                                                   40.80
@@ -5099,7 +6882,7 @@
                   COMPDA(INDX,JVX2) = UU * CGFACT
                   COMPDA(INDX,JVY2) = VV * CGFACT
 !                 write IX,IY to error points file
-                  IF (ERRPTS.GT.0.AND.INODE.EQ.MASTER) THEN               40.30
+                  IF (ERRPTS.GT.0.AND.IAMMASTER) THEN                     40.95 40.30
                     WRITE (ERRPTS, 211) IX+MXF-1, IY+MYF-1, 1
  211                FORMAT (I4, 1X, I4, 1X, I2)
                   ENDIF
@@ -5160,6 +6943,141 @@
      &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
         ENDIF
       ENDIF
+
+!     field 11: field containing number of plants per square meter
+      IF (IFLDYN(11) .EQ. 1) THEN
+        CALL FLFILE (11, 0, NPLAF, (/0./),
+     &               0, JNPLA2, JNPLA3, 0, 0, 0,
+     &               1., 0.,
+     &               COMPDA, XCGRID, YCGRID,
+     &               KGRPNT, IERR)
+        IF (STPNOW()) RETURN
+        IF (NPTST.GT.0) THEN
+          WRITE (PRTEST, '(A)') ' # plants/m2 from file in test points'
+          IF (OPTG.NE.5) THEN                                             40.80
+             DO IPTST = 1, MIN(10,NPTST)
+               IXP = XYTST(2*IPTST-1)
+               IYP = XYTST(2*IPTST)
+               TSTVAL(IPTST) = COMPDA(KGRPNT(IXP,IYP),JNPLA3)
+             ENDDO
+          ELSE                                                            40.80
+             DO IPTST = 1, MIN(10,NPTST)                                  40.80
+                IVP = XYTST(IPTST)                                        40.80
+                TSTVAL(IPTST) = COMPDA(IVP,JNPLA3)                        40.80
+             ENDDO                                                        40.80
+          ENDIF                                                           40.80
+          WRITE (PRTEST, 122) ' veg dens: ',
+     &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
+        ENDIF
+      ENDIF
+
+!     field 12: field containing turbulent viscosity
+      IF (IFLDYN(12) .EQ. 1) THEN
+        CALL FLFILE (12, 0, TURBF, (/0./),
+     &               0, JTURB2, JTURB3, 0, 0, 0,
+     &               1., 0.,
+     &               COMPDA, XCGRID, YCGRID,
+     &               KGRPNT, IERR)
+        IF (STPNOW()) RETURN
+        IF (NPTST.GT.0) THEN
+          WRITE (PRTEST, '(A)') ' turb visc from file in test points'
+          IF (OPTG.NE.5) THEN                                             40.80
+             DO IPTST = 1, MIN(10,NPTST)
+               IXP = XYTST(2*IPTST-1)
+               IYP = XYTST(2*IPTST)
+               TSTVAL(IPTST) = COMPDA(KGRPNT(IXP,IYP),JTURB3)
+             ENDDO
+          ELSE                                                            40.80
+             DO IPTST = 1, MIN(10,NPTST)                                  40.80
+                IVP = XYTST(IPTST)                                        40.80
+                TSTVAL(IPTST) = COMPDA(IVP,JTURB3)                        40.80
+             ENDDO                                                        40.80
+          ENDIF                                                           40.80
+          WRITE (PRTEST, 122) ' turb visc: ',
+     &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
+        ENDIF
+      ENDIF
+
+!     field 13: field containing fluid mud layer
+      IF (IFLDYN(13) .EQ. 1) THEN
+        CALL FLFILE (13, 0, MUDLF, (/0./),
+     &               JMUDL1, JMUDL2, JMUDL3, 0, 0, 0,
+     &               1., 0.,
+     &               COMPDA, XCGRID, YCGRID,
+     &               KGRPNT, IERR)
+        IF (STPNOW()) RETURN
+        IF (NPTST.GT.0) THEN
+          WRITE (PRTEST, '(A)') ' mud layer from file in test points'
+          IF (OPTG.NE.5) THEN                                             40.80
+             DO IPTST = 1, MIN(10,NPTST)
+               IXP = XYTST(2*IPTST-1)
+               IYP = XYTST(2*IPTST)
+               TSTVAL(IPTST) = COMPDA(KGRPNT(IXP,IYP),JMUDL3)
+             ENDDO
+          ELSE                                                            40.80
+             DO IPTST = 1, MIN(10,NPTST)                                  40.80
+                IVP = XYTST(IPTST)                                        40.80
+                TSTVAL(IPTST) = COMPDA(IVP,JMUDL3)                        40.80
+             ENDDO                                                        40.80
+          ENDIF                                                           40.80
+          WRITE (PRTEST, 122) ' mud layer: ',
+     &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
+        ENDIF
+      ENDIF
+
+!     field 14: field containing ice concentration (fraction)
+      IF (IFLDYN(14) .EQ. 1) THEN
+        CALL FLFILE (14, 0, AICEF, (/0./),
+     &               0, JAICE2, JAICE3, 0, 0, 0,
+     &               1., 0.,
+     &               COMPDA, XCGRID, YCGRID,
+     &               KGRPNT, IERR)
+        IF (STPNOW()) RETURN
+        IF (NPTST.GT.0) THEN
+          WRITE (PRTEST, '(A)') ' ice frac. from file in test points'
+          IF (OPTG.NE.5) THEN                                             41.75
+             DO IPTST = 1, MIN(10,NPTST)
+               IXP = XYTST(2*IPTST-1)
+               IYP = XYTST(2*IPTST)
+               TSTVAL(IPTST) = COMPDA(KGRPNT(IXP,IYP),JAICE3)
+             ENDDO
+          ELSE                                                            41.75
+             DO IPTST = 1, MIN(10,NPTST)                                  41.75
+                IVP = XYTST(IPTST)                                        41.75
+                TSTVAL(IPTST) = COMPDA(IVP,JAICE3)                        41.75
+             ENDDO                                                        41.75
+          ENDIF                                                           41.75
+          WRITE (PRTEST, 122) ' ice frac.: ',
+     &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
+        ENDIF
+      ENDIF
+
+!     field 15: field containing ice thickness in meters
+      IF (IFLDYN(15) .EQ. 1) THEN
+        CALL FLFILE (15, 0, HICEF, (/0./),
+     &               0, JHICE2, JHICE3, 0, 0, 0,
+     &               1., 0.,
+     &               COMPDA, XCGRID, YCGRID,
+     &               KGRPNT, IERR)
+        IF (STPNOW()) RETURN
+        IF (NPTST.GT.0) THEN
+          WRITE (PRTEST, '(A)') ' ice thick. from file in test points'
+          IF (OPTG.NE.5) THEN                                             41.75
+             DO IPTST = 1, MIN(10,NPTST)
+               IXP = XYTST(2*IPTST-1)
+               IYP = XYTST(2*IPTST)
+               TSTVAL(IPTST) = COMPDA(KGRPNT(IXP,IYP),JHICE3)
+             ENDDO
+          ELSE                                                            41.75
+             DO IPTST = 1, MIN(10,NPTST)                                  41.75
+                IVP = XYTST(IPTST)                                        41.75
+                TSTVAL(IPTST) = COMPDA(IVP,JHICE3)                        41.75
+             ENDDO                                                        41.75
+          ENDIF                                                           41.75
+          WRITE (PRTEST, 122) ' ice thick.: ',
+     &          (TSTVAL(IPTST), IPTST=1,MIN(10,NPTST))
+        ENDIF
+      ENDIF
 !
 !     End of subroutine SNEXTI
 !
@@ -5179,6 +7097,8 @@
       USE SWCOMM1                                                         40.41
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
+      USE M_PARALL, ONLY: IAMMASTER
+      use HRextensions, only: swn_hre_timf
 !
       IMPLICIT NONE
 !
@@ -5194,7 +7114,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -5223,6 +7143,8 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.61: Roop Lalbeharry
+!     41.13: Nico Booij
+!     41.66: Erick Rogers
 !
 !  1. Updates
 !
@@ -5240,6 +7162,8 @@
 !     40.31, Nov. 03: removing POOL-mechanism, reconsidering this subroutine
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.61, Nov. 06: variables USNEW, THWNEW no longer written in WAM4.5
+!     41.13, Jul. 10: LWDATE introduced (length of date/time in WAM nest)
+!     41.66, Dec. 16:  fix with respect to inefficient reading of WW3 nesting
 !
 !  2. Purpose
 !
@@ -5288,8 +7212,8 @@
 !  6. Local variables
 !
       INTEGER   DORDER, NDSL, NDSD, IHD, IBOUNC, IBSPEC, IERR
-      INTEGER   ID, IS, JJ, NANG, NFRE, COUNT_IT, IENT, II               40.05
-      INTEGER   WWDATE, WWTIME                                           40.05
+      INTEGER   ID, IS, JJ, NANG, NFRE, COUNT_IT, IENT, II                40.05
+      INTEGER   WWDATE, WWTIME                                            40.05
 !
 !     DORDER    if <0, order of reading directions is reversed
 !     NDSL      unit ref num for namelist file
@@ -5306,8 +7230,9 @@
 !
 !     WWDATE, WWTIME       time code in WaveWatch                         40.05
 !
-      REAL      TIMF1, TIMF2, UFAC, W1, BDEPTH, DUM_A, RFAC               40.05
-      REAL      XLON, XLAT, XDATE, EMEAN, THQ, FMEAN, USNEW, THWNEW
+      REAL      UFAC, W1, BDEPTH, DUM_A, RFAC                             40.05
+      REAL      XLON, XLAT, XDATE, EMEAN, THQ, FMEAN
+      REAL*8    TIMF1, TIMF2
 !
 !     TIMF1     time of reading old boundary condition
 !     TIMF2     time of reading new boundary condition
@@ -5319,8 +7244,6 @@
 !     EMEAN     coefficient read from WAM file, ignored
 !     THQ       coefficient read from WAM file, ignored
 !     FMEAN     coefficient read from WAM file, ignored
-!     USNEW     coefficient read from WAM file, ignored
-!     THWNEW    coefficient read from WAM file, ignored
 !     DUM_A     dummy local variable (not used in any calculation)
 !     BDEPTH    depth of the boundary points
 !
@@ -5331,12 +7254,12 @@
 !     NSTATF    if True time appears in bound. cond. file
 !     UNFORM    if True reading is done unformatted
 !
-      CHARACTER BTYPE *4, HEDLIN *80, TIMSTR *20, CDATE *12,
-     &          DATITM(5) *18, SWWDATE*15, PTNME*12
+      CHARACTER BTYPE *4, HEDLIN *80, TIMSTR *20,
+     &          DATITM(5) *18, PTNME*10
 !     BTYPE     type of boundary condition
 !     HEDLIN    heading line
 !     TIMSTR    time string
-!     CDATE     date-time read from file
+      CHARACTER (LEN=14) :: CDATE     ! date-time
 !
       REAL, ALLOCATABLE :: SPAUX(:,:)
 !
@@ -5397,7 +7320,8 @@
       IERR   = 0
       CALL COPYCH (BTYPE, 'F', BFILED(7), 1, IERR)
 !
-      IF (BTYPE.EQ.'WAMW' .OR. BTYPE.EQ.'WAMC') THEN
+      IF (BTYPE.EQ.'WAMW' .OR. BTYPE.EQ.'WAMC'
+     &    .OR. BTYPE.EQ.'WW3U') THEN
         UNFORM = .TRUE.
       ELSE
         UNFORM = .FALSE.
@@ -5406,8 +7330,8 @@
       IF (BFILED(2).LT.0) COUNT_IT = 0                                    40.05
 !
       DORDER = BFILED(9)
-      TIMF1 = REAL(BFILED(2))
-      TIMF2 = REAL(BFILED(3))
+      TIMF1 = DBLE(BFILED(2))
+      TIMF2 = DBLE(BFILED(3))
       IF (ITEST.GE.120) WRITE (PRINTF, 187) BFILED(1), BTYPE,
      &      TIMF1, TIMF2, TIMCO
  187  FORMAT (' Boundary', I2, 2X, A, ' times: ', 3F10.1)
@@ -5425,16 +7349,16 @@
 !     then read from boundary nesting files all the information
 !     and the spectral ones
 !
-!     COUNT_IT : counter of the time which enter in a WW3  boundary file
+!     COUNT_IT : counter of the time which enter in a WW3F boundary file
 !     and read spectral - used to calculate NHED (number of heading lines
-!     per time) in WW3N case.
+!     per time) in WW3F case.
 !
           COUNT_IT = COUNT_IT+1                                           40.05
           NDSL = BFILED(4)
           NDSD = BFILED(5)
 !
-!     in WW3 case rewind the boundary file
-          IF(BTYPE.EQ.'WW3N') REWIND(NDSD)                                40.05
+!     REWIND statement removed. ER, Dec 21 2016
+!         IF(BTYPE.EQ.'WW3F') REWIND(NDSD)                                40.05
 !
           TIMF1 = TIMF2
 !
@@ -5454,11 +7378,13 @@
 !
  210       CONTINUE
 !
-!     define the new  NHED in every time step for WW3 case
-          IF (BTYPE.EQ.'WW3N') THEN
-            BFILED(15) = BFILED(14)+(1+((BFILED(16)-1)+
-     &                 CEILING((BFILED(12)* BFILED(10))/7.))*
-     &                 BFILED(8))*(COUNT_IT-1)                            40.05
+!     BFILED(15) calculation changed: ER, Dec 21 2016
+          IF (BTYPE.EQ.'WW3F') THEN
+             IF (COUNT_IT.EQ.1)THEN
+                BFILED(15) = BFILED(14)
+             ELSE
+                BFILED(15) = 0
+             ENDIF
           ENDIF                                                           40.05
 !
 !     read heading lines per time step
@@ -5467,8 +7393,14 @@
           HBFL : DO IHD = 1, BFILED(15)                                   40.05
             IF (UNFORM) THEN
               READ (NDSD, END=380, ERR=920)
-            ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3N')) THEN             40.05
-              READ (NDSD,*)                                               40.05
+            ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3F')) THEN             40.05
+              READ (NDSD, '(A)', END=380, ERR=920) HEDLIN
+            ELSEIF (BTYPE.EQ.'NCCF') THEN
+              if (NSTATF) then
+                call swn_hre_timf(NDSD, COUNT_IT, TIMCO, TIMF2)
+              else
+                call swn_hre_timf(NDSD, 1, TIMCO, TIMF2)
+              endif
             ELSE                                                          40.05
               READ (NDSD, '(A)', END=380, ERR=920) HEDLIN
               IF (ITEST.GE.90) WRITE (PRINTF, 212) HEDLIN
@@ -5480,7 +7412,7 @@
             ENDIF
           ENDDO HBFL
 !
-          IF (.NOT.NSTATF) TIMF2 = 0.
+          IF (.NOT.NSTATF) TIMF2 = 0D0
           IF (ITEST.GE.60) WRITE (PRINTF, 214)
      &        TIMF1, TIMF2, TIMCO, BFILED(8), BFILED(15)
  214      FORMAT (' Boundary times ', 3F12.0, 2X, 4I4)
@@ -5518,27 +7450,39 @@
 !             for the first spectrum (first point), read time from
 !             heading line                                                40.03
                 IF (BTYPE.EQ.'WAMW') THEN                                 40.03
-                  READ(NDSD, END=380, ERR=920) XLON, XLAT, CDATE,
+                  READ(NDSD, END=380, ERR=920) XLON, XLAT,
+     &               CDATE(1:LWDATE),                                     41.13
      &               EMEAN, THQ, FMEAN
-                  TIMSTR = CDATE
+                  IF (LEN_TRIM(CDATE) == 10 ) THEN
+                     TIMSTR = TRIM(CDATE)
+                  ELSEIF (LEN_TRIM(CDATE) == 12 ) THEN
+                     TIMSTR = CDATE(1:10)
+                  ELSEIF (LEN_TRIM(CDATE) == 14 ) THEN
+                     TIMSTR = CDATE(3:12)
+                  ENDIF
 !                 convert time string to time in seconds
                   CALL DTRETI (TIMSTR, BFILED(6), TIMF2)                  40.03 40.05
                 ELSE IF (BTYPE.EQ.'WAMC') THEN
                   READ(NDSD, END=380, ERR=920) XLON, XLAT, XDATE,
-     &                EMEAN, THQ, FMEAN, USNEW, THWNEW
+     &                EMEAN, THQ, FMEAN
                   WRITE (TIMSTR,'(F11.0,9X)') XDATE
 !                 convert time string to time in seconds
                   CALL DTRETI (TIMSTR, BFILED(6), TIMF2)                  40.03 40.05
                 ELSE IF (BTYPE.EQ.'WAMF') THEN
                   READ(NDSD,*, END=380, ERR=920) XLON, XLAT, DDATE,
-     &              EMEAN, THQ, FMEAN, USNEW, THWNEW
+     &              EMEAN, THQ, FMEAN
                   WRITE (TIMSTR,'(F11.0,9X)') DDATE
 !                 convert time string to time in seconds
                   CALL DTRETI (TIMSTR, BFILED(6), TIMF2)                  40.03 40.05
-                ELSE IF (BTYPE.EQ.'WW3N') THEN                            40.05
+                ELSE IF (BTYPE.EQ.'WW3F') THEN                            40.05
 !                  read from heading lines per spectrum , date ,time      40.05
                   IF(IHD.EQ.1) THEN                                       40.05
                     READ(NDSD,*, END=380, ERR=920) WWDATE, WWTIME         40.05
+                    IF (SCREEN.NE.PRINTF.AND.IAMMASTER) THEN
+                       WRITE(SCREEN,'(2A,I8.8,A,I6.6)')'Reading WW3'
+     &                 ,' bound. forcing......date and time are '
+     &                 ,WWDATE,'.',WWTIME
+                    ENDIF
                     WRITE (TIMSTR, 118) WWDATE, WWTIME                    40.05
  118                FORMAT (I8,'.',I6)                                    40.05
 !                    convert time string to time in seconds
@@ -5550,6 +7494,13 @@
                     READ (NDSD,901) PTNME, DUM_A, DUM_A, BDEPTH,          40.05
      &                              DUM_A, DUM_A, DUM_A, DUM_A            40.05
                   ENDIF                                                   40.05
+                ELSE IF (BTYPE.EQ.'WW3U') THEN                            40.05
+!                 read from heading lines per spectrum , date ,time
+                  READ (NDSD, END=380, ERR=920) WWDATE, WWTIME
+                  WRITE (TIMSTR, 118) WWDATE, WWTIME
+!                 convert time string to time in seconds
+                  CALL DTRETI (TIMSTR, BFILED(6), TIMF2)
+                  READ (NDSD, END=380, ERR=920)
                 ELSE                                                      40.05
 !                 SWAN files                                              40.05
                   READ (NDSD, '(A)', END=380, ERR=920) HEDLIN             40.05
@@ -5558,11 +7509,11 @@
               ELSE
                 IF (UNFORM) THEN
                   READ (NDSD, END=380, ERR=920)
-                ELSE IF (BTYPE.EQ.'WW3N') THEN                            40.13 40.05
+                ELSE IF (BTYPE.EQ.'WW3F') THEN                            40.13 40.05
 !                 read from heading lines per spectrum depth of the       40.05
 !                 boundary point                                          40.05
                   IF (IHD.GT.1) EXIT                                      40.05
-!                 exit is used because the header per spectrum in WW3     40.05
+!                 exit is used because the header per spectrum in WW3F    40.05
 !                 for IBOUNC>1 is one line                                40.05
 !                 DUM_A is a dummy local parameter used in formatted read 40.05
                   READ (NDSD,901) PTNME, DUM_A, DUM_A, BDEPTH,
@@ -5571,7 +7522,7 @@
 !                 read HEDLIN replaced because data are sometimes written 40.13
 !                 on two subsequent lines                                 40.13
                   READ(NDSD,*, END=380, ERR=920) XLON, XLAT, DDATE,       40.13
-     &              EMEAN, THQ, FMEAN, USNEW, THWNEW
+     &              EMEAN, THQ, FMEAN
                 ELSE
                   READ (NDSD, '(A)', END=380, ERR=920) HEDLIN
                   IF (ITEST.GE.100) WRITE (PRINTF, 212) HEDLIN
@@ -5591,6 +7542,10 @@
                   CYCLE BP_LOOP                                           40.05
                 ELSE IF (HEDLIN(1:6).EQ.'FACTOR') THEN
                   READ (NDSD, *) RFAC
+                  IF (ISNAN(RFAC)) THEN
+                      CALL MSGERR (4, 'FACTOR in bnd file is NaN')
+                      GOTO 900
+                  ENDIF
                   UFAC = UFAC * RFAC
 !                 multiply factor read from file by UFAC (factor following from
 !                 type of file)
@@ -5621,11 +7576,11 @@
  222          FORMAT (A)
               CALL LSPLIT (HEDLIN, DATITM, 5)
               CALL DTRETI (DATITM(1), BFILED(6), TIMF2)                   40.03
-              IF (ITEST.GE.60) WRITE (PRTEST, *) ' TPAR boundary ',
-     &              TIMF2, (SPPARM(JJ), JJ=1,4)
               DO II = 1, 4
                 READ (DATITM(II+1), '(G12.0)') SPPARM(II)
               ENDDO
+              IF (ITEST.GE.60) WRITE (PRTEST, *) ' TPAR boundary ',
+     &              TIMF2, (SPPARM(JJ), JJ=1,4)
               BFILED(3) = NINT(TIMF2)
               CALL SSHAPE (BSPECS(1,1,IBSPEC,2), SPCSIG, SPCDIR,
      &                 FSHAPE, DSHAPE)
@@ -5638,17 +7593,18 @@
 !
              CALL RESPEC (BTYPE, NDSD, BFILED, UNFORM, DORDER,            40.00
      &           SPCSIG, SPCDIR, BSPFRQ, BSPDIR, BSPECS(1,1,IBSPEC,2),    40.31 30.90
+     &           IBSPEC, COUNT_IT,
      &           UFAC, IERR)
              IF (IERR.EQ.9) GOTO 380
             ENDIF
 !
           END DO BP_LOOP                                                  40.05
 !
-          IF (ITEST.GE.60) WRITE (PRINTF, 287) BTYPE, TIMF2
+          IF (NSTATF) WRITE (PRINTF, 287) BTYPE, TIMF2
  287      FORMAT
-     &         (' Boundary data type ', A, ' processed, time: ', F10.1)
+     &         (' Boundary data type ', A, ' processed, time: ', F12.0)
 !
-!        cycle back to will loop
+!        cycle back to top of loop
           CYCLE GLOOP                                                     40.05
 !
 !         if there are no more data on a boundary data file
@@ -5665,12 +7621,13 @@
               DO IHD = 1, BFILED(14)                                      40.03
                 READ (NDSD, END=940, ERR=920)
               ENDDO
-            ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3N')) THEN             40.05
-!             if it is WW3 open the new file only
+            ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3F')) THEN             40.05
+!             if it is WW3F open the new file only
               OPEN (NDSD, FILE=FILENM, FORM='FORMATTED',                  40.05
      &               STATUS='OLD', ERR=930)                               40.05
               COUNT_IT = 1                                                40.05
-            ELSE                                                          40.05
+!NNCF            ELSE                                                          40.05
+            ELSEIF (NDSD.GT.0) THEN
               OPEN (NDSD, FILE=FILENM, FORM='FORMATTED',
      &               STATUS='OLD', ERR=930)
               DO IHD = 1, BFILED(14)                                      40.03
@@ -5698,7 +7655,7 @@
 !
           BFILED(4) = 0
           BFILED(1) = -1
-          TIMF2 = 999999999.
+          TIMF2 = 999999999D0
           CYCLE GLOOP                                                     40.05
 !
 !        (if necessary) data have been read from file, now interpolate in time
@@ -5709,7 +7666,7 @@
 !       obtain boundary spectra
 !
           IF (TIMF1.NE.TIMF2) THEN                                        40.41
-             W1 = (TIMF2-TIMCO) / (TIMF2-TIMF1)
+             W1 = REAL((TIMF2-TIMCO) / (TIMF2-TIMF1))
           ELSE
              W1 = 0.
           END IF
@@ -5741,7 +7698,7 @@
       END DO GLOOP                                                        40.05
 !
 !
- 901  FORMAT (A12,2F7.2,F10.1,2(F7.2,F6.1))
+ 901  FORMAT (1X,A10,1X,2F7.2,F10.1,2(F7.2,F6.1))
 !
       DEALLOCATE(SPAUX)                                                   40.31
 !
@@ -5765,8 +7722,9 @@
 !****************************************************************
 !
       SUBROUTINE RESPEC (BTYPE, NDSD, BFILED, UNFORM, DORDER,             40.00
-     &                   SPCSIG, SPCDIR, BSPFRQ, BSPDIR, LSPEC, UFAC,
-     &                   IERR)
+     &                   SPCSIG, SPCDIR, BSPFRQ, BSPDIR, LSPEC,
+     &           IBSPEC, COUNT_IT,
+     &                   UFAC, IERR)
 !
 !****************************************************************
 !
@@ -5774,6 +7732,7 @@
       USE OCPCOMM2                                                        40.41
       USE OCPCOMM4                                                        40.41
       USE SWCOMM3                                                         40.41
+      use HRextensions, only: swn_hre_get_bpnt_2d, swn_hre_get_bpnt_1d
 !
       IMPLICIT NONE
 !
@@ -5789,7 +7748,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -5861,6 +7820,7 @@
 !
       INTEGER,  INTENT(IN) ::  NDSD                                       40.00
       INTEGER,  INTENT(IN) ::  DORDER                                     40.00
+      INTEGER,  INTENT(IN)    :: IBSPEC, COUNT_IT
       INTEGER,  INTENT(INOUT) ::  IERR                                    40.00
 !
       LOGICAL   UNFORM
@@ -5918,8 +7878,8 @@
 !
 !  8. Subroutines used
 !
-!       GAMMA (in SWANSER)
-      REAL :: GAMMA                                                       40.03
+!       GAMMAF (in SWANSER)
+      REAL :: GAMMAF                                                      40.03
       LOGICAL EQREAL                                                      40.41
 !
 !  9. Subroutines calling
@@ -5967,7 +7927,8 @@
       ALLOCATE (BAUX4(MSC))                                               40.31
 
       IF (ITEST.GE.60) THEN
-        INQUIRE (UNIT=NDSD, NAME=FILENM)                                  40.00
+        FILENM=' '
+        IF (NDSD.GT.0) INQUIRE (UNIT=NDSD, NAME=FILENM)                   40.00
         WRITE (PRTEST, 7) FILENM, NANG, NFRE, UFAC, BFILED(18),           40.00
      &  BFILED(19), UNFORM
    7    FORMAT (' Entry RESPEC, reading file:', A, /, 6X,
@@ -5986,11 +7947,16 @@
 !
         DO IFRE=1,NFRE                                                    40.05
 !         1-D spectral input (only function of frequency)
+          IF (BTYPE.EQ.'NCCF') THEN
+            call swn_hre_get_bpnt_1d(NDSD, COUNT_IT, IBSPEC, IFRE,
+     &                               ETOT, ADEG, DD)
+          ELSE
           IF (IFRE.EQ.1) THEN
             READ (NDSD,*,END=940,ERR=920) ETOT, ADEG, DD
           ELSE
             READ (NDSD,*,END=930,ERR=920) ETOT, ADEG, DD
           ENDIF
+          END IF
 !
           IF (EQREAL(ETOT,REAL(BFILED(11)))) THEN                         40.41
 !            in case of exception value, no energy
@@ -6030,7 +7996,7 @@
           IF (MS.GT.10.) THEN
             CTOT = SQRT(MS/(2.*PI)) * (1. + 0.25/MS)                      30.81 40.00
           ELSE
-            CTOT = 2.**MS * (GAMMA(1.+0.5*MS))**2 / (PI * GAMMA(1.+MS))   40.00
+            CTOT = 2.**MS * (GAMMAF(1.+0.5*MS))**2 / (PI*GAMMAF(1.+MS))   40.00
           ENDIF
           DSUM = 0.
           DO ID = 1, MDC
@@ -6055,16 +8021,26 @@
 !   (2D) fully spectral input
         IF (UNFORM) THEN
 !          unformatted reading
-           IF (DORDER.LT.0) THEN                                          40.55
+          IF (BTYPE.EQ.'WW3U') THEN
+            READ (NDSD,END=930,ERR=920)
+     &        ((BAUX0(IFRE,IANG),IFRE=1,NFRE),IANG=1,NANG)
+            DO IANG = 1,NANG
+              DO IFRE = 1,NFRE
+                BAUX1(IANG,IFRE) = BAUX0(IFRE,IANG)
+              ENDDO
+            ENDDO
+          ELSE
+            IF (DORDER.LT.0) THEN
               READ (NDSD,END=930,ERR=920)
      &               ((BAUX1(IANG,IFRE),IANG=NANG,1,-1),IFRE=1,NFRE)
-           ELSE
+            ELSE
               READ (NDSD,END=930,ERR=920)
      &               ((BAUX1(IANG,IFRE),IANG=1,NANG),IFRE=1,NFRE)
-           ENDIF
-        ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3N')) THEN                 40.05
+            ENDIF
+          ENDIF
+        ELSEIF ((.NOT.UNFORM).AND.(BTYPE.EQ.'WW3F')) THEN                 40.05
 !
-!         WW3 reading
+!         WW3F reading
 !         BAUX0 local array to read the energy spectra from boundary files
 !
           READ (NDSD,902,END=940,ERR=920)                                 40.15
@@ -6078,8 +8054,13 @@
               BAUX1(IANG,IFRE) = BAUX0(IFRE,IANG)                         40.05
             ENDDO                                                         40.05
           ENDDO                                                           40.05
+        ELSEIF (BTYPE.EQ.'NCCF') THEN
+!
+!         Read spectra from netcdf file
+!
+          call swn_hre_get_bpnt_2d(NDSD, COUNT_IT, IBSPEC, BAUX1)
         ELSE
-!         format reading (except WW3)
+!         format reading (except WW3F)
           IF (DORDER.LT.0) THEN                                           40.31
             READ (NDSD,*,END=930,ERR=920)                                 40.61
      &             ((BAUX1(IANG,IFRE),IANG=NANG,1,-1),IFRE=1,NFRE)        40.61
@@ -6098,13 +8079,15 @@
 
 !       --- in case of exception value, no energy                         40.41
 
-        DO IANG = 1,NANG
-           DO IFRE = 1,NFRE
-              IF (EQREAL(BAUX1(IANG,IFRE),REAL(BFILED(11)))) THEN
-                 BAUX1(IANG,IFRE) = 0.
-              END IF
-           END DO
-        END DO
+        IF (BTYPE /= 'NCCF') THEN  ! in case of NetCD, this check is already done in swn_hre_get_bpnt_2d
+            DO IANG = 1,NANG
+               DO IFRE = 1,NFRE
+                  IF (EQREAL(BAUX1(IANG,IFRE),REAL(BFILED(11)))) THEN
+                     BAUX1(IANG,IFRE) = 0.
+                  END IF
+               END DO
+            END DO
+        END IF
 !
 !       --- transform to spectral directions used in SWAN
 !           results appear in array BAUX2(MDC,NFRE)
@@ -6197,6 +8180,16 @@
       USE SWCOMM3                                                         40.41
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
+      USE HRExtensions, only: swn_hre_readarray
+!ADC      USE Couple2Swan, ONLY: ADCIRC_ETA2 => SWAN_ETA2,                    41.20
+!ADC     &                       ADCIRC_UU2 => SWAN_UU2,
+!ADC     &                       ADCIRC_VV2 => SWAN_VV2,
+!ADC     &                       ADCIRC_WX2 => SWAN_WX2,
+!ADC     &                       ADCIRC_WY2 => SWAN_WY2,
+!ADC     &                       COUPCUR, COUPWIND, COUPWLV,
+!ADC     &                       InterpoWeight
+!ADC     &                      ,ADCIRC_Z0 => SWAN_Z0,
+!ADC     &                       COUPFRIC
 
       IMPLICIT NONE
 !
@@ -6212,7 +8205,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -6241,6 +8234,7 @@
 !     40.31: Marcel Zijlema
 !     40.41: Marcel Zijlema
 !     40.80: Marcel Zijlema
+!     41.20: Casey Dietrich
 !
 !  1. Updates
 !
@@ -6257,6 +8251,7 @@
 !     40.31, Nov. 03: removing POOL-mechanism
 !     40.41, Oct. 04: common blocks replaced by modules, include files removed
 !     40.80, Sep. 07: extension to unstructured grids
+!     41.20, Mar. 10: extension to tightly coupled ADCIRC+SWAN model
 !
 !  2. PURPOSE
 !
@@ -6269,7 +8264,6 @@
 !
 !     ARR      real  i  array holding values read from file (x-comp)
 !     ARR2     real  i  array holding values read from file (y-comp)
-!     TIMR2    real i/o time of last reading of input field
 !     INTRV    real  i  time interval between input fields
 !     TMENDR   real  i  end time of input field
 !     IGR1     int   i  location in array COMPDA for interpolated input field data (x-comp)
@@ -6356,8 +8350,10 @@
       REAL       SVALQI
 !     SVALQI     real function giving interpolated value of an input array
 !
-      REAL       TIMR1, XP, YP, UU, VV, VTOT, W1, W3,
+      REAL       XP, YP, UU, VV, VTOT, W1, W3,
      &           SIZE1, SIZE2, SIZE3
+      REAL*8     FAC
+      REAL*8     TIMR1
 !     TIMR1      time of one but last input field
 !     XP         x-coord of one comput grid point
 !     YP         y-coord of one comput grid point
@@ -6399,12 +8395,51 @@
       ENDIF
       IF (IFLNDS(IGR1).GT.0) THEN                                         40.03
         IF (INODE.EQ.MASTER) THEN
+!ADC!          --- if we have coupled to the quantities from ADCIRC,          41.20
+!ADC!              then grab them from memory instead of reading them
+!ADC!              from the external file
+!ADC           IF ( (IGR1.EQ.7).AND.COUPWLV ) THEN
+!ADC              DO INDX = 1, nverts
+!ADC                 ARR(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                  * REAL(ADCIRC_ETA2(INDX,1))
+!ADC     &                  + REAL(InterpoWeight)
+!ADC     &                  * REAL(ADCIRC_ETA2(INDX,2))
+!ADC              ENDDO
+!ADC           ELSEIF ( (IGR1.EQ.2).AND.COUPCUR ) THEN
+!ADC              DO INDX = 1, nverts
+!ADC                 ARR(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                  * REAL(ADCIRC_UU2(INDX,1))
+!ADC     &                  + REAL(InterpoWeight)
+!ADC     &                  * REAL(ADCIRC_UU2(INDX,2))
+!ADC              ENDDO
+!ADC           ELSEIF ( (IGR1.EQ.5).AND.COUPWIND ) THEN
+!ADC              DO INDX = 1, nverts
+!ADC                 ARR(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                  * REAL(ADCIRC_WX2(INDX,1))
+!ADC     &                  + REAL(InterpoWeight)
+!ADC     &                  * REAL(ADCIRC_WX2(INDX,2))
+!ADC              ENDDO
+!ADC           ELSEIF ( (IGR1.EQ.4).AND.COUPFRIC ) THEN
+!ADC              DO INDX = 1, nverts
+!ADC                 ARR(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                  * REAL(ADCIRC_Z0(INDX,1))
+!ADC     &                  + REAL(InterpoWeight)
+!ADC     &                  * REAL(ADCIRC_Z0(INDX,2))
+!ADC              ENDDO
+!ADC           ELSE
+      ! A VERY iffy test on whether the opened file is a netcdf file
+      IF ( IFLNDF(IGR1) < 0 ) THEN
+          CALL swn_hre_readarray(IFLNDF, ARR, MXG, MYG, IFLTIM, IFLFAC,
+     &              IGR1, '')
+      ELSE
            CALL INAR2D( ARR, MXG(IGR1), MYG(IGR1),                        40.31 40.02
      &                  IFLNDF(IGR1),
      &                  IFLNDS(IGR1), IFLIFM(IGR1), IFLFRM(IGR1),
      &                  IFLIDL(IGR1), IFLFAC(IGR1),
      &                  IFLNHD(IGR1), IFLNHF(IGR1))
+      ENDIF
            IF (STPNOW()) RETURN                                           34.01
+!ADC           ENDIF
         END IF
         CALL SWBROADC(IFLIDL(IGR1),1,SWINT)                               40.30
         IF (IFLIDL(IGR1).LT.0) THEN
@@ -6427,11 +8462,35 @@
         IFLTIM(IGR2) = IFLTIM(IGR1)
         IF (IFLNDS(IGR2).GT.0) THEN                                       40.03
           IF (INODE.EQ.MASTER) THEN                                       40.30
+!ADC!            added these lines to grab the y-components from memory       41.20
+!ADC             IF ( (IGR2.EQ.3).AND.COUPCUR ) THEN
+!ADC               DO INDX = 1, nverts
+!ADC                 ARR2(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                   * REAL(ADCIRC_VV2(INDX,1))
+!ADC     &                   + REAL(InterpoWeight)
+!ADC     &                   * REAL(ADCIRC_VV2(INDX,2))
+!ADC               ENDDO
+!ADC             ELSEIF ( (IGR2.EQ.6).AND.COUPWIND ) THEN
+!ADC               DO INDX = 1, nverts
+!ADC                 ARR2(INDX) = (1.0 - REAL(InterpoWeight))
+!ADC     &                   * REAL(ADCIRC_WY2(INDX,1))
+!ADC     &                   + REAL(InterpoWeight)
+!ADC     &                   * REAL(ADCIRC_WY2(INDX,2))
+!ADC               ENDDO
+!ADC             ELSE
+!        ncfile is opened and the negative ncid is stored in IFLNDF, see
+!        swanpre1.ftn, line 3600(-ish)
+      IF ( IFLNDF(IGR2) < 0 ) THEN
+          CALL swn_hre_readarray(IFLNDF, ARR2, MXG, MYG, IFLTIM, IFLFAC,
+     &                IGR2, '')
+      ELSE
              CALL INAR2D( ARR2, MXG(IGR2), MYG(IGR2),                     40.31 40.02
      &                    IFLNDF(IGR2),
      &                    IFLNDS(IGR2), IFLIFM(IGR2), IFLFRM(IGR2),
      &                    IFLIDL(IGR2), IFLFAC(IGR2), IFLNHD(IGR2), 0)
+      ENDIF
              IF (STPNOW()) RETURN                                         34.01
+!ADC             ENDIF
           END IF
           CALL SWBROADC(ARR2,MXG(IGR2)*MYG(IGR2),SWREAL)                  40.31 40.30
         ENDIF                                                             40.03
@@ -6480,7 +8539,8 @@
 !
 !         Interpolation in time
 !
- 400  W3 = (TIMCO-TIMR1) / (IFLTIM(IGR1)-TIMR1)
+ 400  FAC = (TIMCO-TIMR1) / (IFLTIM(IGR1)-TIMR1)
+      W3 = REAL(FAC)
       W1 = 1.-W3
       IF (ITEST.GE.60) WRITE(PRTEST,402) IGR1,
      &        TIMCO,IFLTIM(IGR1),W1,W3,JX1,JY1,JX2,JY2,JX3,JY3
@@ -6541,7 +8601,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -6662,7 +8722,7 @@
         TLEN  = LENDEG * (COSYG*XCLEN + YCLEN)/2.
       ENDIF
       TDXY  = FLOAT(MXCGL + MYCGL)/2.                                     40.31
-      IF ( nverts.NE.0 ) TDXY = FLOAT(nverts)                             40.80
+      IF ( nvertsg.NE.0 ) TDXY = FLOAT(nvertsg)                           40.95 40.80
 !
       FETCH = TLEN/TDXY
       SY0   = 3.3                                                         30.70
@@ -6753,8 +8813,8 @@
 !     --- unstructured grid
 !
       DO INX = 1, nverts                                                  40.80
-!        internal vertices only
-         IF ( vmark(INX) == 0 ) THEN
+!        internal vertices and ghost vertices only
+         IF ( vmark(INX) == 0 .or. vmark(INX) == 999 ) THEN               40.95
             TESTFL = .FALSE.
             DO IPTST = 1, NPTST
               IF (INX.EQ.XYTST(IPTST)) TESTFL = .TRUE.
@@ -6817,11 +8877,14 @@
 !****************************************************************
 !
       USE M_WCAP
+      USE M_SNL4
       USE M_GENARR
       USE M_PARALL
       USE M_DIFFR
+      USE OUTP_DATA                                                       BJXX
       USE SwanGriddata
       USE SwanCompdata
+      USE M_BNDSPEC                                                       BJXX
 
       IMPLICIT NONE
 !
@@ -6837,7 +8900,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -6880,6 +8943,10 @@
 ! 13. Source text
 !
       IF (ALLOCATED(SIGPOW))   DEALLOCATE(SIGPOW)
+      IF (ALLOCATED(AF11  ))   DEALLOCATE(AF11  )                         BJXX
+      IF (ALLOCATED(CNL4_1))   DEALLOCATE(CNL4_1)
+      IF (ALLOCATED(CNL4_2))   DEALLOCATE(CNL4_2)
+      IF (ALLOCATED(LAMBDA))   DEALLOCATE(LAMBDA)
       IF (ALLOCATED(KGRPNT))   DEALLOCATE(KGRPNT)
       IF (ALLOCATED(KGRBND))   DEALLOCATE(KGRBND)
       IF (ALLOCATED(XYTST ))   DEALLOCATE(XYTST )
@@ -6892,8 +8959,8 @@
       IF (ALLOCATED(FRIC  ))   DEALLOCATE(FRIC  )
       IF (ALLOCATED(UXB   ))   DEALLOCATE(UXB   )
       IF (ALLOCATED(UYB   ))   DEALLOCATE(UYB   )
-      IF (ALLOCATED(WXI   ))   DEALLOCATE(WXI   )
-      IF (ALLOCATED(WYI   ))   DEALLOCATE(WYI   )
+      IF (ASSOCIATED(WXI   ))  DEALLOCATE(WXI   )
+      IF (ASSOCIATED(WYI   ))  DEALLOCATE(WYI   )
       IF (ALLOCATED(WLEVL ))   DEALLOCATE(WLEVL )
       IF (ALLOCATED(ASTDF ))   DEALLOCATE(ASTDF )
       IF (ALLOCATED(IBLKAD))   DEALLOCATE(IBLKAD)
@@ -6904,12 +8971,49 @@
       IF (ALLOCATED(DIFPARAM)) DEALLOCATE(DIFPARAM)
       IF (ALLOCATED(DIFPARDX)) DEALLOCATE(DIFPARDX)
       IF (ALLOCATED(DIFPARDY)) DEALLOCATE(DIFPARDY)
+      IF (ALLOCATED(MUDLF ))   DEALLOCATE(MUDLF )
+      IF (ALLOCATED(AICEF ))   DEALLOCATE(AICEF )
+      IF (ALLOCATED(HICEF ))   DEALLOCATE(HICEF )
+      IF (ALLOCATED(NPLAF ))   DEALLOCATE(NPLAF )
+      IF (ALLOCATED(LAYH  ))   DEALLOCATE(LAYH  )
+      IF (ALLOCATED(VEGDIL))   DEALLOCATE(VEGDIL)
+      IF (ALLOCATED(VEGNSL))   DEALLOCATE(VEGNSL)
+      IF (ALLOCATED(VEGDRL))   DEALLOCATE(VEGDRL)
+      IF (ALLOCATED(TURBF ))   DEALLOCATE(TURBF )
+      IF (LOPS) THEN                                                      BJXX
+         NULLIFY(COPS)                                                    BJXX
+         CALL DESTRUCTOR(FOPS)                                            BJXX
+         LOPS = .FALSE.                                                   BJXX
+      ENDIF                                                               BJXX
+      IF (LORQ) THEN                                                      BJXX
+         !NULLIFY(CORQ)                                                   BJXX
+         CALL DESTRUCTOR(FORQ)                                            BJXX
+         LORQ = .FALSE.                                                   BJXX
+      ENDIF                                                               BJXX
+      IF (LBFILS) THEN                                                    BJXX
+         NULLIFY(CUBFL)                                                   BJXX
+         CALL DESTRUCTOR(FBNDFIL)                                         BJXX
+         LBFILS = .FALSE.                                                 BJXX
+      ENDIF                                                               BJXX
+      IF (LBS) THEN                                                       BJXX
+         NULLIFY(CUBS)                                                    BJXX
+         CALL DESTRUCTOR(FBS)                                             BJXX
+         LBS = .FALSE.                                                    BJXX
+      ENDIF                                                               BJXX
+      IF (LBGP) THEN                                                      BJXX
+         NULLIFY(CUBGP)                                                   BJXX
+         CALL DESTRUCTOR(FBGP)                                            BJXX
+         LBGP = .FALSE.                                                   BJXX
+      ENDIF                                                               BJXX
 !
-      IF (ALLOCATED(xcugrd))   DEALLOCATE(xcugrd)
-      IF (ALLOCATED(ycugrd))   DEALLOCATE(ycugrd)
-      IF (ALLOCATED( vmark))   DEALLOCATE( vmark)
-      IF (ALLOCATED( vlist))   DEALLOCATE( vlist)
-      IF (ALLOCATED( blist))   DEALLOCATE( blist)
+      IF (ALLOCATED(xcugrd  )) DEALLOCATE(xcugrd  )
+      IF (ALLOCATED(ycugrd  )) DEALLOCATE(ycugrd  )
+!PUN!NCF      IF (ALLOCATED(xcugrdgl)) DEALLOCATE(xcugrdgl)
+!PUN!NCF      IF (ALLOCATED(ycugrdgl)) DEALLOCATE(ycugrdgl)
+      IF (ALLOCATED(ivertg  )) DEALLOCATE(ivertg  )
+      IF (ALLOCATED( vmark  )) DEALLOCATE( vmark  )
+      IF (ALLOCATED( vlist  )) DEALLOCATE( vlist  )
+      IF (ALLOCATED( blist  )) DEALLOCATE( blist  )
 !
       RETURN
       END

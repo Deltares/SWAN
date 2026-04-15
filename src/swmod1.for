@@ -26,7 +26,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -72,10 +72,10 @@
 !
 !  6. Parameter variables
 !
-!     LINELN [ 120]  max length of input lines (in command file)
+!     LINELN [ 180]  max length of input lines (in command file)
 !
       INTEGER LINELN
-      PARAMETER  (LINELN=120)
+      PARAMETER  (LINELN=180)
 !
 !  7. Local variables
 !
@@ -184,7 +184,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -230,10 +230,10 @@
 !
 !  6. Parameter variables
 !
-!     LENFNM [  80]  length of file names
+!     LENFNM [ 140]  length of file names (including path)
 !
       INTEGER LENFNM
-      PARAMETER (LENFNM=80)
+      PARAMETER (LENFNM=140)
 !
 !  7. Local variables
 !
@@ -306,7 +306,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -409,7 +409,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -552,7 +552,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -576,12 +576,15 @@
 !     40.51: Marcel Zijlema
 !     40.61: Marcel Zijlema
 !     40.64: Marcel Zijlema
+!     41.12: Nico Booij
 !
 !  1. Updates
 !
 !     40.41, Oct. 04: taken from the include file SWCOMM1.INC
 !     40.21, Apr. 04: NMOVAR increased by 1
 !                     (reserved for diffraction)
+!     40.35, Jun. 04: NMOVAR increased by 2 (quantities DISTUR
+!                     and TURB added)
 !     40.41, Sep. 04: NMOVAR increased by 2 (quantities TMM10
 !                     and RTMM10 added)
 !     40.51, Feb. 05: NMOVAR increased by 1 (quantity TMBOT added)
@@ -590,9 +593,14 @@
 !     40.51, Feb. 06: NMOVAR increased by 1 (quantity TPS added)
 !     40.61, Sep. 06: NMOVAR increased by 3 (quantities DISBOT,
 !                     DISSRF and DISWCP added)
+!     40.61, Sep. 06: NMOVAR increased by 1 (quantity DISMUD added)
+!     40.61, Sep. 06: NMOVAR increased by 1 (quantity DISVEG added)
 !     40.64, Apr. 07: NMOVAR increased by 2 (quantities QP and BFI added)
 !     40.85, Aug. 08: NMOVAR increased by 10 (quantities GENE, GENW, REDI, REDQ, REDT,
 !                                             PROPA, PROPX, PROPT, PROPS and RADS added)
+!     41.12, Apr. 10: NMOVAR increased by 1 (quantity NPL added)
+!     41.15, Mar. 11: NMOVAR increased by 1 (quantity LWAVP added)
+!     41.72, Nov. 19: MOUTPA increased by 1 (quantity NOSWLL)
 !
 !  2. Purpose
 !
@@ -614,11 +622,11 @@
 !
 !  6. Parameter variables
 !
-!     NMOVAR [  69]  maximum number of output variables                   40.85 40.64 40.61 40.51 40.21 40.41
-!     MOUTPA [  50]  number of output parameters                          40.87
+!     NMOVAR [ 171]  maximum number of output variables                   41.62 40.85 40.64 40.61 40.51 40.21 40.41
+!     MOUTPA [  51]  number of output parameters                          41.72 40.87
 !
       INTEGER NMOVAR, MOUTPA
-      PARAMETER (NMOVAR = 69, MOUTPA=50)                                  40.85 40.87 40.64 40.61 40.51 40.21 40.41
+      PARAMETER (NMOVAR = 171, MOUTPA=51)                                 41.72 41.62 40.35 41.15 40.85 40.87 40.64 40.61 40.51 40.21 40.41
 !
 !  7. Local variables
 !
@@ -678,6 +686,7 @@
 !  (54) [  'DISB']
 !  (55) [ 'DISSU']
 !  (56) [  'DISW']
+!  (57) [  'DISV']
 !  (58) [    'QP']
 !  (59) [   'BFI']
 !  (60) [  'GENE']
@@ -690,6 +699,16 @@
 !  (67) [ 'PROPT']
 !  (68) [ 'PROPS']
 !  (69) [  'RADS']
+!  (70) [   'NPL']
+!  (71) [ 'LWAVP']
+!  (72) [  'DISTU']
+!  (73) [  'TURB']
+!  (74) [  'DISM']
+!  (75) [ 'DISSL']
+!  (76) ['DISICE']
+!  (77) [  'AICE']
+!  (78) [  'HICE']
+!  (79) [ 'FHSWE']
 ! OVSNAM(NMOVAR)   short name of output quantity
 !  ( 1) [    'Xp']
 !  ( 2) [    'Yp']
@@ -742,6 +761,7 @@
 !  (54) [ 'Sfric']
 !  (55) [ 'Ssurf']
 !  (56) [ 'Swcap']
+!  (57) [  'Sveg']
 !  (58) [    'Qp']
 !  (59) [   'BFI']
 !  (60) ['Genera']
@@ -754,6 +774,16 @@
 !  (67) ['Propth']
 !  (68) ['Propsi']
 !  (69) ['Radstr']
+!  (70) ['Nplant']
+!  (71) [ 'Lwavp']
+!  (72) [  'Stur']
+!  (73) [  'Turb']
+!  (74) [  'Smud']
+!  (75) ['Sswell']
+!  (76) [  'Sice']
+!  (77) ['  aice']
+!  (78) ['  hice']
+!  (79) ['FHswel']
 ! OVLNAM(NMOVAR)   long name of output quantity
 !  ( 1) [                        'X user coordinate']
 !  ( 2) [                        'Y user coordinate']
@@ -806,6 +836,7 @@
 !  (54) [              'Bottom friction dissipation']
 !  (55) [                'Surf breaking dissipation']
 !  (56) [                 'Whitecapping dissipation']
+!  (57) [                   'Vegetation dissipation']
 !  (58) [                               'Peakedness']
 !  (59) [                      'Benjamin-Feir index']
 !  (60) [                        'Energy generation']
@@ -818,6 +849,16 @@
 !  (67) [                        'theta-propagation']
 !  (68) [                        'sigma-propagation']
 !  (69) [                         'Radiation stress']
+!  (70) [                            'Plants per m2']
+!  (71) [                         'Peak wave length']
+!  (72) [                    'Turbulent dissipation']
+!  (73) [                      'Turbulent viscosity']
+!  (74) [                    'Fluid mud dissipation']
+!  (75) [                        'Swell dissipation']
+!  (76) [                      'Sea ice dissipation']
+!  (77) [             'ice concentration (fraction)']
+!  (78) [                            'ice thickness']
+!  (79) [                           'FEWS Hm0 swell']
 ! OVUNIT(NMOVAR)   unit of of output quantity
 !  ( 1) [CALCULAT] =UL
 !  ( 2) [CALCULAT] =UL
@@ -870,6 +911,7 @@
 !  (54) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (55) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (56) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (57) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (58) [     ' ']
 !  (59) [     ' ']
 !  (60) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
@@ -882,6 +924,16 @@
 !  (67) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (68) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (69) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (70) [  '1/m2']
+!  (71) [CALCULAT] =UL
+!  (72) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (73) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (74) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (75) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (76) [  'm2/s'] changes to 'W/m2' if INRHOG=1
+!  (77) [     ' ']
+!  (78) [     'm']
+!  (79) [    'UH']
 ! SNAME [        ] name of output point set
 ! UAP   [  'W/m2'] unit of dissipation
 ! UD    [        ] not used
@@ -979,6 +1031,7 @@
 !  (54)  [  1]   Sfric
 !  (55)  [  1]   Ssurf
 !  (56)  [  1]   Swcap
+!  (57)  [  1]   Sveg
 !  (58)  [  1]   Qp
 !  (59)  [  1]   BFI
 !  (60)  [  1]   Genera
@@ -991,6 +1044,16 @@
 !  (67)  [  1]   Propth
 !  (68)  [  1]   Propsi
 !  (69)  [  1]   Radstr
+!  (70)  [  1]   Nplant
+!  (71)  [  1]   Lwavp
+!  (72)  [  1]   Stur
+!  (73)  [  1]   Turb
+!  (74)  [  1]   Smud
+!  (75)  [  1]   Sswell
+!  (76)  [  1]   Sice
+!  (77)  [  1]   aice
+!  (78)  [  1]   hice
+!  (79)  [  1]   fhswe
 ! OVEXCV(NMOVAR)   exception value for output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1041,6 +1104,7 @@
 !  (54)  [    -9.] Sfric
 !  (55)  [    -9.] Ssurf
 !  (56)  [    -9.] Swcap
+!  (57)  [    -9.] Sveg
 !  (58)  [    -9.] Qp
 !  (59)  [    -9.] BFI
 !  (60)  [    -9.] Genera
@@ -1053,6 +1117,16 @@
 !  (67)  [    -9.] Propth
 !  (68)  [    -9.] Propsi
 !  (69)  [    -9.] Radstr
+!  (70)  [    -9.] Nplant
+!  (71)  [    -9.] Lwavp
+!  (72)  [    -9.] Stur
+!  (73)  [   -99.] Turb
+!  (74)  [    -9.] Smud
+!  (75)  [    -9.] Sswell
+!  (76)  [    -9.] Sice
+!  (77)  [    -9.] aice
+!  (78)  [    -9.] hice
+!  (79)  [   100.] fhswe
 ! OVLEXP(NMOVAR)   lower expected limit of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1103,6 +1177,7 @@
 !  (54)  [     0.] Sfric
 !  (55)  [     0.] Ssurf
 !  (56)  [     0.] Swcap
+!  (57)  [     0.] Sveg
 !  (58)  [     0.] Qp
 !  (59)  [     0.] BFI
 !  (60)  [     0.] Genera
@@ -1115,6 +1190,16 @@
 !  (67)  [     0.] Propth
 !  (68)  [     0.] Propsi
 !  (69)  [     0.] Radstr
+!  (70)  [     0.] Nplant
+!  (71)  [     0.] Lwavp
+!  (72)  [     0.] Stur
+!  (73)  [     0.] Turb
+!  (74)  [     0.] Smud
+!  (75)  [     0.] Sswell
+!  (76)  [     0.] Sice
+!  (77)  [     0.] aice
+!  (78)  [     0.] hice
+!  (79)  [     0.] fhswell
 ! OVLLIM(NMOVAR)   lower limit of validity of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1165,6 +1250,7 @@
 !  (54)  [     0.] Sfric
 !  (55)  [     0.] Ssurf
 !  (56)  [     0.] Swcap
+!  (57)  [     0.] Sveg
 !  (58)  [     0.] Qp
 !  (59)  [     0.] BFI
 !  (60)  [     0.] Genera
@@ -1177,6 +1263,16 @@
 !  (67)  [     0.] Propth
 !  (68)  [     0.] Propsi
 !  (69)  [     0.] Radstr
+!  (70)  [     0.] Nplant
+!  (71)  [     0.] Lwavp
+!  (72)  [     0.] Stur
+!  (73)  [     0.] Turb
+!  (74)  [     0.] Smud
+!  (75)  [     0.] Sswell
+!  (76)  [     0.] Sice
+!  (77)  [     0.] aice
+!  (78)  [     0.] hice
+!  (79)  [     0.] fhswell
 ! OVHEXP(NMOVAR)   upper expected limit of output quantity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1227,6 +1323,7 @@
 !  (54)  [    0.1] Sfric
 !  (55)  [    0.1] Ssurf
 !  (56)  [    0.1] Swcap
+!  (57)  [    0.1] Sveg
 !  (58)  [     1.] Qp
 !  (59)  [  1000.] BFI
 !  (60)  [    0.1] Genera
@@ -1239,6 +1336,16 @@
 !  (67)  [    0.1] Propth
 !  (68)  [    0.1] Propsi
 !  (69)  [    0.1] Radstr
+!  (70)  [   100.] Nplant
+!  (71)  [   200.] Lwavp
+!  (72)  [    0.1] Stur
+!  (73)  [   100.] Turb
+!  (74)  [    0.1] Smud
+!  (75)  [    0.1] Sswell
+!  (76)  [    0.1] Sice
+!  (77)  [    1.0] aice
+!  (78)  [    10.] hice
+!  (79)  [    10.] fhswell
 ! OVULIM(NMOVAR)   upper limit of validity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1289,6 +1396,7 @@
 !  (54)  [  1000.] Sfric
 !  (55)  [  1000.] Ssurf
 !  (56)  [  1000.] Swcap
+!  (57)  [  1000.] Sveg
 !  (58)  [     1.] Qp
 !  (59)  [  1000.] BFI
 !  (60)  [  1000.] Genera
@@ -1301,6 +1409,16 @@
 !  (67)  [  1000.] Propth
 !  (68)  [  1000.] Propsi
 !  (69)  [  1000.] Radstr
+!  (70)  [  1000.] Nplant
+!  (71)  [  1000.] Lwavp
+!  (72)  [  1000.] Stur
+!  (73)  [    10.] Turb
+!  (74)  [  1000.] Smud
+!  (75)  [  1000.] Sswell
+!  (76)  [  1000.] Sice
+!  (77)  [    1.0] aice
+!  (78)  [   100.] hice
+!  (79)  [   100.] fhswell
 ! SINCQ  [       ] sin of ALCQ
 ! SINPQ  [       ] sin of ALPQ
 ! SPCPOW [      1] power in expression for computation of average frequency
@@ -1359,7 +1477,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1380,10 +1498,14 @@
 !  0. Authors
 !
 !     40.41: Marcel Zijlema
+!     41.13: Nico Booij
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
 !     40.41, Oct. 04: taken from the include file SWCOMM2.INC
+!     41.13, Jul. 10: NWAMN unused, replaced by LWDATE (length of WAM date)
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -1405,10 +1527,10 @@
 !
 !  6. Parameter variables
 !
-!     NUMGRD [  10]  maximum number of grids
+!     NUMGRD [  15]  maximum number of input grids
 !
       INTEGER NUMGRD
-      PARAMETER (NUMGRD = 10)
+      PARAMETER (NUMGRD = 15)
 !
 !  7. Local variables
 !
@@ -1425,15 +1547,20 @@
 ! grid(8): y-coordinate
 ! grid(9): x-coordinate
 ! grid(10): air-sea temperature difference
+! grid(11): number of plants per square meter
+! grid(12): turbulent viscosity
+! grid(13): fluid mud layer
+! grid(14): ice concentration (fraction)
+! grid(15): ice thickness (m)
 !
 ! ALPG(NUMGRD)  [    0.] direction of the x-axis w.r.t. user coordinates
+! CCURV         [ FALSE] correction curvilinear grid
 ! COSPG(NUMGRD) [    1.] cos of ALPG
 ! COSVC         [CALCUL] =COS(-ALPG(2)),
 !                        cos of angle of current input grid w.r.t. user coordinates
 ! COSWC         [CALCUL] =COS(-ALPG(5)),
 !                        cos of angle of wind input grid w.r.t. user coordinates
 ! CVLEFT        [      ] the (curv.lin.) comput. grid is left/right-oriented
-
 ! DXG(NUMGRD)   [    0.] mesh size of input grid in x-direction
 ! DYG(NUMGRD)   [    0.] mesh size of input grid in y-direction
 ! DYNDEP        [   FAL] is True if depth varies with time
@@ -1447,10 +1574,10 @@
 !                        =2 when grid is curvilinear
 ! LEDS(NUMGRD)  [     0] =0 when values have not been read
 !                        =1 if values were read
+! LWDATE        [     0] length of date-time in WAM file
 ! LXOFFS        [   FAL] offset values were/were not initialized already
 ! MXG(NUMGRD)   [     0] number of meshes in x-direction
 ! MYG(NUMGRD)   [     0] number of meshes in y-direction
-! NWAMN         [     0] indicator (=1) for a WAM-nested run
 ! OPTG          [     1] type of the computational grid
 !                        =1 when regular
 !                        =2 when irregular, but rectangular (not used)
@@ -1471,8 +1598,13 @@
 ! STAGY(NUMGRD) [    0.] staggering of curv.lin. inp. grid w.r.t. comp. grid in Y
 ! VARAST        [   FAL] air-sea temp. diff. is/is not variable over space
 ! VARFR         [   FAL] friction coefficient is/is not variable over space
+! VARMUD        [   FAL] fluid mud layer is/is not variable over space
+! VARNPL        [   FAL] number of plants / m2 is/is not variable over space
+! VARTUR        [   FAL] turbulent viscosity is/is not variable over space
 ! VARWI         [   FAL] wind velocity is/is not variable over space
 ! VARWLV        [   FAL] water level is/is not variable over space
+! VARAICE       [   FAL] ice concentration (fraction) is/is not variable over space
+! VARHICE       [   FAL] ice thickness is/is not variable over space
 ! XPG(NUMGRD)   [    0.] x of origin
 ! XOFFS         [    0.] offset value in x
 !                        (from user coord. system to internal coord. system)
@@ -1482,18 +1614,22 @@
 !
       INTEGER ICOND
       INTEGER IGTYPE(NUMGRD),           LEDS(NUMGRD)
-      INTEGER MXG(NUMGRD), MYG(NUMGRD), NWAMN
+      INTEGER MXG(NUMGRD), MYG(NUMGRD), LWDATE
       INTEGER OPTG,        NBFILS,      NBSPEC,      NBGRPT
+      REAL*8  RDTIM
       REAL    ALPG(NUMGRD),             COSPG(NUMGRD)
       REAL    COSVC,       COSWC,       DXG(NUMGRD)
       REAL    DYG(NUMGRD), EXCFLD(NUMGRD)
-      REAL    RDTIM,       SINPG(NUMGRD)
+      REAL    SINPG(NUMGRD)
       REAL    SINVC,       SINWC,       STAGX(NUMGRD)
       REAL    STAGY(NUMGRD),            XOFFS
       REAL    XPG(NUMGRD), YOFFS,       YPG(NUMGRD)
       LOGICAL CVLEFT,      LXOFFS,      VARFR
       LOGICAL VARWI,       VARWLV,      DYNDEP
       LOGICAL VARAST
+      LOGICAL VARNPL,      VARTUR,      VARMUD
+      LOGICAL CCURV                                                       41.53
+      LOGICAL VARAICE,     VARHICE
 !
 !     *** variables for input files ***
 !
@@ -1514,8 +1650,8 @@
       INTEGER      IFLDYN(NUMGRD)
       INTEGER      IFLIDL(NUMGRD), IFLIFM(NUMGRD), IFLNHF(NUMGRD),
      &             IFLNHD(NUMGRD), IFLNDS(NUMGRD), IFLNDF(NUMGRD)
-      REAL         IFLBEG(NUMGRD), IFLINT(NUMGRD), IFLEND(NUMGRD),
-     &             IFLTIM(NUMGRD)
+      REAL*8       IFLBEG(NUMGRD), IFLINT(NUMGRD), IFLEND(NUMGRD)
+      REAL*8       IFLTIM(NUMGRD)
       REAL         IFLFAC(NUMGRD)
       CHARACTER*40 IFLFRM(NUMGRD)
 !
@@ -1557,7 +1693,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -1578,10 +1714,12 @@
 !  0. Authors
 !
 !     40.41: Marcel Zijlema
+!     41.75: Erick Rogers
 !
 !  1. Updates
 !
 !     40.41, Oct. 04: taken from the include file SWCOMM3.INC
+!     41.75, Jan. 19: adding sea ice
 !
 !  2. Purpose
 !
@@ -1605,45 +1743,53 @@
 !
 !     MBOT   [  10] dimension of array PBOT
 !     MDIFFR [  10] dimension of array PDIFFR                             40.21
-!     MDISP  [   3] dimension for dissipation arrays                      40.67
+!     MDISP  [   8] dimension for dissipation arrays                      41.75 40.59 40.35 40.67
 !     MGENR  [   1] dimension for generation arrays                       40.85
-!     MICMAX [  10] max. number of points in comput. stencil
-!     MNUMS  [  35] dimension of array PNUMS
+!     MICMAX [  13] max. number of points in comput. stencil
+!     MMUD   [  10] dimension of array PMUD
+!     MNUMS  [  40] dimension of array PNUMS
 !     MQUAD  [  10] dimension of array PQUAD
 !     MREDS  [   2] dimension for redistribution arrays                   40.85
 !     MSETUP [   2] dimension of array PSETUP
 !     MSHAPE [   5] dimension of array PSHAPE
 !     MSPPAR [   5] dimension of array SPPARM
-!     MSURF  [  15] dimension of array PSURF                              41.06
+!     MSURF  [  20] dimension of array PSURF                              41.38 41.06
 !     MTRNP  [   3] dimension for propagation arrays                      40.85
+!     MTURBV [   5] dimension of array PTURBV                             40.35
 !     MTRIAD [  10] dimension of array PTRIAD
 !     MWCAP  [  15] dimension of array PWCAP
 !     MWIND  [  40] dimension of array PWIND
+!     MIC4M2 [   8] dimension of array PIC4M2
 !
       INTEGER             MBOT,        MNUMS,       MQUAD
       INTEGER             MSETUP,      MSHAPE,      MSPPAR,      MSURF
-      INTEGER             MTRIAD,      MWCAP,       MWIND
+      INTEGER             MTRIAD,      MWCAP,       MWIND,       MTURBV
+      INTEGER             MIC4M2                                          41.75
       INTEGER             MICMAX
       INTEGER             MDIFFR                                          40.21
+      INTEGER             MMUD
       INTEGER             MDISP                                           40.67
       INTEGER             MGENR, MREDS, MTRNP                             40.85
 !
       PARAMETER           (MBOT   = 10)
       PARAMETER           (MDIFFR = 10)                                   40.21
-      PARAMETER           (MDISP  =  3)                                   40.67
+      PARAMETER           (MDISP  =  8)                                   41.75 40.59 40.35 40.67
       PARAMETER           (MGENR  =  1)                                   40.85
       PARAMETER           (MREDS  =  2)                                   40.85
       PARAMETER           (MTRNP  =  3)                                   40.85
-      PARAMETER           (MICMAX = 10)
-      PARAMETER           (MNUMS  = 35)
+      PARAMETER           (MICMAX = 13)
+      PARAMETER           (MMUD   = 10)
+      PARAMETER           (MNUMS  = 40)
       PARAMETER           (MQUAD  = 10)
       PARAMETER           (MSETUP =  2)
       PARAMETER           (MSHAPE =  5)
       PARAMETER           (MSPPAR =  5)
-      PARAMETER           (MSURF  = 15)                                   41.06
+      PARAMETER           (MSURF  = 20)                                   41.38 41.06
       PARAMETER           (MTRIAD = 10)
       PARAMETER           (MWCAP  = 15)
       PARAMETER           (MWIND  = 40)
+      PARAMETER           (MTURBV =  5)                                   40.35
+      PARAMETER           (MIC4M2 =  8)                                   41.75
 !
 !  7. Local variables
 !
@@ -1654,8 +1800,7 @@
 ! JAOLD  [ 8+2*MDISP] within array SWMATR
 ! JASTD2 [  1] new air-sea temp. diff. within array COMPDA
 ! JASTD3 [  1] last read air-sea temp. diff. within array COMPDA
-! JBOTLV [  1] bottom level within array COMPDA
-!              set by command TABLE/BLOCK
+! JBOTLV [ 28] bottom level within array COMPDA
 ! JCDRAG [  1] drag coefficient within array COMPDA,
 !              set by command WCAP JANS ...
 ! JDHS   [  6] wave height correction within array COMPDA
@@ -1669,7 +1814,17 @@
 ! JDP3   [ 15] last read depth within array COMPDA
 ! JDSXB  [  1] bottom friction dissipation within array COMPDA
 !              set by command TABLE/BLOCK
+! JDSXL  [  1] swell dissipation within array COMPDA
+!              set by command TABLE/BLOCK
+! JDSXM  [  1] fluid mud dissipation within array COMPDA
+!              set by command TABLE/BLOCK
 ! JDSXS  [  1] surf dissipation within array COMPDA
+!              set by command TABLE/BLOCK
+! JDSXV  [  1] vegetation dissipation within array COMPDA
+!              set by command TABLE/BLOCK
+! JDSXT  [  1] turbulent dissipation within array COMPDA
+!              set by command TABLE/BLOCK
+! JDSXI  [  1] dissipation by sea ice within array COMPDA
 !              set by command TABLE/BLOCK
 ! JDSXW  [  1] whitecapping dissipation within array COMPDA
 !              set by command TABLE/BLOCK
@@ -1679,6 +1834,8 @@
 !              set by command READ FR ...
 ! JFRC3  [  1] friction coefficient within array COMPDA
 !              set by command READ FR ...
+! JGAMMA [  1] breaker parameter within array COMPDA,
+!              set by command BREAK NKD ...
 ! JGEN0  [   ] within array SWMATR
 ! JGEN1  [   ] within array SWMATR
 ! JGENR  [  1] total generation within array COMPDA
@@ -1696,16 +1853,32 @@
 ! JMATL  [  3] within array SWMATR
 ! JMATR  [  2] within array SWMATR
 ! JMATU  [  4] within array SWMATR
-! JP4D   [  7] within array SWTSDA, quadruplet interactions
-! JP4S   [  6] within array SWTSDA, quadruplet interactions
+! JMUDL1 [   ] old fluid mud layer within array COMPDA
+! JMUDL2 [   ] new fluid mud layer within array COMPDA
+! JMUDL3 [   ] last read fluid mud layer within array COMPDA
+! JAICE2 [   ] new ice fraction within array COMPDA
+! JAICE3 [   ] last read ice fraction within array COMPDA
+! JHICE2 [   ] new ice thickness within array COMPDA
+! JHICE3 [   ] last read ice thickness within array COMPDA
+! JNPLA2 [   ] new number of plants / m2 within array COMPDA
+! JNPLA3 [   ] last read number of plants / m2 within array COMPDA
+! JTURB2 [   ] new turbulent viscosity within array COMPDA                40.35
+! JTURB3 [   ] last read turbulent viscosity within array COMPDA          40.35
+! JP4D   [  7] within array SWTSDA, quadruplet interactions (implicit part)
+! JP4S   [  6] within array SWTSDA, quadruplet interactions (explicit part)
 ! JPBOT  [  1] bottom wave period within array COMPDA
 !              set by command TABLE/BLOCK
 ! JPBTFR [  4] within array SWTSDA, bottom friction
 ! JPTRI  [  8] within array SWTSDA, triad interactions
+! JPVEGT [  9] within array SWTSDA, vegetation dissipation
+! JPTURB [ 10] within array SWTSDA, turbulent dissipation
+! JPMUD  [ 11] within array SWTSDA, fluid mud dissipation
+! JPICE  [ 13] within array SWTSDA, dissipation by sea ice
 ! JPWBRK [  5] within array SWTSDA, surf breaking
 ! JPWCAP [  3] within array SWTSDA, white capping
-! JPWNDA [  1] within array SWTSDA, wind source term part A
-! JPWNDB [  2] within array SWTSDA, wind source term part B
+! JPWNDD [  2] within array SWTSDA, wind input term (implicit part)
+! JPWNDS [  1] within array SWTSDA, wind input term (explicit part)
+! JPSWEL [ 12] within array SWTSDA, swell dissipation
 ! JQB    [  4] fraction of breaking waves within array COMPDA
 ! JRADS  [  1] radiation stress within array COMPDA
 !              set by command TABLE/BLOCK
@@ -1717,6 +1890,8 @@
 !              set by command TABLE/BLOCK
 ! JRSXT  [  1] triads within array COMPDA
 !              set by command TABLE/BLOCK
+! JRESPL [  1] response length within array COMPDA,
+!              set by command BREAK NKD ...
 ! JSETUP [  1] setup values within array COMPDA
 ! JSTP   [  5] steepness within array COMPDA
 ! JTAUW  [  1] TauW within array COMPDA,
@@ -1750,15 +1925,19 @@
 ! JWY3   [ 19] y of last read wind velocity within array COMPDA
 ! JZEL   [  1] roughness within array COMPDA,
 !              set by command WCAP JANS ...
-! MCMVAR [ 27] within array COMPDA,
+! MCMVAR [ 28] within array COMPDA,
 !              =MCMVAR+2, for command READ FR ... (add JFRC2, JFRC3)
-!              =MCMVAR+4, for command WCAP JANS ... (add JCDRAG, JTAUW,
-!               JUSTAR, JZEL)
+!              =MCMVAR+4, for command WCAP JANS ... (add JCDRAG, JTAUW, JUSTAR, JZEL)
+!              =MCMVAR+2, for command BREA NKD ... (add JGAMMA, JRESPL)
 !              =MCMVAR+1, for command TABLE/BLOCK TMBOT (add JPBOT)
-!              =MCMVAR+1, for command TABLE/BLOCK BOTLEV (add JBOTLV)
 !              =MCMVAR+1, for command TABLE/BLOCK DISB (add JDSXB)
 !              =MCMVAR+1, for command TABLE/BLOCK DISSU (add JDSXS)
 !              =MCMVAR+1, for command TABLE/BLOCK DISW (add JDSXW)
+!              =MCMVAR+1, for command TABLE/BLOCK DISM (add JDSXM)
+!              =MCMVAR+1, for command TABLE/BLOCK DISV (add JDSXV)
+!              =MCMVAR+1, for command TABLE/BLOCK DISTU (add JDSXT)
+!              =MCMVAR+1, for command TABLE/BLOCK DISIC (add JDSXI)
+!              =MCMVAR+1, for command TABLE/BLOCK DISSL (add JDSXL)
 !              =MCMVAR+1, for command TABLE/BLOCK GENE (add JGENR)
 !              =MCMVAR+1, for command TABLE/BLOCK GENW (add JGSXW)
 !              =MCMVAR+1, for command TABLE/BLOCK REDI (add JREDS)
@@ -1770,11 +1949,11 @@
 !              =MCMVAR+1, for command TABLE/BLOCK PROPS (add JTSXS)
 !              =MCMVAR+1, for command TABLE/BLOCK RADST (add JRADS)
 ! MLSWMAT [  2] within array LSWMAT
-! MSWMATR [ 13] within array SWMATR
-! MTSVAR [  8] within array TESTDA
+! MSWMATR [ 16] within array SWMATR
+! MTSVAR  [ 11] within array TESTDA
 !
       INTEGER             JABIN,       JABLK,       JAOLD
-      INTEGER             JASTD2,      JASTD3
+      INTEGER             JASTD2,      JASTD3,      JGAMMA,      JRESPL
       INTEGER             JCDRAG,      JDHS,        JDIS0
       INTEGER             JDIS1,       JDISS,       JDPSAV,      JDP1
       INTEGER             JDP2
@@ -1782,8 +1961,11 @@
       INTEGER             JGEN0,       JGEN1,       JRED0,       JRED1
       INTEGER             JTRA0,       JTRA1
       INTEGER             JDSXB
+      INTEGER             JDSXL
       INTEGER             JDSXS
       INTEGER             JDSXW
+      INTEGER             JDSXM
+      INTEGER             JDSXV,       JDSXT
       INTEGER             JGSXW,       JGENR
       INTEGER             JRSXQ,       JRSXT,       JREDS,       JRADS
       INTEGER             JTSXG,       JTSXT,       JTSXS,       JTRAN
@@ -1791,7 +1973,10 @@
       INTEGER             JLEK1,       JMAT5,       JMAT6,       JMATD
       INTEGER             JMATL,       JMATR,       JMATU
       INTEGER             JP4D,        JP4S,        JPBTFR,      JPTRI
-      INTEGER             JPWBRK,      JPWCAP,      JPWNDA,      JPWNDB
+      INTEGER             JPWBRK,      JPWCAP,      JPWNDD,      JPWNDS
+      INTEGER             JPMUD,       JMUDL1,      JMUDL2,      JMUDL3
+      INTEGER             JPVEGT,      JNPLA2,      JNPLA3
+      INTEGER             JPTURB,      JTURB2,      JTURB3
       INTEGER             JQB,         JSETUP,      JSTP,        JTAUW
       INTEGER             JUBOT,       JUSTAR,      JVX1,        JVX2
       INTEGER             JVX3,        JVY1,        JVY2,        JVY3
@@ -1800,6 +1985,9 @@
       INTEGER             JWY2,        JWY3,        JZEL  ,      JPBOT
       INTEGER             MCMVAR,                   MTSVAR,      JURSEL
       INTEGER             JBOTLV,      MSWMATR,     MLSWMAT
+      INTEGER             JPSWEL
+      INTEGER             JAICE2,      JAICE3,      JHICE2,      JHICE3   41.75
+      INTEGER             JPICE,       JDSXI                              41.75
 !
 !     *** location and dimensions of computational grid ***
 !
@@ -1807,6 +1995,7 @@
 !                  direction of user coordinates w.r.t. computational coordinates
 ! ALOCMP [ FALSE]  if True, array COMPDA must be re-allocated
 ! ALPC   [    0.]  direction of x-axis of computational grid w.r.t. user coordinates
+! COSLAT [    10]  cos of latitude; =1 for Cartesian coordinates
 ! COSPC  [CALCUL] =COS(ALPC)
 ! DX     [CALCUL] =XCLEN/MXS; mesh size in x-direction of computational grid
 ! DY     [CALCUL] =YCLEN/MYS; mesh size in y-direction of computational grid
@@ -1820,9 +2009,12 @@
 !                  (mesh in frequency space runs from sigma/FRINTH to sigma*FRINTH)
 ! FULCIR [  TRUE]  spectral directions cover the full/part of circle
 ! ICOMP  [     1]  unused
+! ILMAX  [CALCUL]  maximum number of layers to be used in vegetation model
 ! IXCGRD [      ]  IX of points of computational stencil
 ! IYCGRD [      ]  IY of points of computational stencil
 ! KCGRD  [      ]  grid address of points of computational stencil
+! RDFSIN [   100] reduction factor as function of frequency for wind input term
+!                 (will be assigned to LFACTOR in SdsBabanin.f90)
 ! MCGRD  [     1]  number of wet grid points of the computational grid
 ! MDC    [     0]  grid points in theta-direction of computational grid
 ! MDC4MA [CALCUL] =IDHGH; some counter for quadruplet interactions. Stored in WWINT(18)
@@ -1861,6 +2053,9 @@
       INTEGER             MSC,         MSC4MA,      MSC4MI,      MTC
       INTEGER             MXC,         MYC,         NX,          NY
       INTEGER             NGRBND
+      INTEGER             ILMAX
+      REAL                COSLAT(MICMAX)
+      REAL                RDFSIN(100)
       REAL                ALCP,        ALPC,        COSPC,       DDIR
       REAL                DX,          DXRP,        DY,          DYRP
       REAL                FRINTF,      FRINTH,      SHIG,        SINPC
@@ -1870,11 +2065,13 @@
       REAL                XCGMIN,      XCGMAX,      YCGMIN,      YCGMAX
       LOGICAL             FULCIR
       LOGICAL ::          ALOCMP = .FALSE.                                40.97
-!$OMP THREADPRIVATE(IXCGRD,IYCGRD,KCGRD)
+!$OMP THREADPRIVATE(IXCGRD,IYCGRD,KCGRD,COSLAT)
+!$OMP THREADPRIVATE(RDFSIN)
 !
 !     *** physical parameters ***
 !
 ! CASTD  [    0.] (constant) air-sea temperature difference
+! CDCAP  [99999.] maximum drag coefficient
 ! DEGRAD [CALCUL] =PI/180; constant to transform degrees to radians
 ! DNORTH [   90.] direction of the North w.r.t. x-axis of user coordinates
 !                 =nor; set by command SET ... [nor] ...
@@ -1903,12 +2100,16 @@
 !                 tail factor for the second moment of energy
 ! RHO    [ 1025.] density of the water
 !                 =rho; set by command SET ... [rho] ...
+! USCAP  [99999.] maximum ustar
 ! WLEV   [    0.] water level
 !                 =level; set by command SET [level] ...
+! ICEWIND [   0.] factor controlling wind input through ice cover
+!                 ; set by command SET [ICEWIND] ...
 !
-      REAL CASTD
+      REAL CASTD,       CDCAP,       USCAP
       REAL DEGRAD,      DNORTH,      GRAV,        PI
       REAL PI2,         PWTAIL(10),  RHO,         WLEV
+      REAL ICEWIND
 !
 !     *** information related to the numerical scheme ***
 !
@@ -1925,6 +2126,7 @@
 !                 in the spectrum (boundary spectra etc.)
 !                 =1: directional spread in degrees is given
 !                 =2: power of COS is given
+! FPI    [   ---] wind sea part of peak frequency
 ! FSHAPE [     2] indicates option for computation of frequency distribution
 !                 in the spectrum (boundary spectra etc.)
 !                 =2: Jonswap(default set by subr SWINIT),
@@ -1937,6 +2139,7 @@
 !                 =1; set by command FRIC JON  ..., Jonswap bottom friction model
 !                 =2; for command FRIC COLL ..., Collins bottom friction model
 !                 =3; for command FRIC MAD  ..., Madsen bottom friction model
+!                 =5; for command FRIC RIP  .... roughness due to ripples and sediment
 ! ICMAX  [     3] number of points in computational stencil
 ! ICOR   [      ] not used
 ! ICUR   [     0] indicates presence of currents:
@@ -1947,6 +2150,16 @@
 ! IDIFFR [     0] diffraction method                                      40.21
 !                 0= no diffraction                                       40.21
 !                 1= diffraction                                          40.21
+! IDISRF [     0] indicates wave directionality in surf breaking          41.47
+!                 0=no wave directionality                                41.47
+!                 1=wave directionality included                          41.47
+! IDRAG  [     2] indicates formulation for wind drag coefficient         41.49 41.33
+!                 1=Wu (1982)                                             41.33
+!                 2=2nd order polynomial fit (see CE publication, 2012)   41.33
+!                 3=Cd based on cross swell                               41.33
+!                 4=Hwang (2011)                                          40.88
+!                 5=Fan (2012)                                            40.88
+!                 6=ECMWF                                                 40.88
 ! IFRSRF [     0] indicates frequency dependent surf breaking             41.06
 !                 0=no frequency dependency                               41.06
 !                 1=frequency dependency                                  41.06
@@ -1954,7 +2167,22 @@
 !                 =1; for command GEN1 ...,
 !                 =2; for command GEN2 ...,
 !                 =3; for command GEN3 ...,
+! IICE   [      ] indicates how ice is to be handled within the model
+!                 =0; for no representation of sea ice (default)
+!                 =1; activated with keyword "CICE" in "INPUT" file.
+!                     Vestigial code: not in public release.
+!                 =2; activated with keyword "ADCICE" in "INPUT" file.
+!                     Vestigial code: not in public release.
+!                 =3; activated with keyword "IC4M2" in "INPUT" file.
+!                     Active code: dissipation by sea ice using method IC4M2
+!CTGA 111003:  Full ice implementation.  Parameter read in swanpre1.ftn
+!CTGA! IICE   [      ] indicates how ice is to be handled within the model
+!CTGA!                 =1; for undefined command
+!CTGA!                 =2; for command CICE ADCICE ...
 ! IINC   [     0] not used
+! IMUD   [     0] indicates fluid mud dissipation term:
+!                 =0; no dissipation due to fluid mud
+!                 =1; dissipation due to fluid mud according to Ng (2000)
 ! IPRE   [      ] not used
 ! IQUAD  [     2] indicates quadruplet interaction term:
 !                 =0; for command OFF QUAD
@@ -1996,6 +2224,12 @@
 !                 =3; for command TRI [trfac] [cutfr], as in manual
 !                 =3; for command TRI LTA IMP ..., not documented in manual
 !                 =4; for command TRI LTA EXP ..., not documented in manual
+! IVEG   [     0] indicates vegetation dissipation term:
+!                 =0; no dissipation due to vegetation
+!                 =1; dissipation due to vegetation according to Dalrymple (1984)
+! ITURBV [     0] indicates if turbulent viscosity is activated           40.35
+!                 =0; not activated                                       40.35
+!                 =1; activated                                           40.35
 ! IWCAP  [     1] indicates whitecapping:
 !                 =0; for command GEN1 ...,
 !                 =0; for command GEN2 ...,
@@ -2035,6 +2269,7 @@
 !                 =1; setup is calculated
 !                 =2; setup is calculated with the boundary conditions from
 !                     a nest file
+! LSPNAR [.fals.] indicates whether directional spread is too narrow or not
 ! MXITST [    50] max. number of iterations in stationary computations
 ! MXITNS [     1] max. number of iterations in nonstationary computations
 ! NCOR   [     1] not used
@@ -2056,11 +2291,33 @@
 !                 not documented in the manual
 !  ( 2)  [ 0.015] =cfw; set by command FRIC COL [cfw], (Collins equation),
 !                 also used as CFW in the source code
-!  ( 3)  [ 0.067] =cfjon; set by command FRIC JON [cfjon], (Jonswap equation)
+!  ( 3)  [ 0.038] =cfjon; set by command FRIC JON [cfjon], (Jonswap formulation)
 !  ( 4)  [ -0.08] =mf; value cannot be changed, (Madsen equation)
 !  ( 5)  [  0.05] bottom roughness length scale, (Madsen equation),
 !                 =kn; set by command FRIC JON [kn],
 !                 also used as AKN in the source code
+!  ( 6)  [  2.65] specific gravity of sediment; set by command FRIC RIP [S]
+!  ( 7)  [0.0001] sediment diameter; set by command FRIC RIP [D]
+! PMUD(MMUD)      coefficients for the fluid mud-induced dissipation model
+!  ( 1)  [    0.] =layer; set by command MUD ... [layer] ...
+!  ( 2)  [ 1300.] =rhom; set by command MUD ... [rhom] ...
+!  ( 3)  [0.0027] =viscm; set by command MUD ... [viscm] ...
+!  ( 4)  [  RHOW] =rhow; set by command MUD ... [rhow] ...
+!  ( 5)  [1.3E-6] =viscw; set by command MUD ... [viscw] ...
+! PIC4M2(MIC4M2)  coefficients for the dissipation by sea ice using simple
+!                 polynomial with integer powers. (Sice method=IC4M2)
+!                 ki= C0*f^0 + C1*f^1 ... C5*f^5 + C6*f^6
+!                 The first coefficient is reserved for ice concentration
+!                   but it used only if the user elects to treat ice concentration
+!                   as constant and uniform.
+!  ( 1)  [    0.] = ice concentration (as fraction between 0 and 1)
+!  ( 2)  [    0.] = coefficient C0, for f^0 term
+!  ( 3)  [    0.] = coefficient C1, for f^1 term
+!  ( 4)  [    0.] = coefficient C2, for f^2 term
+!  ( 5)  [    0.] = coefficient C3, for f^3 term
+!  ( 6)  [    0.] = coefficient C4, for f^4 term
+!  ( 7)  [    0.] = coefficient C5, for f^5 term
+!  ( 8)  [    0.] = coefficient C6, for f^6 term
 ! PNUMS(MNUMS)    numerical coefficients
 !                 accuracy criterion:
 !  ( 1)  [  0.02] relative error in Hs and Tm01
@@ -2134,6 +2391,14 @@
 !                 =niter, set by command NUM SETUP ... [niter] ...
 !  (28)  [    1.] Qb-value at which the limiter is not active in case lowering AC2
 !  (30)  [    0.] =under-relaxation factor
+!  (33)  [    0.] indicates use of Courant limiter for csigma
+!                 =0. no limiter
+!                 =1. csigma will be limited
+!  (34)   [  0.5] =upper limit of CFL restriction for csigma
+!  (35)  [    0.] indicates use of Courant limiter for ctheta
+!                 =0. no limiter
+!                 =1. ctheta will be limited
+!  (36)   [  0.5] =upper limit of CFL restriction for ctheta
 ! PQUAD(MQUAD)    coefficients for quadruplet interaction
 !  ( 1)  [  0.25] lambda in eq. B29 of user manual
 !  ( 2)  [  3.E7] coefficient of interactions
@@ -2174,7 +2439,7 @@
 !                 =0.012; set by command BRE VAR
 !                 =coeff2; set by command BRE VAR ... [coeff2]
 ! PTRIAD(MTRIAD)
-!  ( 1)  [  0.05] controls the proportionality coefficient,
+!  ( 1)  [  0.65] controls the proportionality coefficient,
 !                 =trfac; set by command TRIAD ... [trfac] ...
 !  ( 2)  [   2.5] controls the maximum frequency considered in the comp.,
 !                 =cutfr; set by command TRIAD ... [cutfr]
@@ -2311,6 +2576,9 @@
 !                 =gamma; set by command BOU STAT ... JON [gamma]
 ! U10    [    0.] wind velocity
 !                 =vel; set by command WIND [vel] ...
+!CTGA 111003:  Full ice implementation.  Parameter read in swanpre1.ftn
+! WBICETH[  70.0] Minimum ice concentration (percentage out of 100.0)
+!                 necessary to trigger wave blocking.
 ! WDIC   [CALCUL] =PI2*((WDIP/PI2-NINT(WDIP/PI2)),
 ! WDIP   [    0.] wind direction with respect to problem coordinates
 !                 =dir; set by command WIND ... [dir]
@@ -2321,11 +2589,17 @@
       INTEGER             IDBR,        IDIF,        IGEN,        IINC
       INTEGER             IPRE,        IQUAD,       IREFR,       ISURF
       INTEGER             ITERMX,      ITFRE,       ITRIAD
-      INTEGER             IWCAP,       IWIND,       LSETUP
+      INTEGER             IWCAP,       IWIND,       LSETUP,      IDRAG
       INTEGER             MXITST,      MXITNS,                   NCOR
       INTEGER             NSTATC,      NSTATM,      NUMOBS,      NCOMPT   40.41
       INTEGER             IDIFFR                                          40.21
+      INTEGER             IMUD                                            40.59
+      INTEGER             IVEG                                            40.55
+      INTEGER             ITURBV                                          40.35
       INTEGER             IFRSRF                                          41.06
+      INTEGER             IDISRF                                          41.47
+!CTGA 111003:  Full ice implementation.  Parameter read in swanpre1.ftn
+      INTEGER             IICE                                            41.75/CTGA
       REAL                DEPMIN,      PBOT(MBOT),  PNUMS(MNUMS)
       REAL                PSETUP(MSETUP),           PSHAPE(MSHAPE)
       REAL                PSURF(MSURF),             PTRIAD(MTRIAD)
@@ -2334,13 +2608,25 @@
       REAL                SPPARM(MSPPAR),SY0,       U10
       REAL                WDIC,          WDIP,      HSRERR
       REAL                PQUAD(MQUAD)
-      REAL                RCOMPT(50,5)
+      REAL*8              RCOMPT(300,5)
       REAL                PDIFFR(MDIFFR)                                  40.21
+      REAL                PMUD(MMUD)                                      40.59
+      REAL                PTURBV(MTURBV)                                  40.35
+      REAL                PIC4M2(MIC4M2)                                  41.75
+!CTGA 111003:  Full ice implementation.  Parameter read in swanpre1.ftn
+      REAL                WBICETH
       LOGICAL             ACUPDA
       LOGICAL             BNDCHK,      BNAUT,       ONED,        BRESCL
       LOGICAL             OFFSRC                                          40.80
       LOGICAL             LADDS                                           40.85
       LOGICAL             CSETUP
+      LOGICAL             LSPNAR
+! parameters for Babanin physics and swell, see Rogers et al (JTECH, 2012)
+      REAL                A1SDS, A2SDS, P1SDS, P2SDS, CDSV, FESWELL       40.88
+      REAL                RDCOEF, B1Z, WNDSCL, CDFAC                      40.88
+      LOGICAL             UPWARDS, VECTOR_TAU, TRUE_U10                   40.88
+      LOGICAL             ROGERS, ZIEGER, ARDHUIN                         40.88
+      REAL                FPI                                             40.88
 !$OMP THREADPRIVATE(ICMAX,CSETUP)
 !
 !  8. Subroutines and functions used
@@ -2381,7 +2667,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2471,7 +2757,6 @@
 !
 !     *** higher order propagation and spherical coordinates ***
 !
-! COSLAT [    10] cos of latitude; =1 for Cartesian coordinates
 ! KREPTX [     0] if >0, the domain repeats itself in x-direction (primarily intended for
 !                 propagation around the globe)
 ! KSPHER [     0] indicates whether spherical coordinates are used, and which projection method
@@ -2496,8 +2781,7 @@
       INTEGER PROPSS,    PROPSN,    PROJ_METHOD
       INTEGER PROPFL
       REAL    WAVAGE,    REARTH,    LENDEG
-      REAL    COSLAT(10)
-!$OMP THREADPRIVATE(COSLAT,PROPSL)
+!$OMP THREADPRIVATE(PROPSL)
 !
 !  8. Subroutines and functions used
 !
@@ -2537,7 +2821,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 2009  Delft University of Technology
+!     Copyright (C) 1993-2020  Delft University of Technology
 !
 !     This program is free software; you can redistribute it and/or
 !     modify it under the terms of the GNU General Public License as
@@ -2607,7 +2891,11 @@
 ! TIMCO     [    ] Time and date of the computation during the simulation (in
 !                  seconds since the reference day (REFDAY))
 !
-      REAL TINIC, DT, TFINC, TIMCO
+      REAL*8 TINIC, DT, TFINC, TIMCO
+!COH!
+!COH! COH_TINIC [   6] Start date and time in vector format (year,month,day,hour,min,sec)
+!COH! COH_TFINC [   6] End date and time in vector format (year,month,day,hour,min,sec)
+!COH      INTEGER COH_TINIC(6), COH_TFINC(6)
 !
 !     *** Time related variables for nested runs ***
 !
