@@ -1,5 +1,5 @@
 #if 0
-    $Id: nfconfig.inc 59820 2018-08-15 12:49:57Z markus $ 
+    $Id$ 
 #endif
 
 

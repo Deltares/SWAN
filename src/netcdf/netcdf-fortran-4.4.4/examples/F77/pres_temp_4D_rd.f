@@ -13,7 +13,7 @@ C     http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-tutorial
 C     Full documentation of the netCDF Fortran 77 API can be found at:
 C     http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-f77
 
-C     $Id: pres_temp_4D_rd.f 59820 2018-08-15 12:49:57Z markus $
+C     
 
       program pres_temp_4D_rd
       implicit none

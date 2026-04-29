@@ -4,7 +4,7 @@ C     See COPYRIGHT file for conditions of use.
 
 C     This program tests netCDF-4 variable functions from fortran.
 
-C     $Id: f03tst_groups.F 59820 2018-08-15 12:49:57Z markus $
+C     
 
       program ftst_groups
       USE netcdf4_f03

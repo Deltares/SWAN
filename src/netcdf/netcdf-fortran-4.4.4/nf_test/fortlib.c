@@ -1,5 +1,5 @@
 /*
- * $Id: fortlib.c 59820 2018-08-15 12:49:57Z markus $
+ * $Id$
  *
  * This file contains support functions for FORTRAN code.  For example,
  * under HP-UX A.09.05, the U77 library doesn't contain the exit()

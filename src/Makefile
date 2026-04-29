@@ -7,7 +7,6 @@
 # To compile the serial executable type "make ser"
 # To compile the OpenMP executable type "make omp"
 # To compile the MPI executable type "make mpi"
-# To compile the PunSWAN executable "make punswan"
 #
 # To remove compiled objects and modules: type "make clean"
 #
@@ -36,6 +35,7 @@ SwanGriddata.$(EXTO) \
 SwanGridobjects.$(EXTO) \
 SwanCompdata.$(EXTO) \
 SdsBabanin.$(EXTO) \
+$(PART_OBJS) \
 $(NCF_OBJS) \
 swan2coh.$(EXTO) \
 swanmain.$(EXTO) \
@@ -89,11 +89,6 @@ SwanCrossObstacle.$(EXTO) \
 SwanComputeForce.$(EXTO) \
 SwanIntgratSpc.$(EXTO) \
 SwanBndStruc.$(EXTO) \
-SwanReadfort18.$(EXTO) \
-SwanPunCollect.$(EXTO) \
-SwanSumOverNodes.$(EXTO) \
-SwanMinOverNodes.$(EXTO) \
-SwanMaxOverNodes.$(EXTO) \
 ocpids.$(EXTO) \
 ocpcre.$(EXTO) \
 ocpmix.$(EXTO)
@@ -111,9 +106,6 @@ $(O_DIR)global_3dvs.$(EXTO) \
 $(O_DIR)version.$(EXTO) \
 $(O_DIR)messenger.$(EXTO)
 
-UNHCAT_EXE = unhcat.exe
-UNHCAT_OBJS = HottifySWAN.$(EXTO)
-
 .SUFFIXES: .f .for .f90
 
 .PHONY: help clean clobber
@@ -125,7 +117,6 @@ help:
 	@echo "make omp       -- makes the OpenMP $(SWAN_EXE) executable"
 	@echo "make mpi       -- makes the    MPI $(SWAN_EXE) executable"
 	@echo "make jac       -- makes the    MPI $(SWAN_EXE) executable"
-	@echo "make punswan   -- makes the parallel un$(SWAN_EXE) executable"
 	@echo "make coh       -- makes the MPI SWAN library for coupling with COHERENS"
 	@echo "make doc       -- makes the SWAN documentation (PDF)"
 	@echo "make clean     -- removes compiled objects and modules"
@@ -164,14 +155,6 @@ jac:
                 INCS="$(INCS_MPI)" LIBS="$(LIBS_MPI)" OBJS="$(SWAN_OBJS)" $(SWAN_EXE)
 	$(MAKE) hcat
 
-punswan:
-	@perl switch.pl $(swch) -pun *.ftn *.ftn90
-	$(MAKE) FOR=$(F90_MPI) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_MPI)" \
-                FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_MPI)" \
-                INCS="$(INCS_MPI) -I$(O_DIR)" LIBS="$(LIBS_MPI)" \
-                OBJS="$(MSG_OBJS) $(SWAN_OBJS)" $(SWAN_EXE)
-	$(MAKE) unhcat
-
 coh:
 	@perl switch.pl $(swch) -mpi -coh *.ftn *.ftn90
 	$(MAKE) FOR=$(F90_MPI) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_MPI) $(FLAGS_DYN)" \
@@ -183,11 +166,6 @@ hcat:
 	$(MAKE) FOR=$(F90_SER) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" \
 	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_SER)" $(HCAT_EXE)
 
-unhcat:
-	@perl switch.pl $(swch) HottifySWAN.ftn90
-	$(MAKE) FOR=$(F90_SER) FFLAGS="$(FLAGS_OPT) $(FLAGS_MSC) $(FLAGS_SER)" \
-	        FFLAGS90="$(FLAGS_OPT) $(FLAGS90_MSC) $(FLAGS_SER)" $(UNHCAT_EXE)
-
 doc:
 	$(MAKE) -f Makefile.latex TARGET=swanuse doc
 	$(MAKE) -f Makefile.latex TARGET=swantech doc
@@ -197,9 +175,6 @@ doc:
 
 $(HCAT_EXE): $(HCAT_OBJS)
 	$(FOR) $(HCAT_OBJS) $(FFLAGS) $(OUT)$(HCAT_EXE)
-
-$(UNHCAT_EXE): $(UNHCAT_OBJS)
-	$(FOR) $(UNHCAT_OBJS) $(FFLAGS) $(OUT)$(UNHCAT_EXE)
 
 $(SWAN_EXE): $(SWAN_OBJS)
 	$(FOR) $(OBJS) $(FFLAGS) $(OUT)$(SWAN_EXE) $(INCS) $(LIBS)
@@ -226,10 +201,10 @@ clean:
 	$(RM) *.$(EXTO) *.mod
 
 clobber:
-	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE) $(UNHCAT_EXE) $(SWAN_LIB)
+	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE) $(SWAN_LIB)
 
 allclean:
-	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE) $(UNHCAT_EXE) $(SWAN_LIB)
+	$(RM) *.$(EXTO) *.mod *.f *.for *.f90 $(SWAN_EXE) $(HCAT_EXE) $(SWAN_LIB)
 
 cleandoc:
 	$(MAKE) -f Makefile.latex TARGET=swanuse cleandoc

@@ -1,7 +1,7 @@
 !/*********************************************************************
 ! *   Copyright 1996, UCAR/Unidata
 ! *   See netcdf/COPYRIGHT file for copying and redistribution conditions.
-! *   $Id: tests.inc 59820 2018-08-15 12:49:57Z markus $
+! *   $Id$
 ! *********************************************************************/
 !!!!
 ! Do not tabify this unless you like hitting the 72 char limit !!!

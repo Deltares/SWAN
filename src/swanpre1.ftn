@@ -41,6 +41,7 @@
       USE SwanIEM, only: nmax, dfiem, e_trsh, sflog                       41.85
       USE SwanBraggScat, only: mkbx, mkby, dkbx, dkby, botspc             41.80
       USE SwanQCM, only: mkxc, mkyc                                       41.90
+!METIS      USE SwanParallel                                                    42.10
 !
       IMPLICIT NONE
 !
@@ -56,7 +57,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -308,7 +309,7 @@
       INTEGER           :: IVAL,NUMCOR,MSS,I,J,NVAR,IVTYPE,IFTMAX
       REAL              :: TRCF,HGT,SLP,BK,OGAM,OBET,REF0,XP,YP
       REAL              :: GAMR, GAMT                                     41.71
-      REAL              :: AFIG, HSS, TSS                                 41.82
+      REAL              :: AFIG, HSS, TSS, DSS                            42.06 41.82
       REAL              :: ALTMP,FRLOW,FRHIG,GAMMA,TMPDIR,VALX,VALY
       REAL*8            :: DIFF
       REAL              :: DEGCNV
@@ -441,9 +442,10 @@
 !     *** LOGCOM(4): command READ COOR has been carried out       ***     40.31
 !     *** LOGCOM(5): command READ UNSTRUC has been carried out    ***     40.80
 !     *** LOGCOM(6): array AC2 has been allocated                 ***     40.31
+!     *** LOGCOM(7): mesh partitioning has been carried out       ***     42.10
 !     *** In the current version, LOGCOM(1) has no meanings       ***     40.80 40.31
 !
-      LOGICAL, SAVE :: LOGCOM(1:6) = .FALSE.                              40.03
+      LOGICAL, SAVE :: LOGCOM(1:7) = .FALSE.                              42.10 40.03
       INTEGER   TIMARR(6)                                                 40.31 30.00
       CHARACTER PSNAME *8, PNAME *8, COMPUT *(*), PTYPE *1, DTTIWR *18    40.00
       INTEGER, SAVE :: IENT = 0       ! number of entries to this subr
@@ -951,7 +953,7 @@
 !             |  DAM <                                    |
 !                     |    DANGremond [hgt] [slope] [Bk]  |
 !
-!      ( FIG [alpha1] [hss] [tss] )                           &           41.82
+!      ( FIG [alpha1] [hss] [tss] [dss] [dd] )                &           42.06 41.82
 !                                                                         40.18
 !                        | -> RSPEC        |                              40.18
 !      ( REFLec [reflc] <                   > )               &
@@ -969,6 +971,8 @@
            CALL MSGERR(2, 'use of obstacles not allowed in 1D mode')
         ENDIF
 !
+        OBSTDONE = .FALSE.                                                42.05
+!
         ALLOCATE(OBSTMP)                                                  40.31
         OBSTMP%TRCOEF(1) = 0.                                             40.31
         OBSTMP%TRCOEF(2) = 0.                                             40.31
@@ -985,6 +989,8 @@
         OBSTMP%IGCOEF(1) = 0.                                             41.82
         OBSTMP%IGCOEF(2) = 0.                                             41.82
         OBSTMP%IGCOEF(3) = 0.                                             41.82
+        OBSTMP%IGCOEF(4) = 0.                                             42.06
+        OBSTMP%IGCOEF(5) = 0.                                             42.06
 !
 !       data concerning transmission of energy over/through the obstacle
 !
@@ -1120,9 +1126,13 @@
            CALL INREAL ('ALPHA1', AFIG, 'REQ', 0.)                        41.93 41.82
            CALL INREAL ('HSS'   , HSS , 'UNC', 0.)                        41.82
            CALL INREAL ('TSS'   , TSS , 'UNC', 0.)                        41.82
+           CALL INREAL ('DSS'   , DSS , 'STA', -999.)                     42.06
+           CALL INREAL ('DD'    , DD  , 'STA', 0.)                        42.06
            OBSTMP%IGCOEF(1) = AFIG
            OBSTMP%IGCOEF(2) = HSS
            OBSTMP%IGCOEF(3) = TSS
+           OBSTMP%IGCOEF(4) = DSS
+           OBSTMP%IGCOEF(5) = DD
         ELSE
            LFIG = 0
         ENDIF
@@ -1326,8 +1336,8 @@
 ! ============================================================================
 !
 !   INPgrid                                                                &
-!      BOTtom / WLEVel / CURrent / VX / VY / FRiction / WInd / WX / WY     &
-!      NPLAnts / TURB / MUDL / AICE / HICE / HSS      / TSS                &
+!      BOTtom / WLEVel / CURrent / VX / VY / FRiction / WInd / WX  / WY    &
+!      NPLAnts / TURB / MUDL / AICE / HICE / HSS      / TSS  / DSS         &
 !      | REG [xpinp] [ypinp] [alpinp]  [mxinp] [myinp]  [dxinp] [dyinp] |
 !     <  CURVilinear [stagrx] [stagry] [mxinp] [myinp]                   > &
 !      | UNSTRUCtured                                                   |
@@ -1402,6 +1412,10 @@
 !         sea-swell mean wave period                                      41.82
           IGRD = 17                                                       41.82
           PSNAME = 'TSSGRID'                                              41.82
+        ELSE IF (KEYWIS ('DSS').OR.KEYWIS ('IGDIR')) THEN                 42.06
+!         sea-swell mean wave direction                                   42.06
+          IGRD = 18                                                       42.06
+          PSNAME = 'DSSGRID'                                              42.06
         ELSE
           IGRD = 1
           PSNAME = 'BOTTGRID'
@@ -1418,7 +1432,7 @@
 !   ============================================================================
 !
 !   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates/              &
-!              NPLAnts/TURB/MUDL/AICE/HICE/HSS/TSS                           &
+!              NPLAnts/TURB/MUDL/AICE/HICE/HSS/TSS/DSS                       &
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])     &
 !        FREE / FORMAT 'form' / [idfm] / UNFORMATTED
@@ -1450,11 +1464,6 @@
            IF (ONED) THEN                                                 40.80
               CALL MSGERR (4,                                             40.80
      &            '1D-simulation cannot be done with unstructured grid')  40.80
-              RETURN                                                      40.80
-           ENDIF                                                          40.80
-           IF (PARLL) THEN                                                40.80
-              CALL MSGERR(4,
-     &             'Unstructured grid is not supported in parallel run')  40.80
               RETURN                                                      40.80
            ENDIF                                                          40.80
 !
@@ -1510,12 +1519,18 @@
             IF ( LOGCOM(4) )                                              40.80
      &      CALL MSGERR (3, '* instead of curvilinear coordinates    *')  40.80
           ELSEIF ( LOGCOM(5) .AND. LOGCOM(2) .AND.                        40.80
-     &            .NOT.LOGCOM(4) .AND. .NOT.LOGCOM(6) ) THEN              40.80
-            CALL SwanInitCompGrid (LOGCOM)                                40.80
-            IF (STPNOW()) RETURN                                          40.80
+     &            .NOT.LOGCOM(4) .AND. .NOT.LOGCOM(6) .AND.               42.10 40.80
+     &            .NOT.LOGCOM(7) ) THEN                                   42.10
+!METIS            CALL SwanDecomposition (LOGCOM)                               42.10
+!METIS            IF (STPNOW()) RETURN                                          42.10
+            IF ( PARLL .AND. .NOT.LOGCOM(7) )                             42.10
+     &         CALL MSGERR (4,                                            42.10
+     &          'to run in parallel the mesh must be partitioned first')  42.10
             CALL SwanCreateEdges                                          40.80
             IF (STPNOW()) RETURN                                          40.80
             CALL SwanGridTopology                                         40.80
+            IF (STPNOW()) RETURN                                          40.80
+            CALL SwanInitCompGrid (LOGCOM)                                40.80
             IF (STPNOW()) RETURN                                          40.80
 !
 !           --- the computational grid is included in output data         40.80
@@ -3663,7 +3678,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -3768,7 +3783,7 @@
       SAVE IENT
       DATA IENT/0/
       CALL STRACE(IENT,'SINPGR')
-      EXCVTR = (/0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0/)
+      EXCVTR = (/0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0/)
 !
 !     *** user gives coord. corner point input grid               ***
 !     *** Regular or curvilinear grid option  for version 30.21   ***
@@ -3798,8 +3813,8 @@
 !            |          |
 !            | WX       |
 !            |          |
-! INPgrid  (<  WY        >) &
-!            |          |
+!            | WY       |
+! INPgrid  (<            >) &
 !            | ASTD     |                                                 40.03
 !            |          |
 !            | NPLAnts  |                                                 40.55
@@ -3815,6 +3830,8 @@
 !            | HSS      |                                                 41.82
 !            |          |
 !            | TSS      |                                                 41.82
+!            |          |
+!            | DSS      |                                                 42.06
 !
 !
 !    | REGular [xpinp] [ypinp] [alpinp] [mxinp] [myinp] [dxinp] [dyinp] |
@@ -3889,13 +3906,19 @@
      &            '1D-simulation cannot be done with unstructured grid')  40.80
            RETURN                                                         40.80
         ENDIF                                                             40.80
+        IF (OPTG.EQ.3) THEN                                               40.80
+           CALL MSGERR (4,                                                40.80
+     &   'Unstructured input grid cannot be used with curvilinear grid')  40.80
+           RETURN                                                         40.80
+        ENDIF                                                             40.80
+
 !
         IGTYPE(IGRID1) = 3                                                40.80
-        MXG(IGRID1)    = nverts                                           40.80
+        MXG(IGRID1)    = nvertsg                                          40.80
         MYG(IGRID1)    = 1                                                40.80
         IF (IGRID2.GT.0) THEN
            IGTYPE(IGRID2) = 3                                             40.80
-           MXG(IGRID2)    = nverts                                        40.80
+           MXG(IGRID2)    = nvertsg                                       40.80
            MYG(IGRID2)    = 1                                             40.80
         ENDIF
       ELSE
@@ -4117,7 +4140,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -4243,8 +4266,8 @@
 ! 13. Source text
 !
       REAL, ALLOCATABLE :: TARR(:)                                        40.31
-      LOGICAL    KEYWIS, VECTOR, LOCAL                                    40.95 30.00
-      LOGICAL    LOGCOM(6)                                                30.21
+      LOGICAL    KEYWIS, VECTOR                                           30.00
+      LOGICAL    LOGCOM(7)                                                42.10 30.21
 !NCF      LOGICAL  NCF
       INTEGER    newsize
       SAVE  IENT
@@ -4256,7 +4279,7 @@
 !   ============================================================================
 !
 !   READinp    BOTtom/WLevel/CURrent/FRiction/WInd/COORdinates/              &
-!              NPLAnts/TURB/MUDL/AICE/HICE/HSS/TSS                           &
+!              NPLAnts/TURB/MUDL/AICE/HICE/HSS/TSS/DSS                       &
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])     &
 !        FREE / FORMAT 'form' / [idfm] / UNFORMATTED
@@ -4380,6 +4403,16 @@
           JTSS3 = MCMVAR                                                  41.82
           ALOCMP = .TRUE.                                                 41.82
         ENDIF                                                             41.82
+      ELSE IF (KEYWIS ('DSS').OR.KEYWIS ('IGDIR')) THEN                   42.06
+!       sea-swell mean wave direction                                     42.06
+        IGR1   = 18                                                       42.06
+        VARDSS = .TRUE.                                                   42.06
+        IF (JDSS2.LE.1) THEN                                              42.06
+          MCMVAR = MCMVAR + 2                                             42.06
+          JDSS2 = MCMVAR - 1                                              42.06
+          JDSS3 = MCMVAR                                                  42.06
+          ALOCMP = .TRUE.                                                 42.06
+        ENDIF                                                             42.06
       ELSE
         CALL  WRNKEY
       ENDIF
@@ -4395,11 +4428,9 @@
         VECTOR = .FALSE.
       ENDIF
 !
-      LOCAL = .FALSE.                                                     40.95
-!
       CALL REPARM (IFLNDF(IGR1), IFLNDS(IGR1), IFLIDL(IGR1),              40.00
      &             IFLIFM(IGR1), IFLFRM(IGR1), IFLNHF(IGR1),              40.00
-     &             IFLDYN(IGR1), IFLNHD(IGR1), VECTOR, LOCAL, NHEDC)      40.95 40.00
+     &             IFLDYN(IGR1), IFLNHD(IGR1), VECTOR, NHEDC)             40.00
       IF (STPNOW()) RETURN                                                34.01
 !
       IF (ITEST.GE.60) WRITE (PRTEST, 35) IGR1, IFLNDF(IGR1),
@@ -4491,6 +4522,9 @@
       ELSE IF (IGR1.EQ.17) THEN                                           41.82
          IF (.NOT.ALLOCATED(TSSF)) ALLOCATE(TSSF(MXG(IGR1)*MYG(IGR1)))    41.82
          CALL SWCOPR( TARR, TSSF, MXG(IGR1)*MYG(IGR1) )                   41.82
+      ELSE IF (IGR1.EQ.18) THEN                                           42.06
+         IF (.NOT.ALLOCATED(DSSF)) ALLOCATE(DSSF(MXG(IGR1)*MYG(IGR1)))    42.06
+         CALL SWCOPR( TARR, DSSF, MXG(IGR1)*MYG(IGR1) )                   42.06
       END IF                                                              40.31
       DEALLOCATE(TARR)                                                    40.31
       IF (IGR2.GT.0) THEN
@@ -4569,7 +4603,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -4734,7 +4768,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -4789,7 +4823,7 @@
 !
 !     LOGCOM:
 !
-      LOGICAL LOGCOM(6)
+      LOGICAL LOGCOM(7)
 !
 !  6. Local variables
 !
@@ -5008,7 +5042,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5221,7 +5255,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5584,7 +5618,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5692,7 +5726,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5862,7 +5896,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -6031,7 +6065,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -6633,7 +6667,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by

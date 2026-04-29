@@ -118,15 +118,13 @@ set( SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanTranspAc.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanThreadBounds.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanSweepSel.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanSumOverNodes.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanSpectPart.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanser.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadTriangleGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadGrid.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadfort18.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadEasymeshGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadADCGrid.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPunCollect.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelX.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelS.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPrintGridInfo.f90
@@ -137,8 +135,6 @@ set( SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanparll.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanout2.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanout1.for
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanMinOverNodes.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanMaxOverNodes.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanIntgratSpc.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanInterpolatePoint.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanInterpolateOutput.f90
@@ -169,7 +165,6 @@ set( SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanCheckGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanBpntlist.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanBndStruc.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/swan2coh.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SdsBabanin.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/ocpmix.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/ocpids.for
@@ -186,7 +181,6 @@ set( HCAT
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanhcat.for
 )
 
-# not needed: ${CMAKE_CURRENT_BINARY_DIR}/generated/HottifySWAN.f90
 
 # generate code
 add_custom_command(

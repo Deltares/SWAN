@@ -46,8 +46,7 @@ tasks:
       choose between linking the MPI libraries for distributed
       memory machines and using OpenMP directives for shared memory
       systems for appropriate compilation by typing, respectively,
-      'make mpi' and 'make omp'. However, for parallel, unstructured
-      mesh simulation on a distributed memory system, type 'make punswan'.
+      'make mpi' and 'make omp'.
       NOTE: One of these commands must be preceded once by 'make config'.
 
    4) For more information, please consult the Implementation Manual.

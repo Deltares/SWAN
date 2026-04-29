@@ -3,7 +3,7 @@
  *      See netcdf/COPYRIGHT file for copying and redistribution conditions.
  */
 
-/* $Id: nf_v2compat.c 59820 2018-08-15 12:49:57Z markus $ */
+/* $Id$ */
 
 /*
  *  Source for netCDF2 FORTRAN jacket library.

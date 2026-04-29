@@ -4,7 +4,7 @@
 # HDF5 versions of the example data files match (according to ncdump)
 # the netCDF-3 classic versions.
 
-# $Id: run_nc4_comps.sh 59820 2018-08-15 12:49:57Z markus $
+# $Id$
 
 set -e
 echo ""

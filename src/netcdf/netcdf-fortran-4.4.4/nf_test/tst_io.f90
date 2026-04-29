@@ -4,7 +4,7 @@
 ! This program tests io times with large files (> 4 GB) in
 ! netCDF-4. This is user-contributed code.
 
-! $Id: tst_io.f90 59820 2018-08-15 12:49:57Z markus $
+! 
 program tst_io
   use netcdf ! access to netcdf module
   implicit none

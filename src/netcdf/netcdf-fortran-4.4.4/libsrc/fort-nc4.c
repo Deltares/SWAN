@@ -9,7 +9,7 @@ netCDF-4 builds.
 Copyright 2005, University Corporation for Atmospheric Research. See
 COPYRIGHT file for copying and redistribution conditions.
 
-$Id: fort-nc4.c 59820 2018-08-15 12:49:57Z markus $
+$Id$
 */
 
 #include <config.h>

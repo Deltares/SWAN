@@ -41,7 +41,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -380,7 +380,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -604,7 +604,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -733,6 +733,7 @@
 !****************************************************************
 !
       USE OCPCOMM4
+      USE SWCOMM2, ONLY: OPTG
       USE M_PARALL
       USE OUTP_DATA
 !
@@ -750,7 +751,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -924,7 +925,7 @@
                ENDIF
             ENDDO
          ENDDO
-         IF ( MXKF.GE.MXKL .OR. MYKF.GE.MYKL ) THEN
+         IF (MXKF.GE.MXKL-1 .OR. (OPTG.NE.5 .AND. MYKF.GE.MYKL-1)) THEN
             MXKF = 1
             MXKL = 0
             MYKF = 1
@@ -1001,7 +1002,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1197,7 +1198,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1639,7 +1640,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1746,6 +1747,7 @@
       USE OUTP_DATA                                                       40.13
       USE M_PARALL                                                        40.31
 !NCF      USE swn_outnc, only: swn_outnc_spec                                 41.40
+      use SwanGriddata, only: ivertg
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1759,7 +1761,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1939,11 +1941,13 @@
      &                    'locations in spherical coordinates'            33.09 nb!
           CRFORM = '(2F12.6)'                                             40.13
         ENDIF                                                             33.09 NB!
-        WRITE (NREF, 103) MIP, 'number of locations'
-        DO 110 IP = 1, MIP
-          WRITE (NREF, FMT=CRFORM) DBLE(VOQ(IP,VOQR(1))),                 40.13
-     &                             DBLE(VOQ(IP,VOQR(2)))                  40.13
- 110    CONTINUE
+        IF ( .NOT.PARLL .OR. .NOT.LCOMPGRD ) THEN
+           WRITE (NREF, 103) MIP, 'number of locations'
+           DO 110 IP = 1, MIP
+             WRITE (NREF, FMT=CRFORM) DBLE(VOQ(IP,VOQR(1))),              40.13
+     &                                DBLE(VOQ(IP,VOQR(2)))               40.13
+ 110       CONTINUE
+        ENDIF
         IF (RTYPE(3:3).EQ.'R' .OR. RTYPE(3:3).EQ.'L') THEN                41.85
           WRITE (NREF, 102) 'RFREQ', 'relative frequencies in Hz'         40.00
         ELSE
@@ -2072,7 +2076,11 @@
             CALL WRSPEC (NREF, ACLOC)
           ELSE
 !           write 1d spectrum
-            WRITE (NREF, 115) IP
+            IF ( OPTG.NE.5 .OR. .NOT.PARLL .OR. .NOT.LCOMPGRD ) THEN
+               WRITE (NREF, 115) IP
+            ELSE
+               WRITE (NREF, 115) ivertg(IP)
+            ENDIF
  115        FORMAT ('LOCATION', I6)                                       40.03
             DO IFR = 1, MSC
 !             write frequency spectra to file
@@ -2114,7 +2122,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2448,7 +2456,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2744,7 +2752,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by

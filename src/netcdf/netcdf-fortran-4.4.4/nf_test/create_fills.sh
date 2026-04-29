@@ -1,6 +1,6 @@
 #!/bin/sh
 # This shell script which creates the fill.nc file from fill.cdl.
-# $Id: create_fills.sh 59820 2018-08-15 12:49:57Z markus $
+# $Id$
 
 echo
 echo "*** Testing creating file with fill values."

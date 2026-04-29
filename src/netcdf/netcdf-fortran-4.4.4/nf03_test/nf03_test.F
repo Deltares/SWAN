@@ -7,7 +7,7 @@ C Test driver for netCDF-3 interface.  This program performs tests against
 C the netCDF-3 specification for all user-level functions in an
 C implementation of the netCDF library.
 
-C $Id: nf03_test.F 59820 2018-08-15 12:49:57Z markus $
+C 
 
         subroutine test(name, func)
         use tests

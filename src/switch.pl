@@ -3,7 +3,6 @@ $esmf = "FALSE";
 $tim = "FALSE";
 $jac = "FALSE";
 $mpi = "FALSE";
-$pun = "FALSE";
 $f95 = "FALSE";
 $dos = "FALSE";
 $unx = "FALSE";
@@ -13,8 +12,10 @@ $imp = "FALSE";
 $cvi = "FALSE";
 $adc = "FALSE";
 $coh = "FALSE";
+$met = "FALSE";
 $ncf = "FALSE";
 $mv4 = "FALSE";
+$outdir=".";
 while ( $ARGV[0]=~/-.*/ )
    {
    print "handling $ARGV[0]\n";
@@ -22,7 +23,6 @@ while ( $ARGV[0]=~/-.*/ )
    if ($ARGV[0]=~/-timg/) {$tim="TRUE";shift;}
    if ($ARGV[0]=~/-jac/) {$jac="TRUE";shift;}
    if ($ARGV[0]=~/-mpi/) {$mpi="TRUE";shift;}
-   if ($ARGV[0]=~/-pun/) {$pun="TRUE";shift;}
    if ($ARGV[0]=~/-f95/) {$f95="TRUE";shift;}
    if ($ARGV[0]=~/-dos/) {$dos="TRUE";shift;}
    if ($ARGV[0]=~/-unix/) {$unx="TRUE";shift;}
@@ -32,8 +32,14 @@ while ( $ARGV[0]=~/-.*/ )
    if ($ARGV[0]=~/-cvis/) {$cvi="TRUE";shift;}
    if ($ARGV[0]=~/-adcirc/) {$adc="TRUE";shift;}
    if ($ARGV[0]=~/-coh/) {$coh="TRUE";shift;}
+   if ($ARGV[0]=~/-metis/) {$met="TRUE";shift;}
    if ($ARGV[0]=~/-netcdf/) {$ncf="TRUE";shift;}
    if ($ARGV[0]=~/-matl4/) {$mv4="TRUE";shift;}
+   if ($ARGV[0]=~/-outdir/){
+       shift;
+       $outdir=$ARGV[0];
+       shift;
+       }
    }
 
 # --- trap unsupported switch combinations
@@ -41,9 +47,9 @@ if ($esmf=~/TRUE/ && $adc=~/TRUE/)
 {
    die "$0: -esmf and -adcirc is not supported.\n";
 }
-if ($esmf=~/TRUE/ && $pun=~/TRUE/)
+if ($esmf=~/TRUE/ && $met=~/TRUE/)
 {
-   die "$0: -esmf and -pun is not supported.\n";
+   die "$0: -esmf and -metis is not supported.\n";
 }
 
 # --- make a list of all files
@@ -78,8 +84,6 @@ foreach $file (@files)
       if ($jac=~/TRUE/) {$newline=~s/^!JAC//;}
       else              {$newline=~s/^!WFR//;}
       if ($mpi=~/TRUE/) {$newline=~s/^!MPI//;}
-      if ($pun=~/TRUE/) {$newline=~s/^!PUN//;}
-      if ($pun=~/FALSE/) {$newline=~s/^!NPUN//;}
       if ($f95=~/TRUE/) {$newline=~s/^!F95//;}
       if ($dos=~/TRUE/) {$newline=~s/^!DOS//;}
       if ($unx=~/TRUE/) {$newline=~s/^!UNIX//;}
@@ -91,6 +95,7 @@ foreach $file (@files)
       if ($adc=~/FALSE/) {$newline=~s/^!NADC//;}
       if ($coh=~/TRUE/) {$newline=~s/^!COH//;}
       if ($coh=~/FALSE/){$newline=~s/^!NCOH//;}
+      if ($met=~/TRUE/) {$newline=~s/^!METIS//;}
       if ($ncf=~/TRUE/) {$newline=~s/^!NCF//;}
       if ($ncf=~/FALSE/){$newline=~s/^!NNCF//;}
       if ($mv4=~/TRUE/) {$newline=~s/^!MatL4//;}

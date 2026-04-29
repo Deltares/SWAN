@@ -42,7 +42,7 @@
             integer                                  :: varid
         end type nctable_record
 
-        type (nctable_record)                        :: nctable(66)
+        type (nctable_record)                        :: nctable(67)
 
         data nctable(1) / nctable_record("depth",&
                             "sea_floor_depth_below_sea_level",&
@@ -307,7 +307,11 @@
              nctable(66) / nctable_record("pspr5",&
                             "none",&
                             "directional spread of partition", &
-                            "degree", NF90_SHORT, 0., 81., variddum) /
+                            "degree", NF90_SHORT, 0., 81., variddum) /, &
+             nctable(67) / nctable_record("fdir",&
+                            "sea_surface_wave_from_direction_from_selected_freq_domain",&
+                            "fdir", &
+                            "degree", NF90_SHORT, 0., 360., variddum) /
 
     contains
         subroutine get_nctable_record(varname, trecord, found)

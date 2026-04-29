@@ -25,8 +25,8 @@ module HRextensions
    !  Stichting Deltares. All rights reserved.
    !
    !-------------------------------------------------------------------------------
-   !  $Id: HRextensions.ftn90 807 2023-01-25 10:44:20Z spee $
-   !  $URL: https://repos.deltares.nl/repos/swan/branches/deltares/deltares41.45.2/HRextensions.ftn90 $
+   !  $Id: HRextensions.ftn90 899 2024-04-26 14:21:40Z tanis_hb $
+   !  $URL: https://repos.deltares.nl/repos/swan/branches/deltares/deltares41.45AB.3/HRextensions.ftn90 $
    !!--description-----------------------------------------------------------------
    !! extensions for SWAN for HR (Hydraulic Boundaries / in Dutch: Hydraulische Randvoorwaarden)
     use swn_outnc
@@ -476,7 +476,8 @@ contains
                    'icec     ', &
                    'hice     ', &
                    'sea-sw-hs', &
-                   'sea-sw-tp' /)
+                   'sea-sw-tp', &
+                   'sea-sw-dr'  /)
 
         vname = vnames(igr)
 

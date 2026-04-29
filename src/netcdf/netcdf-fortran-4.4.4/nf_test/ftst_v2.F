@@ -4,7 +4,7 @@ C     See COPYRIGHT file for conditions of use.
 
 C     This program tests the fortran V2 API with netCDF-4.
 
-C     $Id: ftst_v2.F 59820 2018-08-15 12:49:57Z markus $
+C     
 
       program ftst_v2
       implicit none

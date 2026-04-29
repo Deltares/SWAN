@@ -19,7 +19,7 @@
 ! 	ushort ushort(x, y) ;
 ! 	uint uint(x, y) ;
 
-!     $Id: f90tst_parallel3.f90 59820 2018-08-15 12:49:57Z markus $
+!     
 
 program f90tst_parallel3
   use typeSizes

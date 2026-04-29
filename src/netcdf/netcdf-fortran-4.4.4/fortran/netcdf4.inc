@@ -3,7 +3,7 @@
 
 !     Netcdf version 4 fortran interface.
 
-!     $Id: netcdf4.inc 59820 2018-08-15 12:49:57Z markus $
+!     $Id$
 
 !     New netCDF-4 types.
       integer nf_ubyte

@@ -23,7 +23,7 @@
 !
 !   INPgrid                                                                 &
 !      BOT | WLEV | CUR | VX | VY | FR | WI | WX | WY | NPLA | TURB | MUDL  &
-!      AICE | HICE | HSS | TSS                                              &
+!      AICE | HICE | HSS | TSS | DSS                                        &
 !
 !      | REG [xpinp] [ypinp] [alpinp]  [mxinp] [myinp]  [dxinp] [dyinp] |
 !      |                                                                |
@@ -40,7 +40,7 @@
 !                          | EASYmesh / 'fname'
 !
 !   READinp    BOTtom | WLevel | CURrent | FRiction | WInd | COOR | NPLAnts &
-!              TURB | MUDL | AICE | HICE | HSS | TSS                        &
+!              TURB | MUDL | AICE | HICE | HSS | TSS | DSS                  &
 !
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])    &
@@ -221,7 +221,11 @@
 !
 !        LINe < [xp] [yp] >
 !
-!   OBSTacle  FIG [alpha1] [hss] [tss]  REFLec [reflc]  LINe < [xp] [yp] >
+!   OBSTacle  FIG [alpha1] [hss] [tss] [dss] [dd]                           &
+!
+!             ( REFLec [reflc] )                                            &
+!
+!             LINe < [xp] [yp] >
 !
 !   SURFBeat  [df] [nmax] [emin]  UNIForm/LOGarithmic
 !

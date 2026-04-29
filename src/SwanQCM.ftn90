@@ -13,7 +13,7 @@ module SwanQCM
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -93,7 +93,7 @@ subroutine SWQCINIT ( BGRIDP, COMPDA )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -331,12 +331,12 @@ subroutine SWQCINIT ( BGRIDP, COMPDA )
        enddo
        !
     endif
-!MPI    !
-!MPI    ! perform global reductions in parallel run
-!MPI    call SWREDUCE( kmean, 1, SWREAL, SWMAX )
-!MPI    call SWREDUCE( sdev , 1, SWREAL, SWMIN )
-!MPI    call SWREDUCE( hsi  , 1, SWREAL, SWMAX )
-!MPI    if ( stpnow() ) return
+    !
+    ! perform global reductions in parallel run
+    call SWREDUCE( kmean, 1, SWREAL, SWMAX )
+    call SWREDUCE( sdev , 1, SWREAL, SWMIN )
+    call SWREDUCE( hsi  , 1, SWREAL, SWMAX )
+    if ( stpnow() ) return
     !
     if ( sdev /= 9999. ) then
        if ( ITEST >= 50 ) write (PRTEST,'(a,f8.5)') ' standard deviation of incoming spectra (1/m) = ', sdev
@@ -379,11 +379,11 @@ subroutine SWQCINIT ( BGRIDP, COMPDA )
           endif
           !
        enddo
-!MPI       !
-!MPI       ! perform global reductions in parallel run
-!MPI       call SWREDUCE( hmin, 1, SWREAL, SWMIN )
-!MPI       call SWREDUCE( hmax, 1, SWREAL, SWMAX )
-!MPI       if ( stpnow() ) return
+       !
+       ! perform global reductions in parallel run
+       call SWREDUCE( hmin, 1, SWREAL, SWMIN )
+       call SWREDUCE( hmax, 1, SWREAL, SWMAX )
+       if ( stpnow() ) return
        !
        ! next, compute minimum and maximum absolute wave numbers ...
        !
@@ -570,6 +570,10 @@ subroutine SWQCINIT ( BGRIDP, COMPDA )
     !
     ! QC domain delimited by a multiple of the mean wave number or user-prescribed maximum scattering wave number
     qmax = min (qmu, alfa * kmean) / max(dkx,dky)
+    if ( qmax < 2. ) then
+       call msgerr (1,'range of the QC convolution integral too small - set to minimum required range')
+       qmax = 2.
+    endif
     ncoz = 2*floor(ceiling(qmax)/2.)   ! must be even number to execute the QC summation correctly (see routine SWQCSCAT)
     dxps = clen / real(ncoz) / 2.
     !
@@ -703,7 +707,7 @@ subroutine SWQCDFT ( sigft, cgft, dep2, kwave, cgo, cft, rft, sft, wft, wsave )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -949,7 +953,7 @@ subroutine SWQCUFT ( uxft, uyft, dep2, ux2, uy2, cft, rft, sft, wft, wsave )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1178,7 +1182,7 @@ subroutine QCSOURCE ( imatra, imatda, iter  , ac2   , dep2  , ux2   , uy2   , &
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1423,7 +1427,7 @@ subroutine SWQCWIG ( W, dwdx, dwdy, ac2, dep2, rdx, rdy, spcdir, spcsig )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1662,7 +1666,7 @@ subroutine SwanGradWig ( W, dwdx, dwdy, ac2, dep2, spcdir, spcsig )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2056,7 +2060,7 @@ subroutine SWQCSCAT ( memqcm, W, dwdx, dwdy, sigft, cgft, uxft, uyft, dep2, kwav
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2373,7 +2377,7 @@ subroutine SWQCSURF ( memqcb, ac2, dep2, cfd, wfd, wsavd, kwave, cgo, spcdir, sp
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2893,7 +2897,15 @@ subroutine SWQCSURF ( memqcb, ac2, dep2, cfd, wfd, wsavd, kwave, cgo, spcdir, sp
              !
              y = yp + 0.5 * ypd(iyd)
              !
-             call SwanInterpolatePoint( dpos(iyd,ixd), x, y, disbk0, 0. )
+             if ( x < XCGMIN .or. x > XCGMAX .or. y < YCGMIN .or. y > YCGMAX ) then
+                !
+                dpos(iyd,ixd) = 0.
+                !
+             else
+                !
+                call SwanInterpolatePoint( dpos(iyd,ixd), x, y, disbk0, 0. )
+                !
+             endif
              !
           enddo
           !
@@ -3067,7 +3079,15 @@ subroutine SWQCSURF ( memqcb, ac2, dep2, cfd, wfd, wsavd, kwave, cgo, spcdir, sp
              !
              y = yp - 0.5 * ypd(iyd)
              !
-             call SwanInterpolatePoint( dneg(iyd,ixd), x, y, disbk0, 0. )
+             if ( x < XCGMIN .or. x > XCGMAX .or. y < YCGMIN .or. y > YCGMAX ) then
+                !
+                dneg(iyd,ixd) = 0.
+                !
+             else
+                !
+                call SwanInterpolatePoint( dneg(iyd,ixd), x, y, disbk0, 0. )
+                !
+             endif
              !
           enddo
           !
@@ -3177,7 +3197,7 @@ subroutine FILQCM ( imatra, idcmin, idcmax, isstop, memqcm, memqcb, plqcs, plwbr
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -3332,7 +3352,7 @@ subroutine tukeywin ( a, n )
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
