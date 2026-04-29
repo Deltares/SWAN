@@ -36,7 +36,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -200,7 +200,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1038,7 +1038,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1422,8 +1422,8 @@
                 ENDIF                                                     41.90
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
-     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.
-     &              (IVTYPE.GE.60 .AND. IVTYPE.LE.74) ) LADDS = .TRUE.
+     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                   40.85
+     &              IVTYPE.GE.60 ) LADDS = .TRUE.                         40.85
              ELSE IF (IVTYPE.LT.170) THEN                                 41.62
                 NOSWLL = INT(OUTPAR(51))                                  41.72
 !               add NOSWLL partitions of requested partition parameter    41.72
@@ -1785,8 +1785,8 @@
             ENDIF                                                         41.90
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
-     &          IVTYPE.EQ.56 .OR.                                         VORTECH
-     &          (IVTYPE.GE.60 .AND. IVTYPE.LE.71) ) LADDS = .TRUE.        VORTECH
+     &          IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                       40.85
+     &          IVTYPE.GE.60 ) LADDS = .TRUE.                             40.85
             CALL INKEYW ('STA', ' ')                                      40.00
             IF (KEYWIS('UNIT')) THEN
               CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
@@ -2080,7 +2080,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2248,7 +2248,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2364,7 +2364,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2494,7 +2494,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -3167,11 +3167,8 @@
         ELSE
 !         boundary condition on one side of the computational grid
           IF (OPTG.EQ.3) THEN                                             40.80 40.31
-!CJK:03-03-2004:Only a warning must be given, swan must not stop on keyword side
-!CJK request of Arjen L., so error code is reduced to 1
-             CALL MSGERR(1,                                               40.80 40.31
+             CALL MSGERR(2,                                               40.80 40.31
      &          ' keyword SIDE should not be used for curvilinear grid')  40.80 40.31
-!CJK:END:03-03-2004
           END IF                                                          40.31
           CALL IGNORE ('SIDE')
 !         *** specification of side for which boundary   ***
@@ -3721,7 +3718,7 @@
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE M_BNDSPEC                                                       40.31
-!NCF      use HRextensions, only: swn_hre_bcnccf
+      USE M_PARALL                                                        42.10
 !
       IMPLICIT NONE
 !
@@ -3737,7 +3734,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -3891,18 +3888,10 @@
 ! 13. Source text
 !
       LOGICAL         CCOORD                                            40.03
-!NCF      LOGICAL :: NCF =.FALSE.
+
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCFILE')
-!NCF      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
-!NCF     &     INDEX (FILENM, '.nc' ).NE.0) THEN
-!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL, LBGP,
-!NCF     &                   XCGRID, YCGRID, KGRPNT,
-!NCF     &                   XYTST,  KGRBND, DONALL)
-!NCF         RETURN
-!NCF      ENDIF
-!NCF!
 !
       NDSL = 0
       IIPT2 = 0                                                           40.05
@@ -4004,8 +3993,9 @@
             ENDIF
           ENDDO
 !
-          IF ((BCTYPE .EQ. 'NEST').AND. (IIPT2.EQ.0)) CALL MSGERR (2,
-     &      'no grid points on nested boundary')                          40.05
+          CALL SWREDUCE ( IIPT2, 1, SWINT, SWMAX )                        42.10
+          IF ((BCTYPE.EQ.'NEST') .AND. (IIPT2.EQ.0) .AND. IAMMASTER)      42.10
+     &       CALL MSGERR (2,'no grid points on nested boundary')          40.05
 !
           NHEDF = NHEDF + 2 + NBOUNC
           IF (ITEST.GE.60) WRITE (PRTEST,16) NBOUNC
@@ -4233,7 +4223,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -4820,7 +4810,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5338,7 +5328,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5499,7 +5489,8 @@
            IF (OPTG.EQ.5) THEN                                            40.80
              DO IXP = 1, nverts                                           40.80
                IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                    40.80
-     &              vert(IXP)%atti(VBC) == 0 ) THEN                       40.80
+     &              vert(IXP)%atti(VBC) == 0     .AND.                    40.80
+     &              vmark(IXP) /= 999 ) THEN                              42.10
                  XP = vert(IXP)%attr(VERTX)                               41.14
                  YP = vert(IXP)%attr(VERTY)                               41.14
 !
@@ -5707,7 +5698,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -5846,7 +5837,6 @@
 !                                                                    *
 !*********************************************************************
 !
-      USE OCPCOMM2                                                        40.95
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
       USE SWCOMM2                                                         40.41
@@ -5868,7 +5858,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by

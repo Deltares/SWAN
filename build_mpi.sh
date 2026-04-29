@@ -20,6 +20,6 @@ mkdir build
 cd build
 cmake .. -DNETCDF=ON -DMPI=ON
 cmake --build .
-mv bin/swan.exe ../bin/swan_4145_1_tud_l64_i23_mpi.exe
+mv bin/swan.exe ../bin/swan_4145AB_1_tud_l64_i23_mpi.exe
 cp bin/hcat.exe ../bin/hcat.exe
 cd ../..

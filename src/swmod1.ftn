@@ -26,7 +26,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -182,7 +182,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -302,7 +302,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -403,7 +403,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -544,7 +544,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -700,7 +700,6 @@
 !  (78) [  'HICE']
 !  (79) [  'REDB']
 !  (80) [  'REDC']
-!  (81) [ 'FHSWE']
 ! OVSNAM(NMOVAR)   short name of output quantity
 !  ( 1) [    'Xp']
 !  ( 2) [    'Yp']
@@ -777,7 +776,6 @@
 !  (78) ['  hice']
 !  (79) ['Sbragg']
 !  (80) [   'Sqc']
-!  (81) ['FHswel']
 ! OVLNAM(NMOVAR)   long name of output quantity
 !  ( 1) [                        'X user coordinate']
 !  ( 2) [                        'Y user coordinate']
@@ -854,7 +852,6 @@
 !  (78) [                            'ice thickness']
 !  (79) [          'Total absolute Bragg scattering']
 !  (80) [             'Total absolute QC scattering']
-!  (81) [                           'FEWS Hm0 swell']
 ! OVUNIT(NMOVAR)   unit of of output quantity
 !  ( 1) [CALCULAT] =UL
 !  ( 2) [CALCULAT] =UL
@@ -931,7 +928,6 @@
 !  (78) [     'm']
 !  (79) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (80) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
-!  (81) [    'UH']
 ! SNAME [        ] name of output point set
 ! UAP   [  'W/m2'] unit of dissipation
 ! UD    [        ] not used
@@ -1053,7 +1049,6 @@
 !  (78)  [  1]   hice
 !  (79)  [  1]   Sbragg
 !  (80)  [  1]   Sqc
-!  (81)  [  1]   fhswe
 ! OVEXCV(NMOVAR)   exception value for output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1128,7 +1123,6 @@
 !  (78)  [    -9.] hice
 !  (79)  [    -9.] Sbragg
 !  (80)  [    -9.] Sqc
-!  (81)  [   100.] fhswe
 ! OVLEXP(NMOVAR)   lower expected limit of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1203,7 +1197,6 @@
 !  (78)  [     0.] hice
 !  (79)  [     0.] Sbragg
 !  (80)  [     0.] Sqc
-!  (81)  [     0.] fhswell
 ! OVLLIM(NMOVAR)   lower limit of validity of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1278,7 +1271,6 @@
 !  (78)  [     0.] hice
 !  (79)  [     0.] Sbragg
 !  (80)  [     0.] Sqc
-!  (81)  [     0.] fhswell
 ! OVHEXP(NMOVAR)   upper expected limit of output quantity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1353,7 +1345,6 @@
 !  (78)  [    10.] hice
 !  (79)  [    0.1] Sbragg
 !  (80)  [    0.1] Sqc
-!  (81)  [    10.] fhswell
 ! OVULIM(NMOVAR)   upper limit of validity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1428,7 +1419,6 @@
 !  (78)  [   100.] hice
 !  (79)  [  1000.] Sbragg
 !  (80)  [  1000.] Sqc
-!  (81)  [   100.] fhswell
 ! SINCQ  [       ] sin of ALCQ
 ! SINPQ  [       ] sin of ALPQ
 ! SPCPOW [      1] power in expression for computation of average frequency
@@ -1487,7 +1477,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1538,7 +1528,7 @@
 !     NUMGRD [  17]  maximum number of input grids
 !
       INTEGER NUMGRD
-      PARAMETER (NUMGRD = 17)
+      PARAMETER (NUMGRD = 18)
 !
 !  7. Local variables
 !
@@ -1562,6 +1552,7 @@
 ! grid(15): ice thickness (m)
 ! grid(16): sea-swell significant wave height
 ! grid(17): sea-swell mean wave period
+! grid(18): sea-swell mean wave direction
 !
 ! ALPG(NUMGRD)  [    0.] direction of the x-axis w.r.t. user coordinates
 ! CCURV         [ FALSE] correction curvilinear grid
@@ -1617,6 +1608,7 @@
 ! VARHICE       [   FAL] ice thickness is/is not variable over space
 ! VARHSS        [   FAL] sea-swell sig wave height is/is not variable over space
 ! VARTSS        [   FAL] sea-swell mean wave period is/is not variable over space
+! VARDSS        [   FAL] sea-swell mean wave direction is/is not variable over space
 ! XPG(NUMGRD)   [    0.] x of origin
 ! XOFFS         [    0.] offset value in x
 !                        (from user coord. system to internal coord. system)
@@ -1642,7 +1634,7 @@
       LOGICAL VARNPL,      VARTUR,      VARMUD
       LOGICAL CCURV                                                       41.53
       LOGICAL VARAICE,     VARHICE
-      LOGICAL VARHSS,      VARTSS
+      LOGICAL VARHSS,      VARTSS,      VARDSS
 !
 !     *** variables for input files ***
 !
@@ -1706,7 +1698,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -1832,6 +1824,8 @@
 ! JDP1   [  7] old depth within array COMPDA
 ! JDP2   [  8] new depth within array COMPDA
 ! JDP3   [ 15] last read depth within array COMPDA
+! JDSS2  [   ] new sea-swell Dir within array COMPDA
+! JDSS3  [   ] last read sea-swell Dir within array COMPDA
 ! JDSXB  [  1] bottom friction dissipation within array COMPDA
 !              set by command TABLE/BLOCK
 ! JDSXL  [  1] swell dissipation within array COMPDA
@@ -2020,6 +2014,7 @@
       INTEGER             JAICE2,      JAICE3,      JHICE2,      JHICE3   41.75
       INTEGER             JPICE,       JDSXI                              41.75
       INTEGER             JHSS2,       JHSS3,       JTSS2,       JTSS3    41.82
+      INTEGER             JDSS2,       JDSS3                              42.06
       INTEGER             JPBRAG,      JRSXB,       JPQCS,       JRSXC    41.90 41.80
 !
 !     *** location and dimensions of computational grid ***
@@ -2274,7 +2269,6 @@
 !                 =2; for command BRE VAR ..., surf breaking according to Nelson
 !                 =3; for command BRE RUE ..., surf breaking according to Ruessink
 !                 =4; for command BRE TG ... , surf breaking according to Thornton and Guza
-!                 =5; for command BRE WESTH ..., surf breaking according to biphase scaling
 ! ITERMX [      ] maximum number of iterations:
 !                 is set equal to MXITST in case of stationary computations
 !                 is set equal to MXITNS in case of nonstationary computations
@@ -2776,7 +2770,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -2928,7 +2922,7 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by

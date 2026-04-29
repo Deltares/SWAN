@@ -11,7 +11,7 @@ module swn_outnc
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -49,7 +49,6 @@ module swn_outnc
 !   AGIONCMD        : Set of utilities for writing (metocean) data to netcdf
 !   NCTABLEMD       : description table for metocean parameters
     use agioncmd
-    use nctablemd, only : pi
     use M_PARALL
     use NETCDF
     use nctablemd, only: nctable, nctable_record, get_nctable_record
@@ -64,9 +63,6 @@ module swn_outnc
     use TIMECOMM,  only: TFINC, TIMCO, TINIC, DT
 !
     implicit none
-    private
-    public :: swn_outnc_openblockfile, swn_outnc_close_on_end, swn_outnc_colspc, swn_outnc_spec, &
-              swn_outnc_appendblock, record_index, stnames, stnames_init, ncoffset
 !
 !   Module parameters
 !
@@ -78,15 +74,13 @@ module swn_outnc
 !      oqr(2)       :   delta
 !
 !   Module variables
-    character(len=40)           :: STNAMES(171,2) = ''
+    character*40                :: STNAMES(171,2) = ''
     logical                     :: stnames_initialized = .false., &
                                    skip_range_error = .true.
     type(recordaxe_type), save  :: recordaxe(MAX_OUTP_REQ)
     integer,save                :: ncoffset(MAX_OUTP_REQ) = 0
     logical,save                :: read_header(MAX_OUTP_REQ) = .true.
-    integer,save                :: nrefcp(MAX_OUTP_REQ) = -1
 
-    logical                     :: PUNSWAN = .false.
     type spcaux_type
         real, dimension(:), allocatable          :: hs, depth, ux, uy, wndx, wndy, &
                                                     xc, yc, xp, yp, f, theta
@@ -116,7 +110,7 @@ contains
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -141,7 +135,7 @@ contains
 !  2. Purpose
 !
 !     Write action density spectrum to netcdf file when serial OR
-!     binary file when PARLL or PUNSWAN
+!     binary file when PARLL
 !
 !  3. Method
 !
@@ -211,7 +205,7 @@ contains
 !
 ! 12. Structure.
 !
-!    a. compute spectra and auxilary data (writes binary file if parll or punswan)
+!    a. compute spectra and auxilary data (writes binary file if parallel)
 !    if serial
 !      b. open / create netcdf file
 !      c. write spectra to netcdf
@@ -229,7 +223,7 @@ contains
 !
 ! b. open / create netcdf file (generic output file)
 !
-      if ( .not. (PARLL .or. PUNSWAN) ) then
+      if ( .not.PARLL ) then
 
         ! opening / creating the netcdf file. Sets module variable recordaxe(irq)
         call swn_outnc_openspecfile(OUTP_FILES(irq), spcaux, OQI, OQR)
@@ -247,6 +241,7 @@ contains
     end subroutine swn_outnc_spec
 
     subroutine swn_outnc_colspc ( RTYPE, OQI, OQR, MIP, KGRPGL )
+      use SWCOMM2, only: optg
       use SwanGriddata, only: xcugrdgl, ycugrdgl, nverts
 !
 !
@@ -261,7 +256,7 @@ contains
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -341,7 +336,7 @@ contains
         spcaux%mip = MIP
         allocate(spcaux%hs(MIP), spcaux%depth(MIP), spcaux%ux(MIP), spcaux%uy(MIP), &
                  spcaux%wndx(MIP), spcaux%wndy(MIP), spcaux%xc(MIP), spcaux%yc(MIP))
-        if ( LCOMPGRD .and. PUNSWAN) then
+        if ( LCOMPGRD .and. optg == 5 ) then
             allocate(spcaux%xp(nverts), spcaux%yp(nverts))
         else
             allocate(spcaux%xp(MIP), spcaux%yp(MIP))
@@ -380,8 +375,7 @@ contains
 
         do iproc = 1, NPROC
             binnr = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+iproc
-
-              write(binfile, '(A,"-",I3.3)') trim(basefile), iproc
+            write(binfile, '(A,"-",I3.3)') trim(basefile), iproc
             inquire(unit=binnr, opened=lopen)
 
             if ( .not. lopen) then
@@ -410,7 +404,7 @@ contains
                   return
                 end if
                 read(binnr) spcaux%yp
-                if ( PUNSWAN .and. LCOMPGRD ) then
+                if ( LCOMPGRD .and. optg == 5 ) then
                     deallocate(spcaux%xp, spcaux%yp)
                     allocate(spcaux%xp(MIP), spcaux%yp(MIP))
                     spcaux%xp = xcugrdgl
@@ -497,7 +491,7 @@ contains
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -565,9 +559,8 @@ contains
 !
       logical                                        :: EQREAL, lopen, do_open_files, write_header
       integer                                        :: ip, ierr, otype, xpctmp(2), xpctime, &
-                                                        pnr, ri, i, tmip, irq, iproc, &
-                                                        binnr, xi, yi, npnts
-      integer, allocatable                           :: ips(:)
+                                                        pnr, ri, i, tmip, irq, ips(MIP), iproc, &
+                                                        binnr, xi, yi, npnts, kgrpnt1d(MXC*MYC)
       integer, save                                  :: IENT=0
       character*80                                   :: outfile
       character*256                                  :: errmsg
@@ -587,11 +580,6 @@ contains
 !
 ! 11. Remarks
 !
-!     - PUNSWAN support was added later on. In punswan, PARLL is always false but the
-!       IAMMASTER is set. For most output purposes, PARLL should be considered
-!       true. Hence a logical PUNSWAN is set at the top if this module. In the structure
-!       below PARLL means if PARLL .or. PUNSWAN.
-!
 ! 12. Structure.
 !    a. decide wether relative and 2D spectra are required
 !    b. collect depth, current, xc, yc, f, theta
@@ -610,7 +598,7 @@ contains
       lspcaux%mip = MIP
       allocate(lspcaux%hs(MIP), lspcaux%depth(MIP), lspcaux%ux(MIP), lspcaux%uy(MIP), &
                lspcaux%wndx(MIP), lspcaux%wndy(MIP), lspcaux%xc(MIP), lspcaux%yc(MIP), &
-               lspcaux%xp(MIP), lspcaux%yp(MIP), ips(MIP))
+               lspcaux%xp(MIP), lspcaux%yp(MIP))
 !
 ! a. decide wether relative and 2D spectra are required
 !
@@ -666,9 +654,9 @@ contains
         lspcaux%theta = SPCDIR(:,1)
       end if
 !
-! c if PARLL or PUNSWAN open unformatted binary if not already opened
+! c if PARLL open unformatted binary if not already opened
 !
-      if ( PARLL .or. PUNSWAN) then
+      if ( PARLL ) then
           if ( oqi(1) == 0 ) then
               call FOR(oqi(1), OUTP_FILES(irq), 'UU', ierr)
               if ( ierr > 0 ) then
@@ -702,7 +690,7 @@ contains
       lspcaux%E = 0
 
 ! e. write time and number of output points in this subgrid to unformatted binary file
-      if ( PARLL .or. PUNSWAN) then
+      if ( PARLL ) then
         tmip = 0
         ! if part of this subgrid and an active point
         do ip = 1, MIP
@@ -743,7 +731,7 @@ contains
 
 ! for each point, compute spectra and collect remaining auxilary
       do ip = 1, MIP
-        if ( (.not. PARLL .and. .not. PUNSWAN) .or. &
+        if ( .not.PARLL .or. &
              IONOD(ip).eq.INODE ) then
           ! if depth > 0 and not a dummy value
           if ( lspcaux%depth(ip) > epsilon(1.) .and. abs(lspcaux%depth(ip) - OVEXCV(4)) > epsilon(1.) ) then
@@ -759,7 +747,7 @@ contains
             lspcaux%wndy(ip) = VOQ(ip,VOQR(26)+1)
           end if
 
-          if ( PARLL .or. PUNSWAN ) then
+          if ( PARLL ) then
             ! write to binary
             write(OQI(1)) lspcaux%xp(ip), lspcaux%yp(ip), lspcaux%E(:, ip), lspcaux%depth(ip), &
                           lspcaux%ux(ip), lspcaux%uy(ip), lspcaux%hs(ip), lspcaux%wndx(ip), &
@@ -767,8 +755,6 @@ contains
           end if
         end if
       end do
-
-      deallocate(ips)
 
     end subroutine swn_outnc_spcaux
 
@@ -874,7 +860,7 @@ contains
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2023  Delft University of Technology
+!     Copyright (C) 1993-2024  Delft University of Technology
 !
 !     This program is free software: you can redistribute it and/or modify
 !     it under the terms of the GNU General Public License as published by
@@ -950,7 +936,7 @@ contains
       if (LTRACE) call STRACE (IENT,'swn_outnc_appendspc')
       irq  = oqi(2)
       ncid = oqi(1) + ncoffset(irq)
-      
+
       call swn_outnc_spcflags(oqi(4), spc_as_map, wetnode_list, spcaux, noaux=noaux)
 
 !
@@ -968,7 +954,7 @@ contains
                 return
             end if
           end if
-          call record_index(ncid, recordaxe(irq), xpctime, ri, .false., '')
+          call record_index(ncid, recordaxe(irq), xpctime, ri)
       else
           if ( string_is_int(PROJNR) ) then
             read( PROJNR, '(i16)' ) pnr
@@ -979,7 +965,7 @@ contains
           else
             pnr = 1
           end if
-          call record_index(ncid, recordaxe(irq), pnr, ri, .false., '' )
+          call record_index(ncid, recordaxe(irq), pnr, ri )
       end if
 
       if ( wetnode_list ) then
@@ -1319,7 +1305,7 @@ contains
             noaux  = .true.
             iocode = iocode - 16
         end if
-        
+
         ! MDGRID is the special keyword to store spectra (including dry points) on the
         ! full geographic grid instead of along a pointlist
         ! On the other hand, when COMPGRID is requested on any grid but unstructured,
@@ -1336,7 +1322,7 @@ contains
 
         ! catch conflicting MDGRID + COMPRESS
         iocode       = mod(iocode, 4)
-        
+
         ! Enery scaling is of creating a new variable that stores a scale per timestep and point
         ! the energy itself is then stored as int16 instead of float
         if ( present( EScale) ) then
@@ -1362,16 +1348,15 @@ contains
         integer                               :: ri, pnr, xpctmp(2), i, &
                                                  xpctime, ilpos, ncid
         integer, save                         :: IENT=0
-        character(len=40)                     :: name
         if (LTRACE) call STRACE (IENT,'swn_outnc_appendblock')
         if ( ivtype == 40 ) return
 
-        ncid = nrefcp(irq) + ncoffset(irq)
+        ncid = nref + ncoffset(irq)
 
         if ( recordaxe(irq)%nstatm ) then
             READ (chtime, '(I8,1X,I6)') (xpctmp(i), i=1,2)
             xpctime = seconds_since_epoch(xpctmp(1), xpctmp(2))
-            call record_index(ncid, recordaxe(irq), xpctime, ri, .false., '')
+            call record_index(ncid, recordaxe(irq), xpctime, ri)
         else
             if ( string_is_int(PROJNR) ) then
                 read( PROJNR, '(i16)' ) pnr
@@ -1382,16 +1367,13 @@ contains
             else
                 pnr = 1
             end if
-            call record_index(ncid, recordaxe(irq), pnr, ri, .false., '')
+            call record_index(ncid, recordaxe(irq), pnr, ri )
         end if
 
         if (myk == 1) then
             call agnc_add_pntdata(ncid, STNAMES(ivtype,col), ri, data, excv, skip_range_error)
         else
-            name = STNAMES(ivtype,col)
-            if (name == ' ' .and. ivtype == 1) name = 'x'
-            if (name == ' ' .and. ivtype == 2) name = 'y'
-            call agnc_add_mapdata(ncid, name, ri, data, excv, skip_range_error)
+            call agnc_add_mapdata(ncid, STNAMES(ivtype,col), ri, data, excv, skip_range_error)
         end if
 
     end subroutine swn_outnc_appendblock
@@ -1404,7 +1386,7 @@ contains
         integer, save                    :: IENT=0
 
         ncid = nref
-        if ( present(irq) ) ncid = nrefcp(irq) + ncoffset(irq)
+        if ( present(irq) ) ncid = nref + ncoffset(irq)
 
         ! Decided to sync data to file even in non stationary mode because
         ! otherwise data is buffered during the entire computation,
@@ -1418,13 +1400,10 @@ contains
         end if
     end subroutine swn_outnc_close_on_end
 
-    subroutine record_index(ncid, recordaxe, xpctime, ri, reading, filename)
+    subroutine record_index(ncid, recordaxe, xpctime, ri)
         integer,                              intent(   in) :: ncid, xpctime
         type(recordaxe_type),                 intent(inout) :: recordaxe
         integer,                              intent(  out) :: ri
-        logical,                              intent(   in) :: reading  !< ncfile used for reading
-        character(len=*),                     intent(   in) :: filename ! for use in error message
-
         integer, allocatable, dimension(:)                  :: tmp_time
         integer, save                                       :: IENT=0
 
@@ -1432,46 +1411,39 @@ contains
         ri = timeindex(recordaxe%content, xpctime)
 
         if ( ri < 0 ) then
-            if (reading) then
-                call MSGERR(2, "first time not available in input netcdf " // filename)
-                ri = 1
-            else
-                call MSGERR(4, 'agioncmd cannot prepend data, only overwrite '// &
-                               'and append. Consider setting option in order '// &
-                               'to generate monthly files. You''ll need to rerun '// &
-                               'the first period too though')
-                call close_ncfile(ncid)
-            endif
-        else if ( ri == 0 ) then
-            if (reading) then
-                call msgerr(2, "last time not available in input netcdf " // filename)
-            else
-                ! record needs to be appended
-                allocate(tmp_time(recordaxe%ncontent))
-                tmp_time = recordaxe%content
-                deallocate(recordaxe%content)
-                allocate(recordaxe%content(recordaxe%ncontent+1))
-                recordaxe%content(1:recordaxe%ncontent) = tmp_time
-                recordaxe%content(recordaxe%ncontent+1) = xpctime
-                recordaxe%ncontent = recordaxe%ncontent+1
-                !
-                ! Update netcdf file with new time axe
-                !
-                call agnc_set_recordaxe (ncid, recordaxe)
-            endif
+            call MSGERR(4, 'agioncmd cannot prepend data, only overwrite '// &
+                           'and append. Consider setting option in order '// &
+                           'to generate monthly files. You''ll need to rerun '// &
+                           'the first period too though')
+            call close_ncfile(ncid)
+        end if
+        if ( ri == 0) then
+            ! record needs to be appended
+            allocate(tmp_time(recordaxe%ncontent))
+            tmp_time = recordaxe%content
+            deallocate(recordaxe%content);
+            allocate(recordaxe%content(recordaxe%ncontent+1))
+            recordaxe%content(1:recordaxe%ncontent) = tmp_time
+            recordaxe%content(recordaxe%ncontent+1) = xpctime
+            recordaxe%ncontent = recordaxe%ncontent+1
+            !
+            ! Update netcdf file with new time axe
+            !
+            call agnc_set_recordaxe (ncid, recordaxe)
             ri = recordaxe%ncontent
+
         end if
 
     end subroutine record_index
 
-    subroutine swn_outnc_openblockfile(ncfile, myk, mxk, ovlnam, &
-                                       oqi, oqr, ivtyp,irq, xgrdgl, ygrdgl)
+    subroutine swn_outnc_openblockfile(ncfile, myk, mxk, ovlnam, xgrdgl,   &
+                                       ygrdgl, oqi, oqr, ivtyp ,  irq  )
         character*80,           intent(   in) :: ncfile
         integer,                intent(   in) :: myk, mxk, irq
         integer, dimension(:),  intent(   in) :: oqi, ivtyp
         real*8,  dimension(:),  intent(   in) :: oqr
         character*40,           intent(   in) :: ovlnam(:)
-        real,    optional,      intent(   in) :: xgrdgl(mxk, myk), &
+        real,                   intent(   in) :: xgrdgl(mxk, myk), &
                                                  ygrdgl(mxk, myk)
 
         ! local variables
@@ -1525,13 +1497,8 @@ contains
                 pntgrid%npoints = mxk
                 allocate (pntgrid%longitude(mxk))
                 allocate (pntgrid%latitude(mxk))
-                if (present(xgrdgl) .and. present(ygrdgl)) then
-                   pntgrid%latitude  = ygrdgl(:,1)
-                   pntgrid%longitude = xgrdgl(:,1)
-                else
-                   pntgrid%latitude  = -999.0
-                   pntgrid%longitude = -999.0
-                endif
+                pntgrid%latitude  = ygrdgl(:,1)
+                pntgrid%longitude = xgrdgl(:,1)
                 if ( KSPHER == 0 ) pntgrid%lunit = 'meter'
 
                 ! Definition mode
@@ -1554,44 +1521,32 @@ contains
                 if ( abs(ALPC) < epsilon(1.) .and. OPTG == 1 ) then
                     allocate (mapgrid%longitude(mxk,1))
                     allocate (mapgrid%latitude (1,myk))
-                    if (present(xgrdgl) .and. present(ygrdgl)) then
-                       if ( PARLL ) then
-                           mapgrid%longitude(:,1) = xgrdgl(:,1) + XOFFS
-                           mapgrid%latitude(1,:)  = ygrdgl(1,:) + YOFFS
-                       else
-                           mapgrid%longitude(:,1) = xgrdgl(:,1)
-                           mapgrid%latitude(1,:)  = ygrdgl(1,:)
-                       end if
+                    if ( PARLL ) then
+                        mapgrid%longitude(:,1) = xgrdgl(:,1) + XOFFS
+                        mapgrid%latitude(1,:)  = ygrdgl(1,:) + YOFFS
                     else
-                       mapgrid%longitude(:,1) = -999.0
-                       mapgrid%latitude(1,:)  = -999.0
+                        mapgrid%longitude(:,1) = xgrdgl(:,1)
+                        mapgrid%latitude(1,:)  = ygrdgl(1,:)
                     end if
                     mapgrid%mdc  = .false.
                 else
                     allocate (mapgrid%longitude(mxk, myk))
                     allocate (mapgrid%latitude (mxk, myk))
-                    if (present(xgrdgl) .and. present(ygrdgl)) then
-                       if ( PARLL ) then
-                           mapgrid%longitude = xgrdgl + XOFFS
-                           mapgrid%latitude  = ygrdgl + YOFFS
-                       else
-                           mapgrid%longitude = xgrdgl
-                           mapgrid%latitude  = ygrdgl
-                       end if
+                    if ( PARLL ) then
+                        mapgrid%longitude = xgrdgl + XOFFS
+                        mapgrid%latitude  = ygrdgl + YOFFS
                     else
-                       mapgrid%longitude = -999.0
-                       mapgrid%latitude  = -999.0
+                        mapgrid%longitude = xgrdgl
+                        mapgrid%latitude  = ygrdgl
                     end if
                     mapgrid%mdc  = .true.
                 end if
                 ! curvilinear grids may contain the EXCEPTION value of the bottom
                 ! Replace with the hardcoded float _FillValue
-                if (present(xgrdgl) .and. present(ygrdgl)) then
-                   where ( abs(mapgrid%longitude - EXCFLD(1)) < epsilon(1.) ) &
-                       mapgrid%longitude = NF90_FILL_FLOAT
-                   where ( abs(mapgrid%latitude - EXCFLD(1)) < epsilon(1.) ) &
-                       mapgrid%latitude = NF90_FILL_FLOAT
-                endif
+                where ( abs(mapgrid%longitude - EXCFLD(1)) < epsilon(1.) ) &
+                    mapgrid%longitude = NF90_FILL_FLOAT
+                where ( abs(mapgrid%latitude - EXCFLD(1)) < epsilon(1.) ) &
+                    mapgrid%latitude = NF90_FILL_FLOAT
 
                 mapgrid%nx   = mxk
                 mapgrid%ny   = myk
@@ -1619,7 +1574,6 @@ contains
         ! set the offset to translate between swan's HIOPEN + IRQ and
         ! the netcdf 65xxx range
         ncoffset(irq) = ncid - oqi(1)
-        nrefcp(irq) = oqi(1)
 
         ! if only only record found, set delta to delta specified in command file (or 1 on stationary)
         if ( recordaxe(irq)%ncontent == 1 ) then
