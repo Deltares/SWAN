@@ -9,7 +9,7 @@ ENV SWANEXE=swan.exe \
 
 ENV LD_LIBRARY_PATH=$SWANDIR \
 	PATH=$SWANDIR:$PATH \
-	INPUT=U30D270Lp200NZa
+	INPUT=
 
 COPY run_docker_NZ.sh /opt/run_docker.sh
 WORKDIR /data
