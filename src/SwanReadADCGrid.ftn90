@@ -11,22 +11,20 @@ subroutine SwanReadADCGrid
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !   Authors
@@ -58,8 +56,6 @@ subroutine SwanReadADCGrid
     use ocpcomm4
     use m_genarr
     use SwanGriddata
-!PUN    use SIZES
-!PUN    use MESSENGER
 !
     implicit none
 !
@@ -97,7 +93,6 @@ subroutine SwanReadADCGrid
     ndsd   = 0
     iostat = 0
     grdfil = 'fort.14'
-!PUN    grdfil = trim(INPUTDIR)//DIRCH2//trim(grdfil)
     call for (ndsd, grdfil, 'OF', iostat)
     if (stpnow()) goto 900
     !
@@ -153,12 +148,8 @@ subroutine SwanReadADCGrid
     read(ndsd, *, end=950, err=910) nopbc
     read(ndsd, *, end=950, err=910) idum
     do j = 1, nopbc
-!PUN       if ( MNPROC==1 ) then
           vm = j
           read(ndsd, *, end=950, err=910) n2
-!PUN       else
-!PUN          read(ndsd, *, end=950, err=910) n2, vm
-!PUN       endif
        do k = 1, n2
            read(ndsd, *, end=950, err=910) ivert
            vmark(ivert) = vm
@@ -168,12 +159,8 @@ subroutine SwanReadADCGrid
     read(ndsd, *, end=950, err=910) n1
     read(ndsd, *, end=950, err=910) idum
     do j = 1, n1
-!PUN       if ( MNPROC==1 ) then
           vm = nopbc + j
           read(ndsd, *, end=950, err=910) n2, itype
-!PUN       else
-!PUN          read(ndsd, *, end=950, err=910) n2, itype, vm
-!PUN       endif
        if ( itype /= 4 .and. itype /= 24 ) then
           do k = 1, n2
              read(ndsd, *, end=950, err=910) ivert
@@ -192,15 +179,6 @@ subroutine SwanReadADCGrid
     !
     close(ndsd)
     !
-!PUN       ! ghost vertices are marked with +999
-!PUN       !
-!PUN       do j = 1, NEIGHPROC
-!PUN          do k = 1, NNODRECV(j)
-!PUN             ivert = IRECVLOC(k,j)
-!PUN             vmark(ivert) = 999
-!PUN          enddo
-!PUN       enddo
-!PUN       !
  900 return
     !
  910 call msgerr (4, 'error reading data from grid file fort.14' )

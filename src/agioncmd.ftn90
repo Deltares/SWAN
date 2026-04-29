@@ -1,6 +1,13 @@
 !/ ------------------------------------------------------------------- /
 !/
 !/
+!/    version | date        | description
+!/    1.0     | 01-nov-2006 | netcdf support in wavewatch III 2.22
+!/    1.1     | 03-dec-2009 | netcdf support in wavewatch III 3.04
+!/    1.2     | 01-sep-2012 | netcdf support in SWAN 40.91
+!/    1.3     | 01-may-2013 | overhauled to simplify maintenance
+!/    1.4     | 11-apr-2014 | bug fixes
+!/                          | reduced memory consumption
 !/
 !/
 !  1. purpose :
@@ -8,7 +15,7 @@
 !     agioncmd is a module that provides methods to write cf1.5 compliant
 !     netcdf files containing integrated parameters and spectra.
 !     Furthermore, some methods are available to read data from cf-1.5 and
-!     coads compliant files. 
+!     coads compliant files.
 !
 !     For more information:
 !       http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.5
@@ -128,16 +135,13 @@
       module agioncmd
         use netcdf
         use nctablemd
-        use netcdf_tools
-        use SWCOMM3, only : DEGRAD
         implicit none
-        private
         real, parameter                              :: AGIONCMD_VERSION = 1.5
         real, parameter                              :: AGNC_DUMMY = NF90_FILL_FLOAT
         integer(kind=1), parameter                   :: AGNC_FILL_BYTE = -2**7
         integer(kind=2), parameter                   :: AGNC_FILL_SHORT= -2**15
 
-        type, public :: mapgrid_type
+        type mapgrid_type
             real, dimension(:,:), allocatable        :: longitude, latitude
             character(len=10)                        :: lunit = 'degrees'
             integer                                  :: nx = 0, ny = 0, &
@@ -145,13 +149,10 @@
                                                         lon_varid, lat_varid
             real                                     :: dx, dy, alpc = 0.
             logical                                  :: mdc = .false.
-            logical                                  :: hasBounds = .false.
-            real                                     :: fillValue
-            logical                                  :: isCurvi = .false.
-            logical                                  :: flippedY = .false.
+
         end type mapgrid_type
 
-        type, public :: pntgrid_type
+        type pntgrid_type
             real, dimension(:), allocatable          :: longitude, latitude
             integer, dimension(:), allocatable       :: ips
             character(len=10)                        :: lunit = 'degrees'
@@ -161,7 +162,7 @@
                                                         xdimlen = 0, ydimlen = 0
         end type pntgrid_type
 
-        type, public :: spcgrid_type
+        type spcgrid_type
             real, dimension(:), allocatable          :: frequency, direction
             logical                                  :: relative
             integer                                  :: frq_dimid, frq_varid, &
@@ -169,12 +170,11 @@
                                                         nfreq = 0, ndir = 0
         end type spcgrid_type
 
-        type, public :: recordaxe_type
-            integer(kind=8), dimension(:), allocatable :: content
-            integer                                    :: delta
-            integer                                    :: ncontent = 0, dimid, varid
-            logical                                    :: nstatm = .true.
-            integer                                    :: first, last
+        type recordaxe_type
+            integer*8, dimension(:), allocatable     :: content
+            integer                                  :: delta
+            integer                                  :: ncontent = 0, dimid, varid
+            logical                                  :: nstatm = .true.
         end type recordaxe_type
 
         ! Given the dimension size and/or type, select proper procedure/function
@@ -186,6 +186,7 @@
             module procedure axe_is_regular_integer, &
                              axe_is_regular_integer64, &
                              axe_is_regular_float, &
+                             axe_is_regular_float_2d, &
                              axe_is_regular_double
         end interface axe_is_regular
         interface agnc_add_mapdata
@@ -209,20 +210,6 @@
         interface timeindex
             module procedure timeindex32, timeindex64
         end interface timeindex
-
-        public :: create_ncfile, seconds_since_epoch, timeindex, open_ncfile
-        public :: agnc_add_mapdata, agnc_add_pntdata, agnc_add_spcdata, agnc_get_griddef
-        public :: datevec
-        public :: agnc_add_spcdata_density, agnc_collect_spcmeta
-        public :: agnc_get_mapgrid, agnc_get_pntgrid
-        public :: agnc_set_mapgrid, agnc_set_pntgrid
-        public :: agnc_define_mapvariable, agnc_define_pntvariable
-        public :: agnc_get_varid_by_name
-        public :: close_ncfile, nccheck
-        public :: agnc_get_recordaxe, agnc_set_recordaxe
-        public :: agnc_get_spcgrid, agnc_set_spcgrid
-        public :: get_scalies_float
-
       contains
 !
 ! ---- create new netcdf files ----
@@ -263,7 +250,7 @@
                 do_scale = Escale
             end if
 
-            write(history,'(A,F4.1)'), 'Created with agioncmd version', AGIONCMD_VERSION
+            write(history,'(a,f3.1)') 'Created with agioncmd version ', AGIONCMD_VERSION
             call nccheck ( nf90_create( ncfile, NF90_NOCLOBBER + NF90_64BIT_OFFSET, ncid) )
             if ( recordaxe%nstatm ) then
                 call nccheck ( nf90_def_dim( ncid, 'time', NF90_UNLIMITED, recordaxe%dimid ) );
@@ -566,7 +553,7 @@
                 call nccheck ( nf90_put_att( ncid, pntgrid%lat_varid, 'standard_name', 'latitude') )
             end if
 
-            ! http://cfconventions.org/Data/cf-conventions/cf-conventions-1.7/cf-conventions.html#compression-by-gathering
+            ! http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.5/ch08s02.html
             ! states that compression by gathering consists of having a pointlist with one dimensional
             ! indices in the two dimensional grid (lon, lat). In the example lon and lat are arrays sized
             ! nx and ny. This code delibertly breaks that rule because it is also used to write unstructured
@@ -588,15 +575,15 @@
             integer,                intent( in)         :: ncid
             character(len=*),       intent( in)         :: varname
             type(nctable_record)                        :: trecord
-            integer                                     :: ra_dimid, varid
-            type(mapgrid_type)                          :: mapgrid
+            integer                                     :: ra_dimid, lon_dimid, lat_dimid,&
+                                                           varid
 
             call get_nctable_record(varname, trecord)
             call agnc_get_recordaxe_ids(ncid, ra_dimid)
-            call agnc_get_ll_dimids(ncid, mapgrid)
+            call agnc_get_ll_dimids(ncid, lon_dimid, lat_dimid)
 
             call nccheck ( nf90_def_var( ncid, trecord%name , trecord%nctype, &
-                                            (/ mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), varid ) )
+                                            (/ lon_dimid, lat_dimid, ra_dimid /), varid ) )
 
             call agnc_add_variable_attributes( ncid, varid, trecord )
 
@@ -626,6 +613,8 @@
             integer,                intent(in) :: ncid, varid
             type(nctable_record),   intent(in) :: trecord
             real(kind=4)                       :: add_offset, scale_factor, rng
+            integer                            :: tmpid
+            character(len=nf90_max_name)       :: lonname
 
             call nccheck ( nf90_put_att( ncid, varid, 'units', trecord%units) )
             if ( trim(trecord%standard_name) /= 'none' ) &
@@ -705,6 +694,7 @@
             type(recordaxe_type) , optional, intent(inout)   :: recordaxe
             logical              , optional, intent(   in)   :: monthly
             type(recordaxe_type)                             :: recordaxe_tmp
+            integer                                          :: oldmode
             if ( permission == "read") then
                 call nccheck( nf90_open(ncfile, nf90_nowrite, ncid)  )
             else
@@ -714,10 +704,10 @@
             if ( present(recordaxe)) then
                 call agnc_get_recordaxe(ncid, recordaxe_tmp)
                 ! Check if read time axe is regular and does not only contain _FillValues
-                if ( axe_is_regular(recordaxe_tmp%content, recordaxe_tmp%ncontent, .true.) ) then
+                if ( axe_is_regular(recordaxe_tmp%content, recordaxe_tmp%ncontent, recordaxe_tmp%delta, .true.) ) then
                     recordaxe = recordaxe_tmp
                 else
-                    if ( axe_is_regular(recordaxe%content, recordaxe%ncontent, .true.)) then
+                    if ( axe_is_regular(recordaxe%content, recordaxe%ncontent, recordaxe%delta, .true.)) then
                         if ( present(monthly) ) then
                             call agnc_set_recordaxe(ncid, recordaxe, monthly)
                         else
@@ -746,13 +736,7 @@
             integer,               intent (   in)                 :: ncid
             type (recordaxe_type), intent (inout)                 :: recordaxe
             logical, optional   ,  intent (   in)                 :: monthly
-
             integer                                               :: t1(6), t2(6), i
-            integer                                               :: ntime1    ! number timesteps already on NetCDF-file
-            integer                                               :: ntime2    ! number of timesteps in recordaxe
-            integer                                               :: length(1) ! number of timesteps to be appended
-            integer                                               :: start(1)  ! start vector for nf90_put_var
-
             if ( recordaxe%varid < 1 ) call agnc_get_recordaxe_ids(ncid, recordaxe%dimid, recordaxe%varid)
 
             ! Some sanity checks
@@ -772,27 +756,19 @@
                     recordaxe%content = (/ (i, i=seconds_since_epoch(t1), seconds_since_epoch(t2) - recordaxe%delta, recordaxe%delta) /)
                 end if
             end if
-            if (.not. axe_is_regular(recordaxe%content, recordaxe%ncontent) ) then
+            if (.not. axe_is_regular(recordaxe%content, recordaxe%ncontent, recordaxe%delta) ) then
                 call close_ncfile(ncid)
                 call agnc_set_error( 'Failed to append data to this file. It would result in a irregular record axis');
             end if
-            !
-            ! update times on NetCDF file; only append times not already on file
-            !
-            call nccheck ( nf90_inquire_dimension(ncid, recordaxe%varid, len = ntime1) )
-            ntime2 = recordaxe%ncontent
 
-            if (ntime2 > ntime1) then
-                start(1)  = ntime1 + 1
-                length(1) = ntime2 - ntime1
-                call nccheck ( nf90_put_var(ncid, recordaxe%varid, recordaxe%content(ntime1+1:ntime2), start, length) )
-            endif
+            call nccheck ( nf90_put_var(ncid, recordaxe%varid, recordaxe%content) )
 
         end subroutine agnc_set_recordaxe
 
         subroutine agnc_set_pntgrid (ncid, pntgrid)
             integer,                intent (   in)                  :: ncid
             type (pntgrid_type),    intent (inout)                  :: pntgrid
+            character(len=nf90_max_name)                            :: name
 
             if ( pntgrid%lon_varid < 1 ) then
                 call agnc_get_griddef(ncid, pntgrid)
@@ -807,68 +783,25 @@
         subroutine agnc_set_mapgrid (ncid, mapgrid)
             integer,              intent (   in)                  :: ncid
             type (mapgrid_type),  intent (inout)                  :: mapgrid
+            character(len=nf90_max_name)                          :: name
 
             if ( mapgrid%lon_varid < 1 ) then
                 call agnc_get_griddef(ncid, mapgrid)
             end if
-            call put_mapgrid_chunked_write(ncid, mapgrid%lon_varid, mapgrid%longitude)
+            call nccheck ( nf90_put_var(ncid, mapgrid%lon_varid, mapgrid%longitude) )
             if ( mapgrid%mdc ) then
-                call put_mapgrid_chunked_write(ncid, mapgrid%lat_varid, mapgrid%latitude)
+                call nccheck ( nf90_put_var(ncid, mapgrid%lat_varid, mapgrid%latitude) )
             else
                 call nccheck ( nf90_put_var(ncid, mapgrid%lat_varid, &
                     reshape(mapgrid%latitude, (/mapgrid%ny/)) ))
             end if
         end subroutine agnc_set_mapgrid
-!
-!       actual write of coordinates
-!       write in chunks of 256*256 to avoid problems in NetCDF writer
-!       also replace dummy of -1e10 by NF90_FILL_FLOAT
-        subroutine put_mapgrid_chunked_write(ncid, varid, values)
-            integer, intent(in)             :: ncid, varid
-            real(kind=4), intent(in)        :: values(:,:)
 
-            integer                         :: chunksize, chunksizex, chunksizey, nx, ny
-            real(kind=4), allocatable       :: vloc(:,:)
-            integer                         :: sx, cx, sy, cy, lxi, lyi, nf90_stat
-            real(kind=4)                    :: tmp
-
-            chunksize = 256
-            nx = size(values,1)
-            ny = size(values,2)
-            chunksizex = min(chunksize, nx)
-            chunksizey = min(chunksize, ny)
-
-            allocate(vloc(chunksizex, chunksizey))
-
-            do sx = 1, nx, chunksizex
-                cx = minval( (/chunksizex, nx-sx+1/) )
-                do sy = 1, ny, chunksizey
-                    cy = minval( (/chunksizey, ny-sy+1/) )
-
-                    if (cx /= chunksizex .or. cy /= chunksizey) then
-                        vloc = 0.
-                    endif
-                    do lxi=1,cx
-                        do lyi=1,cy
-                            tmp = values((sx + lxi - 1) , (sy + lyi - 1) )
-                            if (tmp == -1e10) then
-                                vloc(lxi,lyi) = NF90_FILL_FLOAT
-                            else
-                                vloc(lxi,lyi) = tmp
-                            endif
-                        end do
-                    end do
-
-                    nf90_stat = nf90_put_var(ncid, varid, vloc(1:cx,1:cy), (/sx,sy/), (/cx, cy/))
-                    call nccheck(nf90_stat)
-                enddo
-            enddo
-            deallocate(vloc)
-        end subroutine put_mapgrid_chunked_write
 
         subroutine agnc_set_spcgrid (ncid, spcgrid)
             integer,              intent (   in)                  :: ncid
             type (spcgrid_type),  intent (inout)                  :: spcgrid
+            character(len=nf90_max_name)                          :: name
 
             if ( spcgrid%frq_varid < 1 ) then
                 call agnc_get_griddef(ncid, spcgrid)
@@ -894,10 +827,9 @@
             !   check that geographic axes are regular
             integer, intent ( in )              :: ncid
             type (mapgrid_type), intent (out)   :: mapgrid
-            integer                             :: ndims, mp, np
-            real                                :: xlen, ylen, fill_value
+            integer                             :: ndims
+            real                                :: xlen, ylen
             real, dimension(:), allocatable     :: lattmp
-            real, dimension(:,:,:), allocatable :: bndtmp
 
             call agnc_get_griddef(ncid, mapgrid)
 
@@ -920,178 +852,36 @@
 
                 mapgrid%alpc = 0.
             else
-                call nccheck ( nf90_get_att(ncid, mapgrid%lon_varid, "_FillValue", fill_value), "_FillValue" )
-                mapgrid%fillValue = fill_value
                 allocate(mapgrid%longitude(mapgrid%nx, mapgrid%ny))
                 allocate(mapgrid%latitude (mapgrid%nx, mapgrid%ny))
-                if (ndims == 2) then
-                    call nccheck ( nf90_get_var(ncid, mapgrid%lat_varid, mapgrid%latitude) )
-                    call nccheck ( nf90_get_var(ncid, mapgrid%lon_varid, mapgrid%longitude) )
-                    if (cornersAreFilled(mapgrid, fill_value)) then
-                        xlen = mapgrid%longitude(mapgrid%nx,1) - mapgrid%longitude(1,1)
-                        ylen = mapgrid%latitude(mapgrid%nx,1)  - mapgrid%latitude(1,1)
+                call nccheck ( nf90_get_var(ncid, mapgrid%lat_varid, mapgrid%latitude) )
+                call nccheck ( nf90_get_var(ncid, mapgrid%lon_varid, mapgrid%longitude) )
 
-                        mapgrid%alpc = atan2(xlen, ylen)
-                        ! greatcircle??
-                        mapgrid%dx   = hypot( xlen, ylen ) / ( mapgrid%nx - 1 )
+                xlen = mapgrid%longitude(mapgrid%nx,1) - mapgrid%longitude(1,1)
+                ylen = mapgrid%latitude(mapgrid%nx,1)  - mapgrid%latitude(1,1)
 
-                        xlen = mapgrid%longitude(1,mapgrid%ny) - mapgrid%longitude(1,1)
-                        ylen = mapgrid%latitude(1,mapgrid%ny)  - mapgrid%latitude(1,1)
-                        mapgrid%dy = hypot ( xlen, ylen) / ( mapgrid%ny - 1 )
-                    else
-                        call searchActivePoint(mapgrid, mp, np, fill_value)
-                        call fillMapgridProps(mapgrid, mp, np)
-                    endif
-                else if (mapgrid%hasBounds) then
-                    allocate(bndtmp(4, mapgrid%nx, mapgrid%ny))
-                    call nccheck ( nf90_get_var(ncid, mapgrid%lat_varid, bndtmp) )
-                    call getMeanOfBounds(mapgrid, mapgrid%latitude, bndtmp)
-                    call nccheck ( nf90_get_var(ncid, mapgrid%lon_varid, bndtmp) )
-                    call getMeanOfBounds(mapgrid, mapgrid%longitude, bndtmp)
-                    deallocate(bndtmp)
+                mapgrid%alpc = atan2(xlen, ylen)
+                ! greatcircle??
+                mapgrid%dx   = ( xlen**2 + ylen**2  )**0.5 / ( mapgrid%nx - 1 )
 
-                    call searchActivePoint(mapgrid, mp, np, fill_value)
-                    call fillMapgridProps(mapgrid, mp, np)
-                else
-                    call agnc_set_error("wrong number of dimensions in agnc_get_mapgrid")
-                endif
-
+                xlen = mapgrid%longitude(1,mapgrid%ny) - mapgrid%longitude(1,1)
+                ylen = mapgrid%latitude(1,mapgrid%ny)  - mapgrid%latitude(1,1)
+                mapgrid%dy = ( xlen**2 + ylen**2)**0.5 / ( mapgrid%ny - 1 )
             end if
 
         end subroutine agnc_get_mapgrid
-
-        !> helper for agnc_get_mapgrid
-        subroutine getMeanOfBounds(mapgrid, coordsarray, bnd)
-            type (mapgrid_type), intent (in)   :: mapgrid
-            real(kind=4)       , intent (out)  :: coordsarray(:,:)
-            real(kind=4)       , intent (in)   :: bnd(:,:,:)
-
-            integer                            :: m, n
-
-            do m = 1, mapgrid%nx
-                do n = 1, mapgrid%ny
-                    coordsarray(m,n) = (bnd(1,m,n) + bnd(2,m,n) + bnd(3,m,n) + bnd(4,m,n)) / 4.0
-                enddo
-            enddo
-        end subroutine getMeanOfBounds
-
-        !> helper for agnc_get_mapgrid
-        subroutine searchActivePoint(mapgrid, mp, np, fill_value)
-            type (mapgrid_type), intent (in)   :: mapgrid
-            integer,             intent (out)  :: mp, np
-            real(kind=4),        intent (in)   :: fill_value
-
-            logical :: ok
-            integer :: i, j, k
-            real, parameter :: ratioM(5) = [0.5, 0.25, 0.75, 0.75, 0.25]
-            real, parameter :: ratioN(5) = [0.5, 0.25, 0.25, 0.75, 0.75]
-
-            do k = 1, size(ratioM)
-                mp = ratioM(k) * mapgrid%nx
-                np = ratioN(k) * mapgrid%ny
-                ok = .true.
-                search: &
-                do i = -1,1
-                   do j = -1,1
-                       if (mapgrid%longitude(mp+i,np+j) == fill_value) then
-                           ok = .false.
-                           exit search
-                       endif
-                   enddo
-                enddo search
-                if (ok) exit
-            enddo
-            if (.not. ok) call agnc_set_error("no active point found")
-        end subroutine searchActivePoint
-     
-        function cornersAreFilled(mapgrid, fill_value) result(chk)
-            type (mapgrid_type), target, intent (in)   :: mapgrid
-            real(kind=4),        intent (in)   :: fill_value
-            logical                            :: chk
-
-            real, pointer :: coords(:,:)
-            integer :: k, m, n
-
-            chk = .true.
-            outer: &
-            do k = 1, 2
-                if (k == 1) then
-                    coords => mapgrid%longitude
-                else
-                    coords => mapgrid%latitude
-                endif
-                do n = 1, mapgrid%nx, mapgrid%nx-1
-                    do m = 1, mapgrid%ny, mapgrid%ny-1
-                        if (coords(n,m) == fill_value) then
-                            chk = .false.
-                            exit outer
-                        endif
-                    enddo
-                enddo
-            enddo outer
-
-        end function cornersAreFilled
-
-        subroutine fillMapgridProps(mapgrid, mp, np)
-            use m_genarr, only : xcgrid, ycgrid
-            use swcomm2,   only: xoffs, yoffs
-            type (mapgrid_type), intent (inout)   :: mapgrid
-            integer,             intent (in)      :: mp, np
-
-            real :: xlen, ylen, diff1x, diff2x, diff1y, diff2y
-            integer :: j
-
-            xlen = mapgrid%longitude(mp+1,np) - mapgrid%longitude(mp,np)
-            ylen = mapgrid%latitude(mp+1,np)  - mapgrid%latitude(mp,np)
-
-            mapgrid%alpc = atan2(xlen, ylen)
-            ! greatcircle??
-            mapgrid%dx   = hypot( xlen, ylen )
-
-            xlen = mapgrid%longitude(mp,np+1) - mapgrid%longitude(mp,np)
-            ylen = mapgrid%latitude(mp,np+1)  - mapgrid%latitude(mp,np)
-            mapgrid%dy = hypot ( xlen, ylen)
-            mapgrid%isCurvi = .true.
-
-            ! check on flipped y-axis
-            diff1x = 0.0;  diff2x = 0.0; diff1y = 0.0; diff2y = 0.0
-            do j = 1, mapgrid%ny
-                if (mapgrid%longitude(mp,j) /= mapgrid%fillValue) then
-                    diff1x = diff1x + abs(xcgrid(mp,mapgrid%ny + 1 - j) + xoffs - mapgrid%longitude(mp,j))
-                    diff2x = diff2x + abs(xcgrid(mp,j) + xoffs- mapgrid%longitude(mp,j))
-                endif
-                if (mapgrid%latitude(mp,j) /= mapgrid%fillValue) then
-                    diff1y = diff1y + abs(ycgrid(mp,mapgrid%ny + 1 - j) + yoffs - mapgrid%latitude(mp,j))
-                    diff2y = diff2y + abs(ycgrid(mp,j) + yoffs- mapgrid%latitude(mp,j))
-                endif
-            enddo
-            mapgrid%flippedY = diff1x + diff1y < diff2x + diff2y
-        end subroutine fillMapgridProps
-
 
         subroutine agnc_get_pntgrid(ncid, pntgrid)
             integer, intent ( in )            :: ncid
             type (pntgrid_type), intent (out) :: pntgrid
 
-            character(len=32) :: units
-            integer           :: ierr
-            logical, external :: eqcstr
-
             call agnc_get_griddef(ncid, pntgrid)
 
             allocate(pntgrid%longitude(pntgrid%npoints))
-            call nccheck ( nf90_get_var(ncid, pntgrid%lon_varid, pntgrid%longitude) )
+            call nccheck ( nf90_get_var(ncid, pntgrid%lon_varid, pntgrid%longitude) );
 
             allocate(pntgrid%latitude(pntgrid%npoints))
             call nccheck ( nf90_get_var(ncid, pntgrid%lat_varid, pntgrid%latitude) )
-
-            ierr = nf90_get_att(ncid, pntgrid%lon_varid, 'units', units)
-            call convertCstring(units)
-            if (ierr == nf90_noerr) then
-                if (eqcstr('meter', trim(units))) then
-                    pntgrid%lunit = units
-                endif
-            endif
 
             if ( pntgrid%ips_varid /= -1 ) then
                 allocate(pntgrid%ips(pntgrid%npoints))
@@ -1104,11 +894,6 @@
             integer, intent ( in )              :: ncid
             type (spcgrid_type), intent (out)   :: spcgrid
 
-            character(len=32) :: unit
-            integer           :: ierr
-
-            logical, external :: eqcstr
-
             call agnc_get_griddef(ncid, spcgrid)
 
             if ( spcgrid%frq_varid > 0 ) then
@@ -1117,12 +902,6 @@
                 if ( spcgrid%dir_varid > 0 ) then
                     allocate(spcgrid%direction(spcgrid%ndir))
                     call nccheck ( nf90_get_var(ncid, spcgrid%dir_varid, spcgrid%direction) )
-                    ierr = nf90_get_att(ncid, spcgrid%dir_varid, "units", unit)
-                    if (ierr == nf90_noerr) then
-                        if (eqcstr(trim(unit), 'degrees')) then
-                            spcgrid%direction = DEGRAD * spcgrid%direction
-                        endif
-                    endif
                 end if
             end if
         end subroutine agnc_get_spcgrid
@@ -1130,11 +909,9 @@
         subroutine agnc_get_recordaxe(ncid, recordaxe)
             integer, intent ( in )                  :: ncid
             type (recordaxe_type), intent(out)      :: recordaxe
-
-            character(len=nf90_max_name)               :: units, raname
-            real(kind=8), allocatable, dimension(:)    :: dvalues
-            integer                                    :: factor, dvec(6), unitsLength
-            logical                                    :: is_regular
+            character(len=nf90_max_name)            :: units, raname, emsg
+            integer*8, allocatable, dimension(:)    :: dvalues
+            integer                                 :: factor, dvec(6)
 
             ! find time dimid
             call agnc_get_recordaxe_ids(ncid, recordaxe%dimid, recordaxe%varid, recordaxe%ncontent)
@@ -1142,44 +919,33 @@
             if ( recordaxe%varid < 0 ) then
                 call agnc_set_error( 'Could not find record axe variable')
             end if
-            call nccheck ( nf90_inquire_attribute(ncid, recordaxe%varid, 'units', len = unitsLength) )
-            call nccheck ( nf90_get_att(ncid, recordaxe%varid, 'units', units), 'units' )
+            call nccheck ( nf90_get_att(ncid, recordaxe%varid, 'units', units) )
             call nccheck ( nf90_inquire_variable(ncid, recordaxe%varid, raname) )
             allocate(recordaxe%content(recordaxe%ncontent))
 
             if (raname /= 'run') then
 
-                call agnc_scan_time(units(1:unitsLength), factor, dvec)
+                call agnc_scan_time(units, factor, dvec, emsg)
+                if ( factor < 0 ) call agnc_set_error(emsg)
 
                 allocate(dvalues(recordaxe%ncontent))
-                call nccheck ( nf90_get_var(ncid, recordaxe%varid, dvalues, (/1/), (/recordaxe%ncontent/) ) )
+                call nccheck ( nf90_get_var(ncid, recordaxe%varid, dvalues) )
                 recordaxe%content = nint(dvalues * dble(factor) + dble(seconds_since_epoch(dvec)),8)
                 deallocate(dvalues)
                 recordaxe%nstatm = .true.
             else
-                recordaxe%content = 0
                 call nccheck ( nf90_get_var(ncid, recordaxe%varid, recordaxe%content) )
                 recordaxe%nstatm = .false.
             end if
 
             if (recordaxe%ncontent > 1) then
                 recordaxe%delta = recordaxe%content(2) - recordaxe%content(1)
-                is_regular = axe_is_regular(recordaxe%content, recordaxe%ncontent)
-                if (is_regular) then
-                    recordaxe%first = 1
-                    recordaxe%last = recordaxe%nContent
-                else
-                    is_regular = axe_regular_range(recordaxe)
-                endif
-
-                if (.not. is_regular) then
+                if (.not. axe_is_regular(recordaxe%content, recordaxe%ncontent, recordaxe%delta)) then
                     call agnc_set_error( 'record axe does not appear to be regular')
                 end if
             else
                 ! You'll have set dt yourself when nt is 1
                 recordaxe%delta = 0
-                recordaxe%first = 1
-                recordaxe%last  = 1
             end if
         end subroutine agnc_get_recordaxe
 
@@ -1188,17 +954,23 @@
             integer,                                intent(out)        :: dimid
             integer,                      optional, intent(out)        :: varid, ncontent
             character(len=nf90_max_name), optional, intent(out)        :: raname
-            character(len=6)                                           :: dnames(2), dname
-            integer                                                    :: ierr
+            character*6                                                :: dnames(2), dname
+            integer                                                    :: i
             logical                                                    :: dim_found
 
             dim_found = .false.
             dnames = (/ 'time  ', 'run   ' /)
 
-            ! Note that the assumption is that the record axe dimension has a corresponding variable
+            ! Note that the assumption is that the record axe dimension has a correspomding
+            ! variable
 
-            ierr = nf90_inquire_dimension_list(ncid, dimid, dnames)
-            dim_found = (dimid > 0)
+            do i = 1, 2
+                if ( nf90_inq_dimid(ncid, dnames(i), dimid) == nf90_noerr ) then
+                    dname = dnames(i)
+                    dim_found = .true.
+                    exit
+                end if
+            end do
 
             if ( .not. dim_found ) then
                 call agnc_set_error( 'record axe could not be found')
@@ -1208,84 +980,29 @@
                 call nccheck ( nf90_inquire_dimension(ncid, dimid, dname, ncontent) )
             end if
 
-            if ( present(varid) ) ierr = nf90_inquire_variable_list(ncid, varid, [dname])
+            if ( present(varid) ) call agnc_get_varid_by_name(ncid, dname, varid)
             if ( present(raname)) raname = dname
 
         end subroutine agnc_get_recordaxe_ids
 
-        subroutine find_projection_coord(ncid, dimid, varid, stdname)
-            !
-            ! description:
-            ! helper function to find identifier for coordinates based on standard_name
-            ! successful if lon_dimid > 0
-            !
-            integer             , intent( in)                   :: ncid        !< NetCDF file identifier
-            integer             , intent(out)                   :: dimid       !< dimension identifier
-            integer             , intent(out)                   :: varid       !< dimension identifier
-            character(len=*)    , intent(in)                    :: stdname     !< standard_name for dimension
-
-            integer            :: nvar, nDims, ierr, i, varI
-            character(len=40)  :: varstdname, nameDim(1)
-
-            logical, external :: eqcstr
-
-            dimid = 0
-            ierr = nf90_inquire(ncid, nDims, nvar)
-
-            if (ierr == 0) then
-                do i = 1, nDims
-                    ierr = nf90_inquire_dimension(ncid, i, nameDim(1))
-                    if (ierr /= 0) cycle
-                    ierr =  nf90_inquire_variable_list(ncid, varI, nameDim)
-                    if (ierr /= 0 .or. varId <= 0) cycle
-                    varstdname = ' '
-                    ierr = nf90_get_att(ncid, varI, 'standard_name', varstdname)
-                    if (ierr /= 0) cycle
-
-                    if (eqcstr(trim(varstdname), trim(stdname))) then
-                        dimid = i
-                        varId = varI
-                        exit
-                    endif
-                enddo
-            endif
-
-        end subroutine find_projection_coord
-
-        subroutine agnc_get_ll_dimids(ncid, mapgrid)
+        subroutine agnc_get_ll_dimids(ncid, lon_dimid, lat_dimid)
             integer             , intent( in)                   :: ncid
-            !integer             , intent(out)                   :: lon_dimid, lat_dimid
-            type(mapgrid_type) , intent(inout)                 :: mapgrid
+            integer             , intent(out)                   :: lon_dimid, lat_dimid
 
-            integer :: ierr1, ierr2, i
-            logical :: ready
-            character(len=*), parameter :: namesx(2) = ["projection_x_coordinate", "longitude              "]
-            character(len=*), parameter :: namesy(2) = ["projection_y_coordinate", "latitude               "]
-
-            ready = .false.
-            ierr1 = 0; ierr2 = 0
-            do i = 1, size(namesx)
-                call find_projection_coord(ncid, mapgrid%lon_dimid, mapgrid%lon_varid, namesx(i))
-                call find_projection_coord(ncid, mapgrid%lat_dimid, mapgrid%lat_varid, namesy(i))
-                if ( mapgrid%lon_dimid > 0 .and. mapgrid%lat_dimid > 0) then
-                    ready = .true.
-                    exit
-                endif
-            enddo
-
-            if (.not. ready) then
-                ierr1 = nf90_inquire_dimension_list(ncid, mapgrid%lon_dimid, ["longitude", "x        ", "xc       ", "lon      "])
-                ierr2 = nf90_inquire_dimension_list(ncid, mapgrid%lat_dimid, ["latitude ", "y        ", "yc       ", "lat      "])
-                ready = ( mapgrid%lon_dimid > 0 .and. mapgrid%lat_dimid > 0)
-            endif
-
-            if (.not. ready) then
-                ierr1 = nf90_inquire_variable_list(ncid, mapgrid%lon_varid, ["longitude", "x        ", "lon      "])
-                ierr2 = nf90_inquire_variable_list(ncid, mapgrid%lat_varid, ["latitude ", "y        ", "lat      "])
-                ready = ( mapgrid%lon_varid > 0 .and. mapgrid%lat_varid > 0)
-            endif
-
-            call removeErrMsg
+            if ( nf90_inq_dimid(ncid, "longitude", lon_dimid) /= nf90_noerr ) then
+                if ( nf90_inq_dimid(ncid, "x", lon_dimid) /= nf90_noerr ) then
+                    if ( nf90_inq_dimid(ncid, "xc", lon_dimid) /= nf90_noerr ) then
+                        call nccheck ( nf90_inq_dimid(ncid, "lon", lon_dimid) )
+                    end if
+                end if
+            end if
+            if ( nf90_inq_dimid(ncid, "latitude", lat_dimid) /= nf90_noerr ) then
+                if ( nf90_inq_dimid(ncid, "y", lat_dimid) /= nf90_noerr ) then
+                    if ( nf90_inq_dimid(ncid, "yc", lat_dimid) /= nf90_noerr ) then
+                        call nccheck ( nf90_inq_dimid(ncid, "lat", lat_dimid) )
+                    end if
+                end if
+            end if
 
         end subroutine agnc_get_ll_dimids
 
@@ -1302,14 +1019,14 @@
                          'lat      ', &
                          'y        '/)
 
-            do n=3,1,-1
+            do n=1,3
                 call agnc_get_varid_by_name(ncid, trim(lonnames(n)), lon_varid)
                 if ( lon_varid /= -1 ) exit
             end do
             if ( lon_varid == -1 ) call agnc_set_error('Could not find horizontal coordinate axe')
 
             ! find latitude varid
-            do n=3,1,-1
+            do n=1,3
                 call agnc_get_varid_by_name(ncid, trim(latnames(n)), lat_varid)
                 if ( lat_varid /= -1 ) exit
             end do
@@ -1321,39 +1038,10 @@
             integer            , intent(in   )                 :: ncid
             type(mapgrid_type) , intent(  out)                 :: mapgrid
 
-            integer :: ndim1, length, i
-            character(len=32) :: name
-            integer, allocatable :: dimIDs(:)
-
-            logical, external :: eqcstr
-
-            call agnc_get_ll_dimids(ncid, mapgrid)
-            if (mapgrid%lon_dimid > 0 .and. mapgrid%lat_dimid > 0) then
-                call nccheck ( nf90_inquire_dimension(ncid, mapgrid%lon_dimid, len=mapgrid%nx) )
-                call nccheck ( nf90_inquire_dimension(ncid, mapgrid%lat_dimid, len=mapgrid%ny) )
-            else if (mapgrid%lon_varid > 0 .and. mapgrid%lat_varid > 0) then
-                ! support for files generated by Waqua/Getdata
-                call nccheck ( nf90_inquire_variable(ncid, mapgrid%lon_varid, ndims=ndim1 ))
-                allocate(dimIDs(ndim1))
-                call nccheck ( nf90_inquire_variable(ncid, mapgrid%lon_varid, dimids = dimIDs) )
-                do i = 1, ndim1
-                    call nccheck ( nf90_inquire_dimension(ncid, dimIDs(i), name = name, len=length) )
-                    if (eqcstr(trim(name), 'n') .or. eqcstr(trim(name), 'row')) then
-                        mapgrid%ny = length
-                    else if (eqcstr(trim(name), 'm') .or. eqcstr(trim(name), 'col')) then
-                        mapgrid%nx = length
-                    else if (eqcstr(trim(name), 'bounds')) then
-                        mapgrid%hasBounds = .true.
-                    endif
-                enddo
-                deallocate(dimIDs)
-            else
-                call agnc_set_error("fall through in agnc_get_griddef_map")
-            endif
-
-            if (mapgrid%lon_varid == 0 .and. mapgrid%lat_varid == 0) then
-                call agnc_get_ll_varids(ncid, mapgrid%lon_varid, mapgrid%lat_varid)
-            endif
+            call agnc_get_ll_dimids(ncid, mapgrid%lon_dimid, mapgrid%lat_dimid)
+            call nccheck ( nf90_inquire_dimension(ncid, mapgrid%lon_dimid, len=mapgrid%nx) )
+            call nccheck ( nf90_inquire_dimension(ncid, mapgrid%lat_dimid, len=mapgrid%ny) )
+            call agnc_get_ll_varids(ncid, mapgrid%lon_varid, mapgrid%lat_varid)
 
         end subroutine agnc_get_griddef_map
 
@@ -1361,14 +1049,7 @@
             integer            , intent(in   )                 :: ncid
             type(pntgrid_type) , intent(  out)                 :: pntgrid
 
-            character(len=*), parameter :: node_names(2) = ['points', 'node  ']
-            integer :: i, ierr
-
-            do i = 1, size(node_names)
-                 ierr = nf90_inq_dimid(ncid, node_names(i), pntgrid%pnt_dimid)
-                 if (ierr == nf90_noerr) exit
-            enddo
-            call nccheck (ierr)
+            call nccheck ( nf90_inq_dimid(ncid, 'points', pntgrid%pnt_dimid) )
             call nccheck ( nf90_inquire_dimension(ncid, pntgrid%pnt_dimid, len=pntgrid%npoints) )
 
             call agnc_get_ll_varids(ncid, pntgrid%lon_varid, pntgrid%lat_varid)
@@ -1376,8 +1057,8 @@
             if ( nf90_inq_varid(ncid, 'ips', pntgrid%ips_varid) /= nf90_noerr ) then
                 pntgrid%ips_varid = -1
             else
-                call nccheck ( nf90_get_att(ncid, pntgrid%lon_varid, 'dimlen', pntgrid%xdimlen), 'dimlen' )
-                call nccheck ( nf90_get_att(ncid, pntgrid%lat_varid, 'dimlen', pntgrid%ydimlen), 'dimlen' )
+                call nccheck ( nf90_get_att(ncid, pntgrid%lon_varid, 'dimlen', pntgrid%xdimlen) )
+                call nccheck ( nf90_get_att(ncid, pntgrid%lat_varid, 'dimlen', pntgrid%ydimlen) )
             end if
 
         end subroutine agnc_get_griddef_pnt
@@ -1386,25 +1067,16 @@
             integer            , intent(in   )                 :: ncid
             type(spcgrid_type) , intent(  out)                 :: spcgrid
 
-            integer :: ierr
-
             ! spectral grid
-            ierr = nf90_inquire_dimension_list(ncid, spcgrid%frq_dimid, names_afreq)
-            call nccheck (ierr)
-
+            call nccheck ( nf90_inq_dimid(ncid, "frequency", spcgrid%frq_dimid) )
             call nccheck ( nf90_inquire_dimension(ncid, spcgrid%frq_dimid, len=spcgrid%nfreq) )
-
-            ierr = nf90_inquire_variable_list(ncid, spcgrid%frq_varid, names_afreq)
-            call nccheck (ierr)
+            call nccheck ( nf90_inq_varid(ncid, "frequency", spcgrid%frq_varid) )
 
             ! direction only available when frequency is set
-            spcgrid%dir_dimid = -1
-            ierr =  nf90_inquire_dimension_list(ncid, spcgrid%dir_dimid, names_ndir)
-            if (spcgrid%dir_dimid > 0) then
+            if ( nf90_inq_dimid(ncid, "direction", spcgrid%dir_dimid) == nf90_noerr ) then
                 call nccheck ( nf90_inquire_dimension(ncid, spcgrid%dir_dimid, len=spcgrid%ndir) )
-                call nccheck ( nf90_inquire_variable_list(ncid, spcgrid%dir_varid, names_ndir) )
+                call nccheck ( nf90_inq_varid(ncid, "direction", spcgrid%dir_varid) )
             else
-                call removeErrMsg()
                 spcgrid%dir_dimid = -1
                 spcgrid%dir_varid = -1
                 spcgrid%ndir      =  0
@@ -1482,13 +1154,7 @@
             ! integrated parameters, chunks can be fairly large
             chunksize = 256
 
-            if (varname == 'x') then
-               varid = 2
-            else if (varname == 'y') then
-               varid = 3
-            else
-               call agnc_get_varid_by_name(ncid, varname, varid)
-            endif
+            call agnc_get_varid_by_name(ncid, varname, varid)
             call get_scalies_float(ncid, varid, add_offset, scale_factor, fill_value, xtype)
             call agnc_get_griddef(ncid, mapgrid)
 
@@ -1516,14 +1182,14 @@
                 cx = minval( (/chunksize, mapgrid%nx-sx+1/) )
                 do sy=1,mapgrid%ny,chunksize
                     cy = minval( (/chunksize, mapgrid%ny-sy+1/) )
-                                    
+
                     vloc = 0.
                     do lxi=1,cx
                         do lyi=1,cy
                             vloc(lxi,lyi) = values((sx + lxi - 1) + (sy + lyi - 2) * mapgrid%nx )
                         end do
                     end do
-                    
+
                     nf90_stat = nf90_put_var(ncid, varid, vloc(1:cx,1:cy), (/sx,sy,ti/), (/cx, cy,1/))
 
                     !
@@ -1531,7 +1197,7 @@
                     !
                     if ( nf90_stat /= NF90_NOERR ) then
                         if ( values_in_range_float(ncid, varid, values, &
-                                fill_value, scale_factor, add_offset) ) then
+                                fill_value, scale_factor, add_offset, varname) ) then
                             call agnc_set_error( nf90_strerror(nf90_stat))
                         else
                             if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -1602,7 +1268,7 @@
                     !
                     if ( nf90_stat /= NF90_NOERR ) then
                         if ( values_in_range_double(ncid, varid, values, &
-                                fill_value, scale_factor, add_offset) ) then
+                                fill_value, scale_factor, add_offset, varname) ) then
                             call agnc_set_error( nf90_strerror(nf90_stat))
                         else
                             if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -1693,10 +1359,10 @@
                                 density(ith,ik,ip) = e2d(isp,ip)
                             else
                                 density(ith,ik,ip) = NF90_FILL_FLOAT
-                        end if
+                            end if
+                        end do
                     end do
                 end do
-            end do
             end if
 
             !
@@ -1767,8 +1433,8 @@
             real(kind=4),    dimension(:,:,:),   allocatable    :: eloc, tloc, sloc
             integer                                             :: varid_scale_energy, &
                                                                    varid_energy, varid_theta, &
-                                                                   varid_spr, msc, &
-                                                                   ip, ik, &
+                                                                   varid_spr, msc, nt, &
+                                                                   ip, ik, ir, &
                                                                    chunksize, sx, cx, sy, cy, &
                                                                    lxi, lyi
             real(kind=4)                                        :: sf_theta, sf_spr, &
@@ -1797,7 +1463,8 @@
                 msc = pntgrid%npoints
             end if
             if ( msc /= size(energy,2) ) then
-                call agnc_set_error('#points of this run and the netcdf file is different')
+                write(6,*) '#points of this run and the netcdf file is different'
+                STOP 2
             end if
 
             if ( varid_scale_energy > 0 ) then
@@ -1813,7 +1480,7 @@
                     if (scale_energy(ip) < epsilon(1.) ) scale_energy(ip) = epsilon(1.)
                     do ik=1, spcgrid%nfreq
                         if ( abs(energy(ik,ip) - AGNC_DUMMY) > epsilon(1.)) then
-                        energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
+                            energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
                         else
                             energy(ik,ip) = AGNC_FILL_SHORT
                         end if
@@ -1844,7 +1511,7 @@
                         theta(ik,ip) = nint((theta(ik,ip) - ao_theta) / sf_theta)
                     else
                         theta(ik,ip) = AGNC_FILL_BYTE
-            end if
+                    end if
                     if ( abs(spr(ik,ip) - AGNC_DUMMY) > epsilon(1.) ) then
                         spr(ik,ip) = nint((spr(ik,ip) - ao_spr) / sf_spr)
                     else
@@ -1939,7 +1606,7 @@
             nf90_stat = nf90_put_var(ncid, varid, values, (/1, ti/))
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_float(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -1976,7 +1643,7 @@
 
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_float(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -2014,7 +1681,7 @@
             nf90_stat = nf90_put_var(ncid, varid, values, (/1, ti/))
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_float(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -2051,7 +1718,7 @@
             nf90_stat = nf90_put_var(ncid, varid, values, (/1, ti/))
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_double(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -2088,7 +1755,7 @@
             nf90_stat = nf90_put_var(ncid, varid, values, (/1, ti/))
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_double(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -2125,7 +1792,7 @@
             nf90_stat = nf90_put_var(ncid, varid, values, (/1, ti/))
             if (  nf90_stat /= NF90_NOERR ) then
                 if ( values_in_range_double(ncid, varid, reshape(values, (/size(values)/)), &
-                        fill_value, scale_factor, add_offset) ) then
+                        fill_value, scale_factor, add_offset, varname) ) then
                     call agnc_set_error( nf90_strerror(nf90_stat))
                 else
                     if (.not. present(skip_range_error)) call agnc_set_error( nf90_strerror(nf90_stat))
@@ -2204,51 +1871,12 @@
 
         end function axe_is_regular_integer
 
-        !> check if content is regular at some range
-        function axe_regular_range(recordaxe) result (isregular)
-            type (recordaxe_type), intent(inout)      :: recordaxe
-            logical                                   :: isregular
-
-            integer :: i, dthalf, dt, n, nhalf, first, last
-
-            n = recordaxe%nContent
-            nhalf = n / 2
-            dthalf = recordaxe%content(nhalf + 1) - recordaxe%content(nhalf)
-
-            first = -1; last = -1
-            do i = nhalf-1, 1, -1
-                dt = recordaxe%content(i + 1) - recordaxe%content(i)
-                if (dt == dthalf) then
-                    first = i
-                else
-                    exit
-                endif
-            enddo
-            do i = nhalf+1, n-1
-                dt = recordaxe%content(i + 1) - recordaxe%content(i)
-                if (dt == dthalf) then
-                    last = i
-                else
-                    exit
-                endif
-            enddo
-            if (last == n-1) last = n
-
-            recordaxe%first = first
-            recordaxe%last = last
-            isregular = (last /= -1 .and. first /= -1 .and. last - first > 1)
-            if (isregular) recordaxe%delta = dthalf
-
-        end function axe_regular_range
-
-        function axe_is_regular_integer64(x, nx, fill_check) result (isregular)
-            integer(kind=8), intent(in)                :: x(:)
-            integer,         intent(in)                :: nx
-            logical,         intent(in), optional      :: fill_check
-            logical                                    :: isregular
-            integer(kind=8), dimension(:), allocatable :: dx2
-
-            integer(kind=8) :: delta
+        function axe_is_regular_integer64(x, nx, dx, fill_check) result (isregular)
+            integer*8, intent(in)                :: x(:)
+            integer,   intent(in)                :: dx,nx
+            logical,   intent(in), optional      :: fill_check
+            logical                              :: isregular
+            integer,   dimension(:), allocatable :: dx2
 
             isregular = .false.
             if ( nx > 0 ) then
@@ -2258,8 +1886,7 @@
                 if ( nx > 1 ) then
                     allocate(dx2(nx-1))
                     dx2 = x(2:nx) - x(1:nx-1)
-                    delta = x(2) - x(1)
-                    if ( any( dx2 /= delta ) ) then
+                    if ( any( (dx2 - dx) /= 0 )) then
                         deallocate(dx2)
                         return
                     end if
@@ -2296,6 +1923,22 @@
 
         end function axe_is_regular_float
 
+        function axe_is_regular_float_2d(x, nx, dx, fill_check) result (isregular)
+            real(kind=4),intent(in)             :: x(:,:),dx
+            integer,     intent(in)             :: nx
+            logical,     intent(in), optional   :: fill_check
+            logical                             :: isregular
+            real(kind=4)                        :: dx2
+
+            ! The reason for 2D meshes is that we can use the SWAN rotated grid feature
+            !
+            ! I have never used this before so I would really know how to deal with it
+            ! as I'm not sure how x0, x1, and alpha are implemented.
+            isregular = .true.
+
+        end function axe_is_regular_float_2d
+
+
         function axe_is_regular_double(x, nx, dx, fill_check) result(isregular)
             real(kind=8),intent(in)                :: x(:),dx
             integer,     intent(in)                :: nx
@@ -2322,19 +1965,28 @@
 
         end function axe_is_regular_double
 
+        subroutine nccheck(status)
+            integer, intent ( in ) :: status
+
+            if (status /= nf90_noerr) then
+                write(6,*) trim(nf90_strerror(status))
+                STOP 1
+            end if
+        end subroutine nccheck
+
         subroutine agnc_set_error(msg)
             character(len=*), intent (in) :: msg
 
             write(6,*) trim(msg)
-            call SWEXITMPI
             STOP 2
 
         end subroutine agnc_set_error
 
-        function values_in_range_float(ncid, varid, values, fill_value, scale_factor, add_offset) result (inrange)
+        function values_in_range_float(ncid, varid, values, fill_value, scale_factor, add_offset, varname) result (inrange)
             integer,                    intent(   in)         :: ncid, varid
             real(kind=4), dimension(:), intent(   in)         :: values
             real(kind=4),               intent(   in)         :: fill_value, scale_factor, add_offset
+            character(len=*),           intent(   in)         :: varname
 
             ! local
             integer                                           :: xtype, ind1d, fillv_int, value
@@ -2384,10 +2036,11 @@
 
         end function values_in_range_float
 
-        function values_in_range_double(ncid, varid, values, fill_value, scale_factor, add_offset) result (inrange)
+        function values_in_range_double(ncid, varid, values, fill_value, scale_factor, add_offset, varname) result (inrange)
             integer,                    intent(   in)         :: ncid, varid
             real(kind=8), dimension(:), intent(   in)         :: values
             real(kind=8),               intent(   in)         :: fill_value, scale_factor, add_offset
+            character(len=*),           intent(   in)         :: varname
 
             ! local
             integer                                           :: xtype, ind1d, fillv_int, value
@@ -2456,8 +2109,8 @@
         end function timeindex32
 
         function timeindex64(tarr, t) result (ti)
-            integer(kind=8), dimension(:), intent( in)  :: tarr
-            integer,                       intent( in)  :: t
+            integer*8, dimension(:), intent( in)        :: tarr
+            integer,               intent( in)          :: t
             integer                                     :: ti
             if ( t >= minval(tarr) .and. t <= maxval(tarr) ) then
                 ! somewhere in the existing time axe  .and. (t <= max(tarr,1))
@@ -2504,9 +2157,9 @@
         end subroutine agnc_collect_spcmeta_2d
 
         function datevec_from_epoch( t_in ) result (datevec)
-            integer(kind=8), intent( in)  :: t_in
-            integer                       :: t, year, month, s
-            integer                       :: datevec(6)
+            integer*8, intent( in)  :: t_in
+            integer                 :: t, year, month ,day, s
+            integer                 :: datevec(6)
             ! number of days per month
             integer, save           :: ndpm(12)
             data    ndpm / 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 /
@@ -2610,40 +2263,53 @@
                     + datevec(5) * 60 + datevec(6)
         end function seconds_since_epoch_datevec
 
-        subroutine agnc_scan_time(ustr, factor, dvec)
+        subroutine agnc_scan_time(ustr, factor, dvec, emsg)
             character(len=*),      intent( in) :: ustr
             integer,               intent(out) :: factor, dvec(6)
-
-            integer                            :: j, slen, nspace, ierr
-            character(len=:), allocatable      :: fstr
-            character                          :: dlim1, dlim2
+            character(len=*),      intent(out) :: emsg
+            integer                            :: j, slen, nspace
+            character                          :: fstr*20, dlim1, dlim2
 
             factor = -1
-            slen   = len_trim(ustr)
-            j      = index(ustr, 'since')
+            emsg   = ' '
+            slen   = len(trim(ustr))
+            j    = index(ustr, 'since')
             if ( j < 1 ) then
-                call agnc_set_error('Keyword "since" not found in unit string: ' // ustr)
+                emsg = 'Keyword "since" not found in unit string '//trim(ustr)
+                return
             end if
 
             fstr = trim(ustr(1:j-1))
-            select case (fstr)
-                case('second', 'seconds', 'sec','s')
-                    factor = 1
-                case('minute','minutes', 'min', 'm')
-                    factor = 60
-                case('hours', 'hour', 'h')
-                    factor = 3600
-                case('day', 'days', 'd')
-                    factor = 86400
-                case('year', 'years')
-                    factor = 31556926  ! int32(365.242198781 * 86400)
-                case('week', 'weeks')
-                    factor = 606864    ! int32(365.242198781 * 86400 / 52)
-                case('month', 'months')
-                    factor = 2629744   ! int32(365.242198781 * 86400 / 12)
-                case default
-                    call agnc_set_error("Time unit " // fstr // " not supported")
-            end select
+            if      ( fstr .eq. 'second'  .or. &
+                    fstr .eq. 'seconds' .or. &
+                    fstr .eq. 'sec'     .or.     &
+                    fstr .eq. 's' ) then
+            factor = 1
+            elseif ( fstr .eq. 'minute'  .or. &
+                    fstr .eq. 'minutes' .or. &
+                    fstr .eq. 'min'     .or.     &
+                    fstr .eq. 'm' ) then
+            factor = 60
+            elseif ( fstr .eq. 'day'  .or. &
+                    fstr .eq. 'days' .or. &
+                    fstr .eq. 'd' ) then
+            factor = 86400
+            elseif ( fstr .eq. 'year'  .or. &
+                    fstr .eq. 'years' ) then
+            ! int32(365.242198781 * 86400)
+            factor = 31556926
+            elseif ( fstr .eq. 'week'  .or. &
+                    fstr .eq. 'weeks' ) then
+            ! int32(365.242198781 * 86400 / 52)
+            factor = 606864
+            elseif ( fstr .eq. 'month'  .or. &
+                    fstr .eq. 'months' ) then
+            ! int32(365.242198781 * 86400 / 12)
+            factor = 2629744
+            else
+                write(emsg,'("Time unit ", A, " not supported")') trim(fstr)
+                return
+            end if
             ! step to the character after the 'since ', start of yyyy-mm-dd, mm and dd
             ! do not have to be zero padded...
             j   = j + 6
@@ -2654,7 +2320,7 @@
 
             if (nspace > 0 .and. nspace < slen) then
                 j  = j+nspace
-                read(ustr(j:slen),'(I2,A,I2,A,I2)', iostat=ierr) dvec(4), dlim1, dvec(5), dlim2, dvec(6)
+                read(ustr(j:slen),'(I2,A,I2,A,I2)') dvec(4), dlim1, dvec(5), dlim2, dvec(6)
             else
                 ! no time provided
                 dvec(4:6) = 0
