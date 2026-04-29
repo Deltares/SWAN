@@ -17,5 +17,5 @@ cd build
 cmake .. -DNETCDF=ON -DOPENMP=ON -DCMAKE_Fortran_COMPILER="/opt/apps/intel/2023.1.0/compiler/2023.1.0/linux/bin/intel64/ifort"
 
 cmake --build .
-mv bin/swan.exe ../bin/swan_4145_1_tud_l64_i23_omp.exe
+mv bin/swan.exe ../bin/swan_4145AB_1_tud_l64_i23_omp.exe
 cd ../..

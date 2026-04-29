@@ -13,6 +13,7 @@ ${SRC}/SdsBabanin.f90
 ${SRC}/SwanIEM.f90
 ${SRC}/SwanBraggScat.f90
 ${SRC}/SwanQCM.f90
+${SRC}/SwanParallel.f90
 ${SRC}/swanpre1.${EXTF}
 ${SRC}/swanpre2.${EXTF}
 ${SRC}/swancom1.${EXTF}
@@ -63,11 +64,6 @@ ${SRC}/SwanCrossObstacle.f90
 ${SRC}/SwanComputeForce.f90
 ${SRC}/SwanIntgratSpc.f90
 ${SRC}/SwanBndStruc.f90
-${SRC}/SwanReadfort18.f90
-${SRC}/SwanPunCollect.f90
-${SRC}/SwanSumOverNodes.f90
-${SRC}/SwanMinOverNodes.f90
-${SRC}/SwanMaxOverNodes.f90
 ${SRC}/SwanVTKWriteHeader.f90
 ${SRC}/SwanVTKWriteData.f90
 ${SRC}/SwanVTKPDataSets.f90
