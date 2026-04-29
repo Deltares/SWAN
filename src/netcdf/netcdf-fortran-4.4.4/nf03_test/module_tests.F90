@@ -2,7 +2,7 @@
 !/*********************************************************************
 ! *   Copyright 1996, UCAR/Unidata
 ! *   See netcdf/COPYRIGHT file for copying and redistribution conditions.
-! *   $Id: module_tests.F90 59820 2018-08-15 12:49:57Z markus $
+! *   
 ! *********************************************************************/
 
 ! Implementation of test.inc in a module

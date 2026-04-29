@@ -15,7 +15,7 @@
 !     Full documentation of the netCDF Fortran 90 API can be found at:
 !     http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-f90
 
-!     $Id: simple_xy_par_wr2.f90 59820 2018-08-15 12:49:57Z markus $
+!     
 
 ! Reto Stockli: added (to demonstrate parallel bug)
 ! - added unlimited time dimension (3)

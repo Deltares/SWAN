@@ -3,7 +3,7 @@
 Copyright 2006, University Corporation for Atmospheric Research. See
 the COPYRIGHT file for copying and redistribution conditions.
 
-$Id: nf_lib.c 59820 2018-08-15 12:49:57Z markus $
+$Id$
 */
 
 /*

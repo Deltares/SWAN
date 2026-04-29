@@ -1249,6 +1249,8 @@
           NVAR = 0                                                        40.31
           ORQTMP%OQI(3) = NVAR                                            40.31
           ORQTMP%OQI(4) = IDLAO                                           40.31
+          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
+          ALLOCATE(ORQTMP%FAC(1))                                         40.31
           OUTP_FILES(NREOQ) = FILENM                                      40.13
 !
 !         read types of output quantities
@@ -1422,8 +1424,8 @@
                 ENDIF                                                     41.90
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
-     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                   40.85
-     &              IVTYPE.GE.60 ) LADDS = .TRUE.                         40.85
+     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.
+     &              (IVTYPE.GE.60 .AND. IVTYPE.LE.74) ) LADDS = .TRUE.
              ELSE IF (IVTYPE.LT.170) THEN                                 41.62
                 NOSWLL = INT(OUTPAR(51))                                  41.72
 !               add NOSWLL partitions of requested partition parameter    41.72
@@ -1468,6 +1470,8 @@
              GOTO 70
           ENDIF
  91       IF (NVAR.GT.0) THEN                                             40.31
+             DEALLOCATE(ORQTMP%IVTYP)                                     40.31
+             DEALLOCATE(ORQTMP%FAC)                                       40.31
              ALLOCATE(ORQTMP%IVTYP(NVAR))                                 40.31
              ALLOCATE(ORQTMP%FAC(NVAR))                                   40.31
              CURR => FRST%NEXTI                                           40.31
@@ -1623,6 +1627,8 @@
 !
         NVAR = 0
         ORQTMP%OQI(3) = NVAR                                              40.31
+        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
+        ALLOCATE(ORQTMP%FAC(1))                                           40.31
 !       read types of variables to be printed in the table
         FRST%I = 0                                                        40.31
         NULLIFY(FRST%NEXTI)                                               40.31
@@ -1785,8 +1791,8 @@
             ENDIF                                                         41.90
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
-     &          IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                       40.85
-     &          IVTYPE.GE.60 ) LADDS = .TRUE.                             40.85
+     &          IVTYPE.EQ.56 .OR.                                         VORTECH
+     &          (IVTYPE.GE.60 .AND. IVTYPE.LE.71) ) LADDS = .TRUE.        VORTECH
             CALL INKEYW ('STA', ' ')                                      40.00
             IF (KEYWIS('UNIT')) THEN
               CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
@@ -1811,6 +1817,7 @@
           GOTO 80
         ENDIF
  90     IF (NVAR.GT.0) THEN                                               40.31
+           DEALLOCATE(ORQTMP%IVTYP)                                       40.31
            ALLOCATE(ORQTMP%IVTYP(NVAR))                                   40.31
            CURR => FRST%NEXTI                                             40.31
            DO JJ = 1, NVAR                                                40.31
@@ -1820,6 +1827,7 @@
            DEALLOCATE(TMP)                                                40.31
         END IF                                                            40.31
 !NCF        IF ( RTYPE.EQ.'TABC') THEN
+!NCF          DEALLOCATE(ORQTMP%FAC)
 !NCF          ALLOCATE(ORQTMP%FAC(NVAR))
 !NCF          ORQTMP%FAC=1.
 !NCF        ELSE
@@ -1942,8 +1950,8 @@
 !
         NVAR = 0                                                          40.31
         ORQTMP%OQI(3) = NVAR                                              40.31
-        ALLOCATE(ORQTMP%IVTYP(0))                                         40.31
-        ALLOCATE(ORQTMP%FAC(0))                                           40.31
+        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
+        ALLOCATE(ORQTMP%FAC(1))                                           40.31
 !       read types of variables to be printed in the table
         CALL INKEYW ('STA', ' ')                                          30.00
         IF (KEYWIS ('OUT')) THEN                                          40.03
@@ -2024,8 +2032,8 @@
 !NCF          IF ( INDEX( FILENM, '.NC'  ).NE.0 .OR.
 !NCF     &         INDEX (FILENM, '.nc'  ).NE.0 )
 !NCF     &       ORQTMP%OQI(4) = 18
-          ALLOCATE(ORQTMP%IVTYP(0))                                       40.31
-          ALLOCATE(ORQTMP%FAC(0))                                         40.31
+          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
+          ALLOCATE(ORQTMP%FAC(1))                                         40.31
 !
           CALL INKEYW ('STA', ' ')                                        30.00
           IF (KEYWIS ('OUT')) THEN                                        40.03
@@ -3167,8 +3175,11 @@
         ELSE
 !         boundary condition on one side of the computational grid
           IF (OPTG.EQ.3) THEN                                             40.80 40.31
-             CALL MSGERR(2,                                               40.80 40.31
+!CJK:03-03-2004:Only a warning must be given, swan must not stop on keyword side
+!CJK request of Arjen L., so error code is reduced to 1
+             CALL MSGERR(1,                                               40.80 40.31
      &          ' keyword SIDE should not be used for curvilinear grid')  40.80 40.31
+!CJK:END:03-03-2004
           END IF                                                          40.31
           CALL IGNORE ('SIDE')
 !         *** specification of side for which boundary   ***
@@ -3719,6 +3730,7 @@
       USE SWCOMM4                                                         40.41
       USE M_BNDSPEC                                                       40.31
       USE M_PARALL                                                        42.10
+!NCF      use HRextensions, only: swn_hre_bcnccf
 !
       IMPLICIT NONE
 !
@@ -3888,10 +3900,18 @@
 ! 13. Source text
 !
       LOGICAL         CCOORD                                            40.03
-
+!NCF      LOGICAL :: NCF =.FALSE.
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCFILE')
+!NCF      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
+!NCF     &     INDEX (FILENM, '.nc' ).NE.0) THEN
+!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL, LBGP,
+!NCF     &                   XCGRID, YCGRID, KGRPNT,
+!NCF     &                   XYTST,  KGRBND, DONALL)
+!NCF         RETURN
+!NCF      ENDIF
+!NCF!
 !
       NDSL = 0
       IIPT2 = 0                                                           40.05
@@ -5491,6 +5511,7 @@
                IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                    40.80
      &              vert(IXP)%atti(VBC) == 0     .AND.                    40.80
      &              vmark(IXP) /= 999 ) THEN                              42.10
+
                  XP = vert(IXP)%attr(VERTX)                               41.14
                  YP = vert(IXP)%attr(VERTY)                               41.14
 !

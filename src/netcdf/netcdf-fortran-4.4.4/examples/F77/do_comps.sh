@@ -1,6 +1,6 @@
 #!/bin/sh
 # This shell script runs the cmp test on the example programs.
-# $Id: do_comps.sh 59820 2018-08-15 12:49:57Z markus $
+# $Id$
 
 set -e
 echo ""

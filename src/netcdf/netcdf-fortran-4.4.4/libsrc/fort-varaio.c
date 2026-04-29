@@ -6,7 +6,7 @@ This file handles the netCDF vara functions.
 Copyright 2006, University Corporation for Atmospheric Research. See
 the COPYRIGHT file for copying and redistribution conditions.
 
-$Id: fort-varaio.c 59820 2018-08-15 12:49:57Z markus $
+$Id$
 */
 
 #include <config.h>

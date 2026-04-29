@@ -807,7 +807,9 @@
      &       IVTYPE.EQ.13 .OR. IVTYPE.EQ.14 .OR. IVTYPE.EQ.16 .OR.
      &       IVTYPE.EQ.21 .OR. IVTYPE.EQ.22 .OR. IVTYPE.EQ.43 .OR.
      &       IVTYPE.EQ.44 .OR. IVTYPE.EQ.48 .OR. IVTYPE.EQ.53 .OR.
-     &       IVTYPE.EQ.58                                          )      40.64 40.61 40.51 40.41 40.00
+     &       IVTYPE.EQ.58 .OR. IVTYPE.EQ.76 .OR. IVTYPE.EQ.77 .OR. 
+     &       IVTYPE.EQ.78 .OR. IVTYPE.EQ.POS_FHSWE .OR.
+     &       IVTYPE.EQ.POS_FTM01 .OR. IVTYPE.EQ.POS_FDIR)                 40.64 40.61 40.51 40.41 40.00     
      &   BKC = MAX (1, BKC)
 !
 !        for some quantities also compute Depth, current, K and Cg
@@ -3360,7 +3362,7 @@
 !
 ! 13. Source text
 !
-      PARAMETER  (NVOTP=94)                                               41.85 41.62 41.15 40.64 40.51 40.41 40.00
+      PARAMETER  (NVOTP=100)                                              41.62 41.15 40.64 40.51 40.41 40.00
       REAL       XC(MIP)        ,YC(MIP)       ,AC2(MDC,MSC,MCGRD),
      &           VOQ(MIP,*)     ,
      &           WK(*)          ,
@@ -3392,7 +3394,8 @@
      &            140, 141, 142, 143, 144, 145, 146, 147, 148, 149,       41.62
      &            150, 151, 152, 153, 154, 155, 156, 157, 158, 159,       41.62
      &            160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 171,  41.62
-     &            42, 43, 44, 47, 48, 53, 58, 59, 71, 81/                 41.85 41.15 40.64 40.51 40.41 40.00
+     &            42, 43, 44, 47, 48, 53, 58, 59, 71, 76, 77, 78, 81,     41.85 41.15 40.64 40.51 40.41 40.00
+     &            POS_FHSWE, POS_FTM01, POS_FDIR /
       CALL STRACE (IENT, 'SWOEXA')
 !
 !     in case of transport of energy, compute the energy flux in all grid points
@@ -3550,6 +3553,8 @@
  222        FORMAT(' SWOEXA: POINT ', I5, 2X, A, 1X, E12.4)
           ENDIF
         ENDIF
+
+        include 'swanout1_deltares.inc'
 !
 !       average relative period                              modified 10.09
 !

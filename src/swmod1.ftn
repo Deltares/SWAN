@@ -700,6 +700,7 @@
 !  (78) [  'HICE']
 !  (79) [  'REDB']
 !  (80) [  'REDC']
+!  (81) [ 'FHSWE']
 ! OVSNAM(NMOVAR)   short name of output quantity
 !  ( 1) [    'Xp']
 !  ( 2) [    'Yp']
@@ -776,6 +777,7 @@
 !  (78) ['  hice']
 !  (79) ['Sbragg']
 !  (80) [   'Sqc']
+!  (81) ['FHswel']
 ! OVLNAM(NMOVAR)   long name of output quantity
 !  ( 1) [                        'X user coordinate']
 !  ( 2) [                        'Y user coordinate']
@@ -852,6 +854,7 @@
 !  (78) [                            'ice thickness']
 !  (79) [          'Total absolute Bragg scattering']
 !  (80) [             'Total absolute QC scattering']
+!  (81) [                           'FEWS Hm0 swell']
 ! OVUNIT(NMOVAR)   unit of of output quantity
 !  ( 1) [CALCULAT] =UL
 !  ( 2) [CALCULAT] =UL
@@ -928,6 +931,7 @@
 !  (78) [     'm']
 !  (79) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
 !  (80) [  'm2/s'] change to UDL ???, changed to 'W/m2', if INRHOG=1
+!  (81) [    'UH']
 ! SNAME [        ] name of output point set
 ! UAP   [  'W/m2'] unit of dissipation
 ! UD    [        ] not used
@@ -1049,6 +1053,7 @@
 !  (78)  [  1]   hice
 !  (79)  [  1]   Sbragg
 !  (80)  [  1]   Sqc
+!  (81)  [  1]   fhswe
 ! OVEXCV(NMOVAR)   exception value for output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1123,6 +1128,7 @@
 !  (78)  [    -9.] hice
 !  (79)  [    -9.] Sbragg
 !  (80)  [    -9.] Sqc
+!  (81)  [   100.] fhswe
 ! OVLEXP(NMOVAR)   lower expected limit of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1197,6 +1203,7 @@
 !  (78)  [     0.] hice
 !  (79)  [     0.] Sbragg
 !  (80)  [     0.] Sqc
+!  (81)  [     0.] fhswell
 ! OVLLIM(NMOVAR)   lower limit of validity of output quantity
 !  ( 1)  [ -1.E10] Xp
 !  ( 2)  [ -1.E10] Yp
@@ -1271,6 +1278,7 @@
 !  (78)  [     0.] hice
 !  (79)  [     0.] Sbragg
 !  (80)  [     0.] Sqc
+!  (81)  [     0.] fhswell
 ! OVHEXP(NMOVAR)   upper expected limit of output quantity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1345,6 +1353,7 @@
 !  (78)  [    10.] hice
 !  (79)  [    0.1] Sbragg
 !  (80)  [    0.1] Sqc
+!  (81)  [    10.] fhswell
 ! OVULIM(NMOVAR)   upper limit of validity
 !  ( 1)  [  1.E10] Xp
 !  ( 2)  [  1.E10] Yp
@@ -1419,6 +1428,7 @@
 !  (78)  [   100.] hice
 !  (79)  [  1000.] Sbragg
 !  (80)  [  1000.] Sqc
+!  (81)  [   100.] fhswell
 ! SINCQ  [       ] sin of ALCQ
 ! SINPQ  [       ] sin of ALPQ
 ! SPCPOW [      1] power in expression for computation of average frequency
@@ -1525,7 +1535,7 @@
 !
 !  6. Parameter variables
 !
-!     NUMGRD [  17]  maximum number of input grids
+!     NUMGRD [  18]  maximum number of input grids
 !
       INTEGER NUMGRD
       PARAMETER (NUMGRD = 18)
@@ -2269,6 +2279,7 @@
 !                 =2; for command BRE VAR ..., surf breaking according to Nelson
 !                 =3; for command BRE RUE ..., surf breaking according to Ruessink
 !                 =4; for command BRE TG ... , surf breaking according to Thornton and Guza
+!                 =5; for command BRE WESTH ..., surf breaking according to biphase scaling
 ! ITERMX [      ] maximum number of iterations:
 !                 is set equal to MXITST in case of stationary computations
 !                 is set equal to MXITNS in case of nonstationary computations

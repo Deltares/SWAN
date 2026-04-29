@@ -5226,13 +5226,19 @@
 !NCF                IUT    = HIOPEN + IRQ
 !NCF                OQI(1) = IUT
 !NCF                IF (OPTG.NE.5) THEN
-!NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
-!NCF     &                                         OVLNAM, XGRDGL, YGRDGL,
-!NCF     &                                         OQI, OQR, IVTYP, IRQ)
+!NCF                   IF(PSNAME == 'COMPGRID') THEN
+!NCF                      CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
+!NCF     &                                          IRQ, XGRDGL, YGRDGL)
+!NCF                   ELSE
+!NCF                      CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
+!NCF     &                                          IRQ)
+!NCF                   ENDIF
 !NCF                ELSE
-!NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
-!NCF     &                                       OVLNAM, XCUGRDGL, YCUGRDGL,
-!NCF     &                                         OQI, OQR, IVTYP, IRQ)
+!NCF                   CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
+!NCF     &                                          IRQ, XCUGRDGL, YCUGRDGL)
 !NCF                ENDIF
 !NCF                OPENED = .TRUE.
 !NCF            END IF
@@ -5250,7 +5256,7 @@
                OPEN(UNIT=NREF, FILE=FILENM, FORM='UNFORMATTED',
      &              STATUS='REPLACE',
 !MatL4     &              ACCESS='DIRECT', RECL=1)
-!MatL5     &              ACCESS='DIRECT', RECL=4)                              41.08
+!MatL5     &              ACCESS='DIRECT', RECL=1)                              41.08
                IREC(IRQ) = 1                                              40.51
             END IF
 
@@ -5447,7 +5453,8 @@
                CALL SWRMAT( MYK, MXK, NAMVAR, VOQ(1,1), NREF,
      &                      IREC(IRQ), IDLA, OVEXCV(IVTYPE) )             40.51
 !NCF            ELSE IF (NCF) THEN                                            41.40
-!NCF               IF ( IVTYPE.GT.2.AND.IVTYPE.NE.40 ) THEN
+!NCF               IF ( ( IVTYPE.GT.2 .OR. PSNAME.NE.'COMPGRID')
+!NCF     &                .AND.IVTYPE.NE.40 ) THEN
 !NCF                  CALL swn_outnc_appendblock(MYK, MXK, IVTYPE, OQI(1),
 !NCF     &                                       IRQ, VOQ(1,1),
 !NCF     &                                       OVEXCV(IVTYPE), 1)

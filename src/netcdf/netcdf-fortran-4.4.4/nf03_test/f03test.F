@@ -1,7 +1,7 @@
 !********************************************************************
 !   Copyright 1993, UCAR/Unidata
 !   See netcdf/COPYRIGHT file for copying and redistribution conditions.
-!   $Id: f03test.F 59820 2018-08-15 12:49:57Z markus $
+!   
 !********************************************************************
 
 #include "nfconfig.inc"

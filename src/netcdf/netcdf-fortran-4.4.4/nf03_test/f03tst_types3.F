@@ -4,7 +4,7 @@ C     See COPYRIGHT file for conditions of use.
 
 C     This program tests netCDF-4 user defined types from fortran.
 
-C     $Id: f03tst_types3.F 59820 2018-08-15 12:49:57Z markus $
+C     
 
       program ftst_types3
       USE netcdf4_f03

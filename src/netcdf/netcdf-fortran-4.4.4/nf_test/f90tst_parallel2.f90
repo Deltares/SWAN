@@ -37,7 +37,7 @@
 !   _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ ;
 ! }
 
-!     $Id: f90tst_parallel2.f90 59820 2018-08-15 12:49:57Z markus $
+!     
 
 program f90tst_parallel
   use typeSizes

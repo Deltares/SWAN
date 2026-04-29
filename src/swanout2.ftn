@@ -191,7 +191,7 @@
            OPEN(UNIT=NREF, FILE=FILENM, FORM='UNFORMATTED',               40.30
      &          STATUS='REPLACE',
 !MatL4     &          ACCESS='DIRECT', RECL=1)                                  40.30
-!MatL5     &          ACCESS='DIRECT', RECL=4)                                  41.08 40.30
+!MatL5     &          ACCESS='DIRECT', RECL=1)                                  41.08 40.30
            IREC(IRQ) = 1                                                  40.51
         END IF
         IF (RAWPRT.AND.IPD.EQ.1) THEN                                     41.62
@@ -223,9 +223,8 @@
 !NCF        IF (.NOT.EXIST) CLOSE(NREF, STATUS='DELETE')                      41.43
 !NCF        OQI(1) = NREF
 !NCF        CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
-!NCF     &                               OVLNAM, VOQ(:,VOQR(1)),
-!NCF     &                               VOQ(:,VOQR(2)),
-!NCF     &                               OQI, OQR, IVTYP, IRQ)
+!NCF     &                               OVLNAM, OQI, OQR, IVTYP, IRQ,
+!NCF     &                               VOQ(:,VOQR(1)),VOQ(:,VOQR(2)))
       ENDIF
       IDLA = OQI(4)                                                       40.31 30.00
       NVAR = OQI(3)                                                       40.31 30.00
@@ -1393,9 +1392,8 @@
 !NCF          IF ( RTYPE .EQ. 'TABC' ) THEN
 !NCF            IF (.NOT.EXIST) CLOSE(NREF, STATUS='DELETE')
 !NCF            CALL swn_outnc_openblockfile(FILENM, 1, MIP,
-!NCF     &                                   OVLNAM, VOQ(:,VOQR(1)),
-!NCF     &                                   VOQ(:,VOQR(2)),
-!NCF     &                                   OQI, OQR, IVTYP, OQI(2))
+!NCF     &                                   OVLNAM, OQI, OQR, IVTYP,OQI(2),
+!NCF     &                                   VOQ(:,VOQR(1)),VOQ(:,VOQR(2)))
 !NCF          ENDIF
         END IF                                                            30.82
         IF (RTYPE .NE. 'TABD') THEN
@@ -1534,7 +1532,7 @@
 !
 !NCF      IF (RTYPE.EQ.'TABC') THEN
 !NCF        DO JVAR = 1, NVAR
-!NCF          IVTYPE = IVTYP(JVAR)
+!NCF          IVTYPE = IVTYP(JVAR)                                            40.31
 !NCF          IF (IVTYPE.GT.3.AND.IVTYPE.NE.40) THEN
 !NCF            CALL swn_outnc_appendblock(1, MIP, IVTYPE, OQI(1),
 !NCF     &                                 OQI(2), VOQ(1,VOQR(IVTYPE)),
@@ -1546,10 +1544,9 @@
 !NCF            ENDIF
 !NCF          ENDIF
 !NCF        ENDDO
-!NCF        CALL swn_outnc_close_on_end(OQI(1), OQI(2))
+!NCF        IF (NVAR > 0) CALL swn_outnc_close_on_end(OQI(1), OQI(2))
 !NCF        RETURN
 !NCF      ENDIF
-!NCF!
       IF (RTYPE.EQ.'TABS') THEN
         IF (NSTATM.EQ.1) WRITE (NREF, 102) CHTIME, 'date and time'
       ENDIF
@@ -1583,13 +1580,13 @@
               WRITE (FSTR(6:6), '(I1)') NUMDEC                            40.00
             ENDIF
 !           write value into OUTLIN
-            WRITE (OUTLIN(LINKAR:LINKAR+LFIELD-1), FMT=FSTR)
-     &             VOQ(IP,VOQR(IVTYPE))
+            CALL WRITENUM (OUTLIN(LINKAR:LINKAR+LFIELD-1), FSTR,
+     &             VOQ(IP,VOQR(IVTYPE)))
             IF (OVSVTY(IVTYPE).EQ.3) THEN
               LINKAR = LINKAR + LFIELD + 1
 !             write second component of a vectorial quantity
-              WRITE (OUTLIN(LINKAR:LINKAR+LFIELD-1), FMT=FSTR)
-     &               VOQ(IP,VOQR(IVTYPE)+1)
+              CALL WRITENUM (OUTLIN(LINKAR:LINKAR+LFIELD-1), FSTR,
+     &               VOQ(IP,VOQR(IVTYPE)+1))
             ENDIF
           ENDIF
           LINKAR = LINKAR + LFIELD + 1
@@ -1601,6 +1598,30 @@
 !
       RETURN
 ! * end of subroutine SWTABP *
+      CONTAINS
+      SUBROUTINE WRITENUM(STRING, FSTR, NUMBER)
+         ! helper function to convert a number, and avoid printing '****'
+         CHARACTER(LEN=*), INTENT(OUT) :: STRING
+         REAL            , INTENT(IN)  :: NUMBER
+         CHARACTER(LEN=*), INTENT(IN)  :: FSTR
+
+         CHARACTER(LEN=7) :: NWFMT
+         CHARACTER(LEN=*), PARAMETER :: FMT1 = "('(E',I1,'.',I1,')')"
+         CHARACTER(LEN=*), PARAMETER :: FMT2 = "('(E',I2,'.',I1,')')"
+         INTEGER          :: LENSTR, NUMDIG
+
+         WRITE(STRING, FSTR) NUMBER
+         IF (INDEX(STRING, '*') > 0) THEN
+            LENSTR = MIN(99, LEN(STRING))
+            NUMDIG = MAX(1, MIN(9, LENSTR - 7))
+            IF (LENSTR > 9) THEN
+               WRITE(NWFMT, FMT2) LENSTR, NUMDIG
+            ELSE
+               WRITE(NWFMT, FMT1) LENSTR, NUMDIG
+            ENDIF
+            WRITE(STRING, NWFMT) NUMBER
+         ENDIF
+      END SUBROUTINE WRITENUM
       END
 !***********************************************************************
 !                                                                      *
@@ -2770,7 +2791,7 @@
 !MatL5!        statement:
 !MatL5!
 !MatL5!        OPEN(UNIT=IOUTMA, FILE=BINFIL, FORM='UNFORMATTED',
-!MatL5!             ACCESS='DIRECT', RECL=4)
+!MatL5!             ACCESS='DIRECT', RECL=1)
 !MatL5!
 !MatL5!        Furthermore, initialize record counter to IREC = 1
 !MatL5!

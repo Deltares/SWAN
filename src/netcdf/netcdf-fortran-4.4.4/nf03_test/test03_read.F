@@ -1,7 +1,7 @@
 C*********************************************************************
 C   Copyright 1996, UCAR/Unidata
 C   See netcdf/COPYRIGHT file for copying and redistribution conditions.
-C   $Id: test03_read.F 59820 2018-08-15 12:49:57Z markus $
+C   
 C*********************************************************************
 
 C Test nf_strerror.
