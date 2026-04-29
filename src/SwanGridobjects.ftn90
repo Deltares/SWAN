@@ -11,22 +11,20 @@ module SwanGridobjects
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !   Authors
@@ -130,7 +128,7 @@ module SwanGridobjects
                                             !   always pointing from left to right
     integer, parameter :: FBTYPE  = 9       ! boundary type given at boundary face
     !
-    integer, parameter :: MAXFACEATTR = 7   ! maximum number of attributes of type real
+    integer, parameter :: MAXFACEATTR = 8   ! maximum number of attributes of type real
                                             ! in data structure of faces
     integer, parameter :: FACELEN   = 1     ! length of face
     integer, parameter :: FACENORMX = 2     ! x-component of normal to present face
@@ -139,7 +137,9 @@ module SwanGridobjects
     integer, parameter :: FACEMY    = 5     ! y-component of midpoint of present face
     integer, parameter :: FACEDISTC = 6     ! the distance between two circumcenters that lie on either
                                             ! side of face
-    integer, parameter :: FACELINPF = 7     ! the interpolation factor when interpolating two quantities
+    integer, parameter :: FACEDISTG = 7     ! the distance between two centroids that lie on either
+                                            ! side of face
+    integer, parameter :: FACELINPF = 8     ! the interpolation factor when interpolating two quantities
                                             ! in cell circumcenters adjacent to face j according to
                                             ! q_face = q_r + face(j)%attr(FACELINPF) (q_l - q_r),
                                             ! where l = face(j)%atti(FACECL) and r = face(j)%atti(FACECR)

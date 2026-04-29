@@ -17,6 +17,7 @@ $ncf = "FALSE";
 $mv4 = "FALSE";
 while ( $ARGV[0]=~/-.*/ )
    {
+   print "handling $ARGV[0]\n";
    if ($ARGV[0]=~/-esmf/) {$esmf="TRUE";shift;}
    if ($ARGV[0]=~/-timg/) {$tim="TRUE";shift;}
    if ($ARGV[0]=~/-jac/) {$jac="TRUE";shift;}
@@ -35,6 +36,16 @@ while ( $ARGV[0]=~/-.*/ )
    if ($ARGV[0]=~/-matl4/) {$mv4="TRUE";shift;}
    }
 
+# --- trap unsupported switch combinations
+if ($esmf=~/TRUE/ && $adc=~/TRUE/)
+{
+   die "$0: -esmf and -adcirc is not supported.\n";
+}
+if ($esmf=~/TRUE/ && $pun=~/TRUE/)
+{
+   die "$0: -esmf and -pun is not supported.\n";
+}
+
 # --- make a list of all files
 @files = ();
 foreach (@ARGV) {
@@ -45,22 +56,16 @@ foreach (@ARGV) {
 foreach $file (@files)
 {
 # --- set output file name
-  if ($unx=~/TRUE/)
-  {
-    ($tempf)=split(/.ftn/, $file);
-    $ext = ($file =~ m/ftn90/) ? "f90" : "f";
-    $outfile = join(".",$tempf,$ext);
-  }
-  else
   {
     ($tempf)=split(/.ftn/, $file);
     $ext = ($file =~ m/ftn90/) ? "f90" : "for";
-    $outfile = join(".",$tempf,$ext);
+    $outfile = "./build/generated/$tempf.$ext";
   }
 # --- process file
   if (   (! -e $outfile)            #outfile doesn't exist
       || (-M $file < -M $outfile) ) #.ftn file recently modified
   {
+    print "processing $file into $outfile \n";
     open file or die "can't open $file\n";
     open(OUTFILE,">".$outfile);
     while ($line=<file>)

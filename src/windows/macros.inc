@@ -10,7 +10,7 @@ FLAGS90_MSC = $(FLAGS_MSC)
 FLAGS_SER =
 FLAGS_OMP = /Qopenmp
 FLAGS_MPI =
-NETCDFROOT = ..\lib_netcdf_w64_i12
+NETCDFROOT = ..\lib_netcdf_w64_oneapi
 !IF DEFINED(NETCDFROOT)
 INCS_SER = /include:$(NETCDFROOT)
 INCS_OMP = /include:$(NETCDFROOT)
@@ -35,7 +35,7 @@ EXTO = obj
 MAKE = nmake
 RM = del
 !IF DEFINED(NETCDFROOT)
-swch = -dos -impi -cvis -netcdf
+swch = -dos -impi -cvis -netcdf -matl4
 !ELSE
-swch = -dos -impi -cvis
+swch = -dos -impi -cvis -matl4
 !ENDIF

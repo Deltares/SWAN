@@ -34,7 +34,7 @@ EXTO = o
 MAKE = make
 RM = rm -f
 ifneq ($(NETCDFROOT),)
-  swch = -unix -impi -netcdf
+  swch = -unix -impi -netcdf -matl4
 else
-  swch = -unix -impi
+  swch = -unix -impi -matl4
 endif
