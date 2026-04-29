@@ -405,7 +405,8 @@ elsif ($os =~ /Linux/i) {
     print OUTFILE "F90_OMP = gfortran\n";
     print OUTFILE "F90_MPI = mpif90\n";
     print OUTFILE "FLAGS_OPT = -O\n";
-    print OUTFILE "FLAGS_MSC = -w -fno-second-underscore\n";
+    print OUTFILE "# gfortran 10 does not accept argument mismatches; see https://gcc.gnu.org/gcc-10/porting_to.html\n";
+    print OUTFILE "FLAGS_MSC = -w -fno-second-underscore -fallow-argument-mismatch\n";
     print OUTFILE "FLAGS90_MSC = \$(FLAGS_MSC) -ffree-line-length-none\n";
     print OUTFILE "FLAGS_DYN =\n";
     print OUTFILE "FLAGS_SER =\n";
@@ -641,7 +642,8 @@ elsif ($os =~ /Darwin/i) {
     print OUTFILE "F90_OMP = gfortran\n";
     print OUTFILE "F90_MPI = mpif90\n";
     print OUTFILE "FLAGS_OPT = -O\n";
-    print OUTFILE "FLAGS_MSC = -w -fno-second-underscore\n";
+    print OUTFILE "# gfortran 10 does not accept argument mismatches; see https://gcc.gnu.org/gcc-10/porting_to.html\n";
+    print OUTFILE "FLAGS_MSC = -w -fno-second-underscore -fallow-argument-mismatch\n";
     print OUTFILE "FLAGS90_MSC = \$(FLAGS_MSC) -ffree-line-length-none\n";
     print OUTFILE "FLAGS_DYN =\n";
     print OUTFILE "FLAGS_SER =\n";

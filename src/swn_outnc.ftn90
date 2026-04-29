@@ -49,6 +49,7 @@ module swn_outnc
 !   AGIONCMD        : Set of utilities for writing (metocean) data to netcdf
 !   NCTABLEMD       : description table for metocean parameters
     use agioncmd
+    use nctablemd, only : pi
     use M_PARALL
     use NETCDF
     use nctablemd, only: nctable, nctable_record, get_nctable_record
@@ -63,6 +64,9 @@ module swn_outnc
     use TIMECOMM,  only: TFINC, TIMCO, TINIC, DT
 !
     implicit none
+    private
+    public :: swn_outnc_openblockfile, swn_outnc_close_on_end, swn_outnc_colspc, swn_outnc_spec, &
+              swn_outnc_appendblock, record_index, stnames, stnames_init, ncoffset
 !
 !   Module parameters
 !
@@ -74,12 +78,13 @@ module swn_outnc
 !      oqr(2)       :   delta
 !
 !   Module variables
-    character*40                :: STNAMES(171,2) = ''
+    character(len=40)           :: STNAMES(171,2) = ''
     logical                     :: stnames_initialized = .false., &
                                    skip_range_error = .true.
     type(recordaxe_type), save  :: recordaxe(MAX_OUTP_REQ)
     integer,save                :: ncoffset(MAX_OUTP_REQ) = 0
     logical,save                :: read_header(MAX_OUTP_REQ) = .true.
+    integer,save                :: nrefcp(MAX_OUTP_REQ) = -1
 
     logical                     :: PUNSWAN = .false.
     type spcaux_type
@@ -560,8 +565,9 @@ contains
 !
       logical                                        :: EQREAL, lopen, do_open_files, write_header
       integer                                        :: ip, ierr, otype, xpctmp(2), xpctime, &
-                                                        pnr, ri, i, tmip, irq, ips(MIP), iproc, &
-                                                        binnr, xi, yi, npnts, kgrpnt1d(MXC*MYC)
+                                                        pnr, ri, i, tmip, irq, iproc, &
+                                                        binnr, xi, yi, npnts
+      integer, allocatable                           :: ips(:)
       integer, save                                  :: IENT=0
       character*80                                   :: outfile
       character*256                                  :: errmsg
@@ -604,7 +610,7 @@ contains
       lspcaux%mip = MIP
       allocate(lspcaux%hs(MIP), lspcaux%depth(MIP), lspcaux%ux(MIP), lspcaux%uy(MIP), &
                lspcaux%wndx(MIP), lspcaux%wndy(MIP), lspcaux%xc(MIP), lspcaux%yc(MIP), &
-               lspcaux%xp(MIP), lspcaux%yp(MIP))
+               lspcaux%xp(MIP), lspcaux%yp(MIP), ips(MIP))
 !
 ! a. decide wether relative and 2D spectra are required
 !
@@ -761,6 +767,8 @@ contains
           end if
         end if
       end do
+
+      deallocate(ips)
 
     end subroutine swn_outnc_spcaux
 
@@ -942,7 +950,7 @@ contains
       if (LTRACE) call STRACE (IENT,'swn_outnc_appendspc')
       irq  = oqi(2)
       ncid = oqi(1) + ncoffset(irq)
-
+      
       call swn_outnc_spcflags(oqi(4), spc_as_map, wetnode_list, spcaux, noaux=noaux)
 
 !
@@ -960,7 +968,7 @@ contains
                 return
             end if
           end if
-          call record_index(ncid, recordaxe(irq), xpctime, ri)
+          call record_index(ncid, recordaxe(irq), xpctime, ri, .false., '')
       else
           if ( string_is_int(PROJNR) ) then
             read( PROJNR, '(i16)' ) pnr
@@ -971,7 +979,7 @@ contains
           else
             pnr = 1
           end if
-          call record_index(ncid, recordaxe(irq), pnr, ri )
+          call record_index(ncid, recordaxe(irq), pnr, ri, .false., '' )
       end if
 
       if ( wetnode_list ) then
@@ -1311,7 +1319,7 @@ contains
             noaux  = .true.
             iocode = iocode - 16
         end if
-
+        
         ! MDGRID is the special keyword to store spectra (including dry points) on the
         ! full geographic grid instead of along a pointlist
         ! On the other hand, when COMPGRID is requested on any grid but unstructured,
@@ -1328,7 +1336,7 @@ contains
 
         ! catch conflicting MDGRID + COMPRESS
         iocode       = mod(iocode, 4)
-
+        
         ! Enery scaling is of creating a new variable that stores a scale per timestep and point
         ! the energy itself is then stored as int16 instead of float
         if ( present( EScale) ) then
@@ -1354,15 +1362,16 @@ contains
         integer                               :: ri, pnr, xpctmp(2), i, &
                                                  xpctime, ilpos, ncid
         integer, save                         :: IENT=0
+        character(len=40)                     :: name
         if (LTRACE) call STRACE (IENT,'swn_outnc_appendblock')
         if ( ivtype == 40 ) return
 
-        ncid = nref + ncoffset(irq)
+        ncid = nrefcp(irq) + ncoffset(irq)
 
         if ( recordaxe(irq)%nstatm ) then
             READ (chtime, '(I8,1X,I6)') (xpctmp(i), i=1,2)
             xpctime = seconds_since_epoch(xpctmp(1), xpctmp(2))
-            call record_index(ncid, recordaxe(irq), xpctime, ri)
+            call record_index(ncid, recordaxe(irq), xpctime, ri, .false., '')
         else
             if ( string_is_int(PROJNR) ) then
                 read( PROJNR, '(i16)' ) pnr
@@ -1373,13 +1382,16 @@ contains
             else
                 pnr = 1
             end if
-            call record_index(ncid, recordaxe(irq), pnr, ri )
+            call record_index(ncid, recordaxe(irq), pnr, ri, .false., '')
         end if
 
         if (myk == 1) then
             call agnc_add_pntdata(ncid, STNAMES(ivtype,col), ri, data, excv, skip_range_error)
         else
-            call agnc_add_mapdata(ncid, STNAMES(ivtype,col), ri, data, excv, skip_range_error)
+            name = STNAMES(ivtype,col)
+            if (name == ' ' .and. ivtype == 1) name = 'x'
+            if (name == ' ' .and. ivtype == 2) name = 'y'
+            call agnc_add_mapdata(ncid, name, ri, data, excv, skip_range_error)
         end if
 
     end subroutine swn_outnc_appendblock
@@ -1392,7 +1404,7 @@ contains
         integer, save                    :: IENT=0
 
         ncid = nref
-        if ( present(irq) ) ncid = nref + ncoffset(irq)
+        if ( present(irq) ) ncid = nrefcp(irq) + ncoffset(irq)
 
         ! Decided to sync data to file even in non stationary mode because
         ! otherwise data is buffered during the entire computation,
@@ -1406,10 +1418,13 @@ contains
         end if
     end subroutine swn_outnc_close_on_end
 
-    subroutine record_index(ncid, recordaxe, xpctime, ri)
+    subroutine record_index(ncid, recordaxe, xpctime, ri, reading, filename)
         integer,                              intent(   in) :: ncid, xpctime
         type(recordaxe_type),                 intent(inout) :: recordaxe
         integer,                              intent(  out) :: ri
+        logical,                              intent(   in) :: reading  !< ncfile used for reading
+        character(len=*),                     intent(   in) :: filename ! for use in error message
+
         integer, allocatable, dimension(:)                  :: tmp_time
         integer, save                                       :: IENT=0
 
@@ -1417,39 +1432,46 @@ contains
         ri = timeindex(recordaxe%content, xpctime)
 
         if ( ri < 0 ) then
-            call MSGERR(4, 'agioncmd cannot prepend data, only overwrite '// &
-                           'and append. Consider setting option in order '// &
-                           'to generate monthly files. You''ll need to rerun '// &
-                           'the first period too though')
-            call close_ncfile(ncid)
-        end if
-        if ( ri == 0) then
-            ! record needs to be appended
-            allocate(tmp_time(recordaxe%ncontent))
-            tmp_time = recordaxe%content
-            deallocate(recordaxe%content);
-            allocate(recordaxe%content(recordaxe%ncontent+1))
-            recordaxe%content(1:recordaxe%ncontent) = tmp_time
-            recordaxe%content(recordaxe%ncontent+1) = xpctime
-            recordaxe%ncontent = recordaxe%ncontent+1
-            !
-            ! Update netcdf file with new time axe
-            !
-            call agnc_set_recordaxe (ncid, recordaxe)
+            if (reading) then
+                call MSGERR(2, "first time not available in input netcdf " // filename)
+                ri = 1
+            else
+                call MSGERR(4, 'agioncmd cannot prepend data, only overwrite '// &
+                               'and append. Consider setting option in order '// &
+                               'to generate monthly files. You''ll need to rerun '// &
+                               'the first period too though')
+                call close_ncfile(ncid)
+            endif
+        else if ( ri == 0 ) then
+            if (reading) then
+                call msgerr(2, "last time not available in input netcdf " // filename)
+            else
+                ! record needs to be appended
+                allocate(tmp_time(recordaxe%ncontent))
+                tmp_time = recordaxe%content
+                deallocate(recordaxe%content)
+                allocate(recordaxe%content(recordaxe%ncontent+1))
+                recordaxe%content(1:recordaxe%ncontent) = tmp_time
+                recordaxe%content(recordaxe%ncontent+1) = xpctime
+                recordaxe%ncontent = recordaxe%ncontent+1
+                !
+                ! Update netcdf file with new time axe
+                !
+                call agnc_set_recordaxe (ncid, recordaxe)
+            endif
             ri = recordaxe%ncontent
-
         end if
 
     end subroutine record_index
 
-    subroutine swn_outnc_openblockfile(ncfile, myk, mxk, ovlnam, xgrdgl,   &
-                                       ygrdgl, oqi, oqr, ivtyp ,  irq  )
+    subroutine swn_outnc_openblockfile(ncfile, myk, mxk, ovlnam, &
+                                       oqi, oqr, ivtyp,irq, xgrdgl, ygrdgl)
         character*80,           intent(   in) :: ncfile
         integer,                intent(   in) :: myk, mxk, irq
         integer, dimension(:),  intent(   in) :: oqi, ivtyp
         real*8,  dimension(:),  intent(   in) :: oqr
         character*40,           intent(   in) :: ovlnam(:)
-        real,                   intent(   in) :: xgrdgl(mxk, myk), &
+        real,    optional,      intent(   in) :: xgrdgl(mxk, myk), &
                                                  ygrdgl(mxk, myk)
 
         ! local variables
@@ -1503,8 +1525,13 @@ contains
                 pntgrid%npoints = mxk
                 allocate (pntgrid%longitude(mxk))
                 allocate (pntgrid%latitude(mxk))
-                pntgrid%latitude  = ygrdgl(:,1)
-                pntgrid%longitude = xgrdgl(:,1)
+                if (present(xgrdgl) .and. present(ygrdgl)) then
+                   pntgrid%latitude  = ygrdgl(:,1)
+                   pntgrid%longitude = xgrdgl(:,1)
+                else
+                   pntgrid%latitude  = -999.0
+                   pntgrid%longitude = -999.0
+                endif
                 if ( KSPHER == 0 ) pntgrid%lunit = 'meter'
 
                 ! Definition mode
@@ -1527,32 +1554,44 @@ contains
                 if ( abs(ALPC) < epsilon(1.) .and. OPTG == 1 ) then
                     allocate (mapgrid%longitude(mxk,1))
                     allocate (mapgrid%latitude (1,myk))
-                    if ( PARLL ) then
-                        mapgrid%longitude(:,1) = xgrdgl(:,1) + XOFFS
-                        mapgrid%latitude(1,:)  = ygrdgl(1,:) + YOFFS
+                    if (present(xgrdgl) .and. present(ygrdgl)) then
+                       if ( PARLL ) then
+                           mapgrid%longitude(:,1) = xgrdgl(:,1) + XOFFS
+                           mapgrid%latitude(1,:)  = ygrdgl(1,:) + YOFFS
+                       else
+                           mapgrid%longitude(:,1) = xgrdgl(:,1)
+                           mapgrid%latitude(1,:)  = ygrdgl(1,:)
+                       end if
                     else
-                        mapgrid%longitude(:,1) = xgrdgl(:,1)
-                        mapgrid%latitude(1,:)  = ygrdgl(1,:)
+                       mapgrid%longitude(:,1) = -999.0
+                       mapgrid%latitude(1,:)  = -999.0
                     end if
                     mapgrid%mdc  = .false.
                 else
                     allocate (mapgrid%longitude(mxk, myk))
                     allocate (mapgrid%latitude (mxk, myk))
-                    if ( PARLL ) then
-                        mapgrid%longitude = xgrdgl + XOFFS
-                        mapgrid%latitude  = ygrdgl + YOFFS
+                    if (present(xgrdgl) .and. present(ygrdgl)) then
+                       if ( PARLL ) then
+                           mapgrid%longitude = xgrdgl + XOFFS
+                           mapgrid%latitude  = ygrdgl + YOFFS
+                       else
+                           mapgrid%longitude = xgrdgl
+                           mapgrid%latitude  = ygrdgl
+                       end if
                     else
-                        mapgrid%longitude = xgrdgl
-                        mapgrid%latitude  = ygrdgl
+                       mapgrid%longitude = -999.0
+                       mapgrid%latitude  = -999.0
                     end if
                     mapgrid%mdc  = .true.
                 end if
                 ! curvilinear grids may contain the EXCEPTION value of the bottom
                 ! Replace with the hardcoded float _FillValue
-                where ( abs(mapgrid%longitude - EXCFLD(1)) < epsilon(1.) ) &
-                    mapgrid%longitude = NF90_FILL_FLOAT
-                where ( abs(mapgrid%latitude - EXCFLD(1)) < epsilon(1.) ) &
-                    mapgrid%latitude = NF90_FILL_FLOAT
+                if (present(xgrdgl) .and. present(ygrdgl)) then
+                   where ( abs(mapgrid%longitude - EXCFLD(1)) < epsilon(1.) ) &
+                       mapgrid%longitude = NF90_FILL_FLOAT
+                   where ( abs(mapgrid%latitude - EXCFLD(1)) < epsilon(1.) ) &
+                       mapgrid%latitude = NF90_FILL_FLOAT
+                endif
 
                 mapgrid%nx   = mxk
                 mapgrid%ny   = myk
@@ -1580,6 +1619,7 @@ contains
         ! set the offset to translate between swan's HIOPEN + IRQ and
         ! the netcdf 65xxx range
         ncoffset(irq) = ncid - oqi(1)
+        nrefcp(irq) = oqi(1)
 
         ! if only only record found, set delta to delta specified in command file (or 1 on stationary)
         if ( recordaxe(irq)%ncontent == 1 ) then

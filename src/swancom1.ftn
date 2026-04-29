@@ -4278,15 +4278,31 @@
      &          ' GAMMA ',E12.4)
          WRITE(PRINTF,7217) PSURF(5)
  7217    FORMAT('                        N      ',E12.4)
+      ELSEIF (ISURF.EQ.5) THEN                                            41.03
+         WRITE(PRINTF,7218) PSURF(1), PSURF(4)
+ 7218    FORMAT(' Surf biphase (2009)  : ALPHA  ',E12.4,
+     &          ' N     ',E12.4)
+         WRITE(PRINTF,7219) PSURF(5)
+ 7219    FORMAT('                        BREF   ',E12.4)
       ELSEIF (ISURF.EQ.6) THEN                                            41.38
-         WRITE(PRINTF,7220) PSURF(1), PSURF(4)
- 7220    FORMAT(' beta-kd (2013)       : ALPHA  ',E12.4,
-     &          ' GAMMA0',E12.4)
-         WRITE(PRINTF,7221) PSURF(5), PSURF(6)
- 7221    FORMAT('                        A1     ',E12.4,
-     &          ' A2    ',E12.4)
-         WRITE(PRINTF,7222) PSURF(7)
- 7222    FORMAT('                        A3     ',E12.4)
+         WRITE(PRINTF,7220) PSURF(1), PSURF(5)
+ 7220    FORMAT(' n-k2d (2012)         : ALPHA  ',E12.4,
+     &          ' ALPHA0',E12.4)
+         WRITE(PRINTF,7221) PSURF(4), PSURF(14)
+ 7221    FORMAT('                        GAMMA0 ',E12.4,
+     &          ' A_DSPR',E12.4)
+         WRITE(PRINTF,7222) PSURF(6), PSURF(7)
+ 7222    FORMAT('                        BETA1  ',E12.4,
+     &          ' BETA2 ',E12.4)
+         WRITE(PRINTF,7223) PSURF(8), PSURF(9)
+ 7223    FORMAT('                        DELTA1 ',E12.4,
+     &          ' DELTA2',E12.4)
+         WRITE(PRINTF,7224) PSURF(10), PSURF(11)
+ 7224    FORMAT('                        N_LOW  ',E12.4,
+     &          ' N_HIGH',E12.4)
+         WRITE(PRINTF,7225) PSURF(12), PSURF(13)
+ 7225    FORMAT('                        R_LOW  ',E12.4,
+     &          ' R_HIGH',E12.4)
       ELSEIF (ISURF.EQ.7) THEN                                            41.97
          WRITE(PRINTF,7226) PSURF(1), PSURF(4)
  7226    FORMAT(' Surf asymmetry       : ALPHA  ',E12.4,
@@ -5671,6 +5687,7 @@
       REAL              :: SINH_K_X_DEP_2(MSC)                            40.22
       REAL              :: TANH_K_X_DEP_2(MSC)                            40.88
       REAL              :: ETOT_SIG_2_DSIG(MSC)                           41.38
+      REAL              :: KM_20, SIGM_20
 !
 !     9. STRUCTURE
 !
@@ -5703,9 +5720,11 @@
 !
       KM_WAM  = 10.
       KM01    = 10.
+      KM_20   = 10.
 !
       SIGM01  = 10.
       SIGM_10 = 10.
+      SIGM_20 = 10.
 !
       HS      = 0.
       HM      = 0.1
@@ -5798,10 +5817,15 @@
         IF (ETOT1  .GT. 0.) SIGM01  = ETOT1 / ETOT
         IF (EKTOT  .GT. 0.) KM01    = EKTOT / ETOT
         IF (ACTOT  .GT. 0.) SIGM_10 = ETOT / ACTOT
+        IF (ETOT_2 .GT. 0.) SIGM_20 = SQRT( ETOT / ETOT_2 )               41.38
         IF (EDRKTOT .GT. 0. ) THEN
           KM_WAM  = ( ETOT / EDRKTOT )**2.
           SIGM_WAM = SQRT(GRAV*KM_WAM*TANH(KM_WAM*DEP2(KCGRD(1))))        41.47
         ENDIF
+        IF ( ETOT_2.GT.0. ) THEN                                          41.38
+           CALL KSCIP1 (1, SIGM_20, DEP2(KCGRD(1)), KLOC, ARR, ARR, ARR)  41.38
+           KM_20 = KLOC(1)                                                41.38
+        ENDIF                                                             41.38
         IF ( ETOT .GT. 1.E-20 ) THEN
           HS       = 4. * SQRT (ETOT)
         END IF
@@ -5860,7 +5884,10 @@
 !
 !     --- compute actual maximum wave height based on breaking model
 !
-      IF ( ISURF.GT.0 ) THEN
+      IF ( ISURF.EQ.5 ) THEN
+         HM   = PSURF(2) * DEP2(KCGRD(1))
+         KTETA = 1.0
+      ELSE IF ( ISURF.GT.0 ) THEN
 !        compute some parameters for breaker models
          CALL BRKPAR (BRCOEF, SPCDIR(1,2), SPCDIR(1,3), AC2,
      &                SIGPOW(:,1), DEP2, BOTLV,
@@ -5927,6 +5954,17 @@
            QB(KCGRD(1)) = WH
         ENDIF
 !
+      ENDIF
+!
+!     --- calculate Qb when biphase scaling is activated                  41.03
+!
+      IF (ISURF.EQ.5) THEN
+         BIPH = 0.5*PI*(TANH(PTRIAD(4)/URSELL(KCGRD(1)))-1.)
+         IF ( BIPH.LT.0. ) THEN
+            WH = (BIPH/PSURF(5))**PSURF(4)
+            WH = MIN(1.,WH)
+            QB(KCGRD(1)) = WH
+         ENDIF
       ENDIF
 !
       QB_LOC = QB(KCGRD(1))

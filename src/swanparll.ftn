@@ -5135,9 +5135,17 @@
 !NCF            IF (NCF .AND. .NOT.OPENED) THEN                               41.40
 !NCF                IUT    = HIOPEN + IRQ
 !NCF                OQI(1) = IUT
-!NCF               CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
-!NCF     &                                      OVLNAM, XGRDGL, YGRDGL,
-!NCF     &                                      OQI, OQR, IVTYP, IRQ)
+!NPUN!NCF               IF(PSNAME == 'COMPGRID') THEN
+!NPUN!NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!NPUN!NCF     &                                      OVLNAM, OQI, OQR, IVTYP,IRQ,
+!NPUN!NCF     &                                      XGRDGL, YGRDGL)
+!NPUN!NCF               ELSE
+!NPUN!NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!NPUN!NCF     &                                      OVLNAM, OQI, OQR, IVTYP,IRQ)
+!NPUN!NCF               ENDIF
+!PUN!NCF               CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+!PUN!NCF     &                                      OVLNAM, OQI, OQR, IVTYP, IRQ,
+!PUN!NCF     &                                      XCUGRDGL, YCUGRDGL)
 !NCF                OPENED = .TRUE.
 !NCF            END IF
 !NCF
@@ -5154,7 +5162,7 @@
                OPEN(UNIT=NREF, FILE=FILENM, FORM='UNFORMATTED',
      &              STATUS='REPLACE',
 !MatL4     &              ACCESS='DIRECT', RECL=1)
-!MatL5     &              ACCESS='DIRECT', RECL=4)                              41.08
+!MatL5     &              ACCESS='DIRECT', RECL=1)                              41.08
                IREC(IRQ) = 1                                              40.51
             END IF
 
@@ -5341,7 +5349,8 @@
                CALL SWRMAT( MYK, MXK, NAMVAR, VOQ(1,1), NREF,
      &                      IREC(IRQ), IDLA, OVEXCV(IVTYPE) )             40.51
 !NCF            ELSE IF (NCF) THEN                                            41.40
-!NCF               IF ( IVTYPE.GT.2.AND.IVTYPE.NE.40 ) THEN
+!NCF               IF ( ( IVTYPE.GT.2 .OR. PSNAME.NE.'COMPGRID')
+!NCF     &                .AND.IVTYPE.NE.40 ) THEN
 !NCF                  CALL swn_outnc_appendblock(MYK, MXK, IVTYPE, OQI(1),
 !NCF     &                                       IRQ, VOQ(1,1),
 !NCF     &                                       OVEXCV(IVTYPE), 1)

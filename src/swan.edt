@@ -23,7 +23,7 @@
 !
 !   INPgrid                                                                 &
 !      BOT | WLEV | CUR | VX | VY | FR | WI | WX | WY | NPLA | TURB | MUDL  &
-!      AICE | HICE                                                          &
+!      AICE | HICE | HSS | TSS                                              &
 !
 !      | REG [xpinp] [ypinp] [alpinp]  [mxinp] [myinp]  [dxinp] [dyinp] |
 !      |                                                                |
@@ -40,7 +40,7 @@
 !                          | EASYmesh / 'fname'
 !
 !   READinp    BOTtom | WLevel | CURrent | FRiction | WInd | COOR | NPLAnts &
-!              TURB | MUDL | AICE | HICE                                    &
+!              TURB | MUDL | AICE | HICE | HSS | TSS                        &
 !
 !        [fac]  / 'fname1'        \
 !               \ SERIES 'fname2' /  [idla] [nhedf] ([nhedt]) (nhedvec])    &
@@ -50,6 +50,9 @@
 !                              | WU
 !   WIND  [vel] [dir]   DRAG  <  -> FIT
 !                              | SWELL
+!
+!   ICE  [aice] [hice]
+!
 !
 !                       |  JONswap  [gamma]  |
 !   BOUnd SHAPespec     |  PM                |
@@ -162,13 +165,16 @@
 !
 !   TRIad [itriad] [trfac] [cutfr] [a] [b] [p] [urcrit] [urslim]
 !
-!   VEGEtation  < [height] [diamtr] [nstems] [drag] >
+!   VEGEtation [iveg]  < [height] [diamtr] [nstems] [drag] >
 !
 !   TURBulence  [ctb]  (CURrent [tbcur])
 !
 !   MUD  [layer]  [rhom]  [viscm]  [rhow]  [viscw]
 !
-!   IC4M2 [aice] [c0] [c1] [c2] [c3] [c4] [c5] [c6]
+!          | -> R19   [c0] [c1] [c2] [c3] [c4] [c5] [c6]
+!   SICE  <     D15   [Chf]
+!          |    M18   [Chf]
+!          |    R21B  [Chf npf]
 !
 !   LIMiter [ursell] [qb]
 !
@@ -187,6 +193,8 @@
 !        ( FREEboard [hgt] [gammat] [gammar] Quay )                         &
 !
 !        LINe < [xp] [yp] >
+!
+!   OBSTacle  FIG [alpha1] [hss] [tss]  LINe < [xp] [yp] >
 !
 !   SETUP  [supcor]
 !
