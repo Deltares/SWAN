@@ -35,6 +35,16 @@ while ( $ARGV[0]=~/-.*/ )
    if ($ARGV[0]=~/-matl4/) {$mv4="TRUE";shift;}
    }
 
+# --- trap unsupported switch combinations
+if ($esmf=~/TRUE/ && $adc=~/TRUE/)
+{
+   die "$0: -esmf and -adcirc is not supported.\n";
+}
+if ($esmf=~/TRUE/ && $pun=~/TRUE/)
+{
+   die "$0: -esmf and -pun is not supported.\n";
+}
+
 # --- make a list of all files
 @files = ();
 foreach (@ARGV) {

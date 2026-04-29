@@ -27,7 +27,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -36,22 +36,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -193,7 +191,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -202,22 +200,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -440,8 +436,8 @@
             OPSTMP%OPI(1) = MXK+1                                         40.31
             OPSTMP%OPI(2) = MYK+1                                         40.31
             IF (ITEST .GE. 20 .OR. INTES .GE. 10)
-     &        WRITE (PRINTF, 6020) (OPSTMP%OPR(II), II=2,6)               40.31
- 6020       FORMAT (' Subgrid parms.', 6(1X,E12.4))
+     &        WRITE (PRINTF, 6020) (OPSTMP%OPR(II), II=1,5)               40.31
+ 6020       FORMAT (' Subgrid parms.', 5(1X,E12.4))
           ENDIF
           ALLOCATE(OPSTMP%XP(0))                                          40.31
           ALLOCATE(OPSTMP%YP(0))                                          40.31
@@ -1029,12 +1025,11 @@
       USE OUTP_DATA                                                       40.13
       USE M_PARALL                                                        40.31
 !NCF      USE swn_outnc                                                       41.52
-!PUN      USE SIZES                                                           40.95
 !
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -1043,22 +1038,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -1144,7 +1137,6 @@
       LOGICAL   KEYWIS                                                    40.31
       TYPE(ORQDAT), POINTER :: ORQTMP                                     40.31
       TYPE(ORQDAT), SAVE, POINTER :: CORQ                                 40.31
-      LOGICAL, SAVE :: LORQ = .FALSE.                                     40.31
       TYPE AUXT                                                           40.31
         INTEGER             :: I
         REAL                :: R
@@ -1155,6 +1147,10 @@
       INTEGER IEXPT(NEXPT)                                                41.62
       INTEGER IVT                                                         41.62
       INTEGER NOSWLL                                                      41.72
+      LOGICAL LC, VTK                                                     41.95
+      CHARACTER (LEN=4) :: PNUM                                           41.95
+      CHARACTER (LEN=80) :: MSGSTR                                        41.95
+      CHARACTER (LEN=LENFNM) :: OUTDIR                                    41.95
       SAVE IENT, IEXPT
       DATA IENT/0/
       DATA IEXPT /1, 2, 4, 5, 10, 12, 13, 16, 17, 26/                     41.62
@@ -1166,8 +1162,8 @@
 !             FRCOEFF/WIND/DISSIP/QB/TRANSP/FORCE/UBOT/URMS/WLEN/STEEPNESS/  &
 !             DHSIGN/DRTM01/LEAK/TSEC/XP/YP/DIST/SETUP/TMM10/RTMM10/         &
 !             TMBOT/QP/BFI/WATLEV/BOTLEV/TPS/DISBOT/DISSURF/DISWCAP/         &
-!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS|LWAVP/   &
-!             DISTUR/TURB/DISSWELL/AICE/DISICE/                              &
+!             GENE/GENW/REDI/REDQ/REDT/REDB/REDC/PROPA/PROPX/PROPT/PROPS/    &
+!             RADS/LWAVP/DISTUR/TURB/DISSWELL/AICE/DISICE/                   &
 !             PTHSIGN/PTRTP/PTWLEN/PTDIR/PTDSPR/PTWFRAC/PTSTEEPNESS>         &
 !             ([unit]) (OUTPUT [tbegblk] [deltblk] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
@@ -1217,18 +1213,23 @@
                RETURN                                                     40.30
             END IF                                                        40.30
           END IF
-          IF (FILENM .EQ. ' ') THEN                                       24/FEB
+          VTK = INDEX( FILENM, '.VT' ).NE.0 .OR.                          41.95
+     &          INDEX (FILENM, '.vt' ).NE.0                               41.95
+          IF ( VTK ) THEN                                                 41.95
+             DFAC  = 1.                                                   41.95
+             RTYPE = 'BLKV'                                               41.95
+          ENDIF                                                           41.95
+          IF (FILENM .EQ. ' ') THEN                                       32.02
             NREF = PRINTF
           ELSE
             NREF = 0
 !           --- append node number to FILENM in case of                   40.30
 !               parallel computing                                        40.30
-            IF ( PARLL ) THEN                                             40.30
+            IF ( PARLL.AND..NOT.VTK ) THEN                                41.95 40.30
                ILPOS = INDEX ( FILENM, ' ' )-1                            40.30
                WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                    40.30
   33           FORMAT('-',I3.3)                                           40.30
             END IF                                                        40.30
-!PUN            FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                 40.95
           ENDIF
           CALL INKEYW ('STA', ' ')
           IF (KEYWIS('LAY')) THEN
@@ -1409,6 +1410,16 @@
                    JDSXI  = MCMVAR                                        41.75
                    ALOCMP = .TRUE.                                        41.75
                 ENDIF                                                     41.75
+                IF (IVTYPE.EQ.79 .AND. JRSXB.LE.1) THEN                   41.80
+                   MCMVAR = MCMVAR+1                                      41.80
+                   JRSXB  = MCMVAR                                        41.80
+                   ALOCMP = .TRUE.                                        41.80
+                ENDIF                                                     41.80
+                IF (IVTYPE.EQ.80 .AND. JRSXC.LE.1) THEN                   41.90
+                   MCMVAR = MCMVAR+1                                      41.90
+                   JRSXC  = MCMVAR                                        41.90
+                   ALOCMP = .TRUE.                                        41.90
+                ENDIF                                                     41.90
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
      &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                   40.85
@@ -1474,6 +1485,63 @@
             NSTATM = 1
             CALL INCTIM (ITMOPT, 'TBEG', ORQTMP%OQR(1), 'REQ', 0D0)       40.31 30.00
             CALL INITVD ('DELT', ORQTMP%OQR(2), 'REQ', 0D0)               40.31 30.00
+            IF ( VTK.AND.IAMMASTER ) THEN                                 41.95
+!              a PVD file is created to collect time-varying output       41.95
+               LC=.FALSE.                                                 41.95
+               ILPOS=INDEX( FILENM, '.VT' )                               41.95
+               IF (ILPOS.EQ.0) THEN                                       41.95
+                  LC=.TRUE.                                               41.95
+                  ILPOS=INDEX( FILENM, '.vt' )                            41.95
+               ENDIF                                                      41.95
+               IF (LC) THEN                                               41.95
+                  WRITE(FILENM(ILPOS+1:ILPOS+3),95) 'pvd'                 41.95
+               ELSE                                                       41.95
+                  WRITE(FILENM(ILPOS+3:ILPOS+3),95) 'PVD'                 41.95
+               ENDIF                                                      41.95
+ 95            FORMAT(A3)                                                 41.95
+               NREF   =  0                                                41.95
+               IOSTAT = -1                                                41.95
+               CALL FOR (NREF, FILENM, 'UF', IOSTAT)                      41.95
+               IF (STPNOW()) RETURN                                       41.95
+               UPVDF(NREOQ) = NREF                                        41.95
+!              write the header lines                                     41.95
+               WRITE(NREF,'(A)') TRIM(XMLLIN1)                            41.95
+               WRITE(NREF,'(A)') TRIM(XMLLIN2)                            41.95
+               VTKLINE = '  This file was generated by SWAN version '//   41.95
+     &                   TRIM(VERTXT)//'; project: '//TRIM(PROJID)//      41.95
+     &                   '; run number: '//TRIM(PROJNR)                   41.95
+               WRITE(NREF,'(A)') TRIM(VTKLINE)                            41.95
+               WRITE(NREF,'(A)') TRIM(XMLLIN3)                            41.95
+               WRITE(NREF,'(A)') TRIM(PVDLIN1)                            41.95
+               WRITE(NREF,'(A)') TRIM(PVDLIN2)                            41.95
+!              make output directory                                      41.95
+               IF (LC) THEN                                               41.95
+                  OUTDIR=FILENM(1:ILPOS-1)//'_output'                     41.95
+               ELSE                                                       41.95
+                  OUTDIR=FILENM(1:ILPOS-1)//'_OUTPUT'                     41.95
+               ENDIF                                                      41.95
+               CALL MKPATH ( OUTDIR, IERR )                               41.95
+               IF (IERR.NE.0) OUTDIR = '.'                                41.95
+               VTKDIR(NREOQ) = OUTDIR                                     41.95
+!              create subdirectories to store each piece of output data   41.95
+               IF (PARLL) THEN                                            41.95
+                  DO IPROC = 1, NPROC                                     41.95
+                     IF (LC) THEN                                         41.95
+                        WRITE(PNUM(1:4),96) 'p',IPROC                     41.95
+                     ELSE                                                 41.95
+                        WRITE(PNUM(1:4),96) 'P',IPROC                     41.95
+                     ENDIF                                                41.95
+                     CALL MKPATH ( TRIM(OUTDIR)//DIRCH2//PNUM, IERR )     41.95
+                  ENDDO                                                   41.95
+                  IF (IERR.NE.0) THEN                                     41.95
+                     WRITE (MSGSTR, '(A,I5)')                             41.95
+     &                                 'Error while creating folders '//  41.95
+     &                                 '- status error =',IERR            41.95
+                     CALL MSGERR( 3, TRIM(MSGSTR) )                       41.95
+                  ENDIF                                                   41.95
+ 96               FORMAT(A1,I3.3)                                         41.95
+               ENDIF                                                      41.95
+            ENDIF                                                         41.95
           ENDIF
 !
           ORQTMP%OQI(3) = NVAR                                            40.31
@@ -1495,8 +1563,8 @@
 !             FRCOEFF/WIND/DISSIP/QB/TRANSP/FORCE/UBOT/URMS/WLEN/STEEPNESS/  &
 !             DHSIGN/DRTM01/LEAK/TIME/TSEC/XP/YP/DIST/SETUP/TMM10/RTMM10/    &
 !             TMBOT/QP/BFI/WATLEV/BOTLEV/TPS/DISBOT/DISSURF/DISWCAP/         &
-!             GENE/GENW/REDI/REDQ/REDT/PROPA/PROPX/PROPT/PROPS/RADS|LWAVP/   &
-!             DISTUR/TURB/DISSWELL/AICE/DISICE/                              &
+!             GENE/GENW/REDI/REDQ/REDT/REDB/REDC/PROPA/PROPX/PROPT/PROPS/    &
+!             RADS/LWAVP/DISTUR/TURB/DISSWELL/AICE/DISICE/                   &
 !             PTHSIGN/PTRTP/PTWLEN/PTDIR/PTDSPR/PTWFRAC/PTSTEEPNESS>         &
 !             ([unit]) (OUTPUT [tbegtbl] [delttbl] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
@@ -1545,7 +1613,6 @@
              ILPOS = INDEX ( FILENM, ' ' )-1                              40.30
              WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                      40.30
           END IF                                                          40.30
-!PUN          FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                   40.95
         ELSE
           NREF = PRINTF
         ENDIF
@@ -1706,6 +1773,16 @@
                JDSXI  = MCMVAR                                            41.75
                ALOCMP = .TRUE.                                            41.75
             ENDIF                                                         41.75
+            IF (IVTYPE.EQ.79 .AND. JRSXB.LE.1) THEN                       41.80
+               MCMVAR = MCMVAR+1                                          41.80
+               JRSXB  = MCMVAR                                            41.80
+               ALOCMP = .TRUE.                                            41.80
+            ENDIF                                                         41.80
+            IF (IVTYPE.EQ.80 .AND. JRSXC.LE.1) THEN                       41.90
+               MCMVAR = MCMVAR+1                                          41.90
+               JRSXC  = MCMVAR                                            41.90
+               ALOCMP = .TRUE.                                            41.90
+            ENDIF                                                         41.90
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
      &          IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                       40.85
@@ -1779,7 +1856,7 @@
       ENDIF
 !
 !   --------------------------------------------------------------------------
-!   SPECout 'sname'  SPEC1D/SPEC2D  ABS/REL   'fname'                        &
+!   SPECout 'sname'  SPEC1D/SPEC2D  ABS/REL  S/L  'fname'                    &
 !NCF!                    (MONth  ESCAle MDGRID COMPress NOAUX) (NOT documented)  &
 !                    (OUTPUT [tbegspc] [deltspc] SEC/MIN/HR/DAY)
 !   --------------------------------------------------------------------------
@@ -1810,6 +1887,18 @@
         ELSE
           CALL IGNORE ('ABS')                                             40.03
         ENDIF
+!
+        CALL INKEYW ('STA', 'S')                                          41.85
+        IF (KEYWIS ('L')) THEN                                            41.85
+           IF (RTYPE(3:3).EQ.'R') THEN
+              RTYPE(3:3) = 'L'
+           ELSEIF (RTYPE(3:3).EQ.'E') THEN
+              RTYPE(3:3) = 'B'
+           ENDIF
+        ELSE
+          CALL IGNORE ('S')                                               41.85
+        ENDIF
+!
         ORQTMP%OQR(1) = -1.                                               40.31
         ORQTMP%OQR(2) = -1.                                               40.31
         ORQTMP%RQTYPE = RTYPE                                             40.31
@@ -1821,7 +1910,6 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                        40.30
         END IF                                                            40.30
-!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         ORQTMP%PSNAME = PSNAME                                            40.31
         ORQTMP%OQI(1) = NREF                                              40.31
         ORQTMP%OQI(2) = NREOQ                                             40.31
@@ -1926,7 +2014,6 @@
              ILPOS = INDEX ( FILENM, ' ' )-1                              40.30
              WRITE(FILENM(ILPOS+1:ILPOS+4),33) INODE                      40.30
           END IF                                                          40.30
-!PUN          FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                   40.95
           ORQTMP%PSNAME = PSNAME                                          40.31
           ORQTMP%OQI(1) = NREF                                            40.31
           ORQTMP%OQI(2) = NREOQ                                           40.31
@@ -1984,7 +2071,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -1993,22 +2080,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. AUTHORS
@@ -2154,7 +2239,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -2163,22 +2248,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -2272,7 +2355,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -2281,22 +2364,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -2404,7 +2485,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -2413,22 +2494,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -2509,10 +2588,6 @@
       LOGICAL   LFRST1, LFRST2, LFRST3                                    40.31
 
       INTEGER   NUMP
-
-      LOGICAL, SAVE :: LBFILS = .FALSE.                                   40.31
-      LOGICAL, SAVE :: LBS    = .FALSE.                                   40.31
-      LOGICAL, SAVE :: LBGP   = .FALSE.                                   40.31
 
       TYPE(BSPCDAT), POINTER :: BFLTMP                                    40.31
       TYPE(BSPCDAT), SAVE, POINTER :: CUBFL                               40.31
@@ -2627,12 +2702,14 @@
 ! =========================================================================
 !
 !                      |  JONswap  [gamma]  |
-!                      |                    |    | -> PEAK |
-!  BOUndspec  SHAPe   <   PM                 >  <           >   &
-!                      |                    |    | MEAN    |
-!                      |  GAUSs  [sigfr]    |
 !                      |                    |
+!  BOUndspec  SHAPe   <   PM                |
+!                      |                    |    | -> PEAK |
+!                      |  GAUSs  [sigfr]     >  <           >   &
+!                      |                    |    | MEAN    |
 !                      |  BIN               |
+!                      |                    |
+!                      |  TMA  [gamma] [d]  |
 !
 !                     | DEGRees   |
 !             DSPR   <             >
@@ -2653,6 +2730,10 @@
           CALL INREAL ('SIGFR', SIGMAG, 'STA', 0.01)
 !         convert from Hz to rad/s:
           PSHAPE(2) = PI2 * SIGMAG                                        40.00
+        ELSE IF (KEYWIS ('TMA')) THEN
+          FSHAPE = 5
+          CALL INREAL ('GAMMA', PSHAPE(1), 'STA', 3.3)
+          CALL INREAL ('D'    , PSHAPE(3), 'REQ', 0. )
         ENDIF
 !       PEAK or MEAN frequency
         CALL INKEYW ('STA', ' ')
@@ -2708,7 +2789,7 @@
         NBFILS = NBFILS + 1
         ALLOCATE(BFLTMP)                                                  40.31
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
-        CALL BCWAMN (FILENM, 'NEST', BFLTMP, LBGP,                        40.31
+        CALL BCWAMN (FILENM, 'NEST', BFLTMP,                              41.78 40.31
      &               XCGRID, YCGRID, KGRPNT, XYTST)                       40.31
         IF (STPNOW()) RETURN                                              34.01
         NULLIFY(BFLTMP%NEXTBSPC)                                          40.31
@@ -2750,7 +2831,7 @@
         NBFILS = NBFILS + 1
         ALLOCATE(BFLTMP)                                                  40.31
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
-        CALL BCWW3N (FILENM, 'NEST', BFLTMP, LBGP,                        40.31 40.05
+        CALL BCWW3N (FILENM, 'NEST', BFLTMP,                              41.78 40.31 40.05
      &               XCGRID, YCGRID, KGRPNT, XYTST, KGRBND)               40.31 40.05
         IF (STPNOW()) RETURN
         NULLIFY(BFLTMP%NEXTBSPC)                                          40.31
@@ -2801,7 +2882,7 @@
            CALL WRNKEY                                                    40.05
         ENDIF                                                             40.05
 
-        CALL BCFILE (FILENM, 'NEST', BFLTMP, LBGP,                        40.31
+        CALL BCFILE (FILENM, 'NEST', BFLTMP,                              41.78 40.31
      &               XCGRID, YCGRID, KGRPNT, XYTST,  KGRBND,              40.31
      &               DONALL)                                              40.05
         IF (STPNOW()) RETURN                                              34.01
@@ -3418,7 +3499,7 @@
             NBFILS = NBFILS + 1
             NBSPSS = NBSPEC
             ALLOCATE(BFLTMP)                                              40.31
-            CALL BCFILE (FILENM, 'PNTS', BFLTMP, LBGP,                    40.31
+            CALL BCFILE (FILENM, 'PNTS', BFLTMP,                          41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
             IF (STPNOW()) RETURN                                          34.01
@@ -3542,7 +3623,7 @@
                   NBFILS = NBFILS + 1
                   NBSPSS = NBSPEC
                   ALLOCATE(BFLTMP)                                        40.31
-                  CALL BCFILE (FILENM, 'PNTS', BFLTMP, LBGP,              40.31
+                  CALL BCFILE (FILENM, 'PNTS', BFLTMP,                    41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
                   IF (STPNOW()) RETURN                                    34.01
@@ -3624,7 +3705,7 @@
       END
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCFILE (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCFILE (FBCNAM, BCTYPE, BSPFIL,                          41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT,                          40.31
      &                   XYTST,  KGRBND, DONALL)                          40.31 40.05
 !                                                                    *
@@ -3643,7 +3724,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -3652,22 +3733,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -3727,8 +3806,6 @@
       CHARACTER FBCNAM *(*), BCTYPE *(*)
 
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-
-      LOGICAL :: LBGP                                                     40.31
 !
 !  5. Parameter variables
 !
@@ -3904,7 +3981,7 @@
 !                 the SWAN computational grid
 !
               NBGRPT_PREV = NBGRPT                                        40.05
-              CALL SWBCPT (  LBGP, XCGRID, YCGRID,                        40.41 40.31 40.05
+              CALL SWBCPT (  XCGRID, YCGRID,                              41.78 40.41 40.31 40.05
      &                       KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,       40.05
      &                       NBOUNC,DONALL )                              40.05
 !             check if the grid points are on nested boundary.
@@ -4117,7 +4194,7 @@
       END
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCWAMN (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCWAMN (FBCNAM, BCTYPE, BSPFIL,                          41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST)                   40.31
 !                                                                    *
 !*********************************************************************
@@ -4135,7 +4212,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -4144,22 +4221,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -4272,7 +4347,6 @@
       INTEGER   KGRPNT(MXC,MYC), XYTST(*)
       REAL      XCGRID(MXC,MYC), YCGRID(MXC,MYC)
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-      LOGICAL :: LBGP                                                     40.31
       CHARACTER FBCNAM *(*), BCTYPE *(*)
 !
 !     local variables
@@ -4707,7 +4781,7 @@
 
 !*********************************************************************
 !                                                                    *
-      SUBROUTINE BCWW3N (FBCNAM, BCTYPE, BSPFIL, LBGP,                    40.31
+      SUBROUTINE BCWW3N (FBCNAM, BCTYPE, BSPFIL,                          41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT,                          40.31
      &                   XYTST,  KGRBND)                                  40.31
 !                                                                    *
@@ -4725,7 +4799,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -4734,22 +4808,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -4793,7 +4865,6 @@
       CHARACTER FBCNAM *(*), BCTYPE *(*)
 
       TYPE(BSPCDAT) :: BSPFIL                                             40.31
-      LOGICAL :: LBGP                                                     40.31
 !
 !  5. Parameter variables
 !
@@ -5138,7 +5209,7 @@
 !           the SWAN computational grid
 !
         NBGRPT_PREV = NBGRPT
-        CALL SWBCPT (  LBGP, XCGRID, YCGRID,                              40.41 40.31
+        CALL SWBCPT (  XCGRID, YCGRID,                                    41.78 40.41 40.31
      &                 KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,
      &                 NBOUNC, DONALL )
 !       check if the grid points are on nested boundary.
@@ -5226,7 +5297,7 @@
 
 !***********************************************************************
 !
-      SUBROUTINE SWBCPT ( LBGP, XCGRID, YCGRID,                           40.41 40.31
+      SUBROUTINE SWBCPT ( XCGRID, YCGRID,                                 41.78 40.41 40.31
      &                    KGRPNT, XYTST,  KGRBND,XP2,YP2,IBOUNC,
      &                    NBOUNC,DONALL )
 !
@@ -5246,7 +5317,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -5255,22 +5326,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -5319,8 +5388,6 @@
 !              it is defined by the users
 !
       LOGICAL, INTENT(INOUT)  ::  DONALL
-
-      LOGICAL :: LBGP                                                     40.31
 !
 !  5. Parameter variables
 !
@@ -5619,7 +5686,7 @@
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -5628,22 +5695,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -5778,12 +5843,11 @@
       USE OUTP_DATA                                                       40.31
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
-!PUN      USE SIZES                                                           40.95
 !
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
-!     | Faculty of Civil Engineering                              |
+!     | Faculty of Civil Engineering and Geosciences              |
 !     | Environmental Fluid Mechanics Section                     |
 !     | P.O. Box 5048, 2600 GA  Delft, The Netherlands            |
 !     |                                                           |
@@ -5792,22 +5856,20 @@
 !
 !
 !     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2020  Delft University of Technology
+!     Copyright (C) 1993-2023  Delft University of Technology
 !
-!     This program is free software; you can redistribute it and/or
-!     modify it under the terms of the GNU General Public License as
-!     published by the Free Software Foundation; either version 2 of
-!     the License, or (at your option) any later version.
+!     This program is free software: you can redistribute it and/or modify
+!     it under the terms of the GNU General Public License as published by
+!     the Free Software Foundation, either version 3 of the License, or
+!     (at your option) any later version.
 !
 !     This program is distributed in the hope that it will be useful,
 !     but WITHOUT ANY WARRANTY; without even the implied warranty of
 !     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !     GNU General Public License for more details.
 !
-!     A copy of the GNU General Public License is available at
-!     http://www.gnu.org/copyleft/gpl.html#SEC3
-!     or by writing to the Free Software Foundation, Inc.,
-!     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+!     You should have received a copy of the GNU General Public License
+!     along with this program. If not, see <http://www.gnu.org/licenses/>.
 !
 !
 !  0. Authors
@@ -6050,7 +6112,6 @@
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
   99       FORMAT('-',I3.3)                                               40.30
         END IF                                                            40.30
-!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFPAR, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -6094,9 +6155,9 @@
 ! NB: If list of variables is expanded, the following hardwired integers
 !   must be increased:
         IF(IWCAP.NE.8)THEN                                                41.75 40.88
-          ICHECK1=12
+          ICHECK1=14
         ELSE
-          ICHECK1=13
+          ICHECK1=15
         ENDIF
         WRITE (IFPAR, 132) ICHECK1                                        41.75 40.32 40.55 40.00
  132    FORMAT ('QUANT', /, I6, T41, 'number of quantities in table')     40.00
@@ -6153,6 +6214,14 @@
         WRITE (IFPAR, 102) 'Snl4',   'total absolute 4-wave interaction'  40.13
         WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.13
         WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Sbragg', 'Bragg scattering'                   40.13
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.13
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFPAR, 102) 'Sqc',    'QC scattering'                      40.13
+        WRITE (IFPAR, 102) 'm2/s',   'unit'                               40.13
+        WRITE (IFPAR, 104) OVEXCV(7),'exception value'                    40.00
         IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
            CALL MSGERR (3,'Internal error: mismatch in # quantities')
         ENDIF
@@ -6169,7 +6238,6 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
         END IF                                                            40.30
-!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFS1D, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -6216,9 +6284,9 @@
 ! NB: If list of variables is expanded, the following hardwired integers
 !   must be increased:
         IF(IWCAP.NE.8)THEN                                                41.75 40.88
-          ICHECK1=11
+          ICHECK1=13
         ELSE
-          ICHECK1=12
+          ICHECK1=14
         ENDIF
         WRITE (IFS1D, 132) ICHECK1                                        41.75 40.55
         WRITE (IFS1D, 102) 'VaDens', 'variance densities'                 40.00
@@ -6270,6 +6338,14 @@
         WRITE (IFS1D, 102) 'Snl4',   'quadruplet interactions'            40.00
         WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
         WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Sbragg', 'Bragg scattering'                   40.00
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS1D, 102) 'Sqc',    'QC scattering'                      40.00
+        WRITE (IFS1D, 102) 'm2',     'unit'                               40.00
+        WRITE (IFS1D, 104) OVEXCV(7),'exception value'                    40.00
         IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
            CALL MSGERR (3,'Internal error: mismatch in # quantities')
         ENDIF
@@ -6284,7 +6360,6 @@
            ILPOS = INDEX ( FILENM, ' ' )-1                                40.30
            WRITE(FILENM(ILPOS+1:ILPOS+4),99) INODE                        40.30
         END IF                                                            40.30
-!PUN        FILENM = TRIM(LOCALDIR)//DIRCH2//TRIM(FILENM)                     40.95
         IERR = 0                                                          40.00
         CALL FOR (IFS2D, FILENM, 'UF', IERR)                              40.00
         IF (STPNOW()) RETURN                                              34.01
@@ -6338,9 +6413,9 @@
 ! NB: If list of variables is expanded, the following hardwired integers
 !   must be increased:
         IF(IWCAP.NE.8)THEN                                                41.75 40.88
-          ICHECK1=11
+          ICHECK1=13
         ELSE
-          ICHECK1=12
+          ICHECK1=14
         ENDIF
         WRITE (IFS2D, 132) ICHECK1                                        41.75 40.55
         WRITE (IFS2D, 102) 'VaDens', 'variance densities'                 40.00
@@ -6390,6 +6465,14 @@
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
         ICHECK2=ICHECK2+1
         WRITE (IFS2D, 102) 'Snl4',   'quadruplet interactions'            40.00
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Sbragg', 'Bragg scattering'                   40.00
+        WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
+        WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
+        ICHECK2=ICHECK2+1
+        WRITE (IFS2D, 102) 'Sqc',    'QC scattering'                      40.00
         WRITE (IFS2D, 102) 'm2/degr','unit'                               40.00
         WRITE (IFS2D, 104) OVEXCV(7),'exception value'                    40.00
         IF ( ICHECK1.NE.ICHECK2 ) THEN                                    41.75
