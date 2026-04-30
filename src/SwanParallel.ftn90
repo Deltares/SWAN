@@ -338,12 +338,12 @@ subroutine SwanMeshPartition
     ! allocate data for mesh partitioning
     !
     istat = 0
-    if (                  .not.allocated(xadj  ) ) allocate(xadj  (1+nv), stat = istat)
-    if ( istat == 0 .and. .not.allocated(vwgt  ) ) allocate(vwgt  (  nv), stat = istat)
-    if ( istat == 0 .and. .not.allocated(vsize ) ) allocate(vsize (  nv), stat = istat)
-    if ( istat == 0 .and. .not.allocated(tpwgts) ) allocate(tpwgts(  np), stat = istat)
-    if ( istat == 0 .and. .not.allocated(nfacev) ) allocate(nfacev(  nv), stat = istat)
-    if ( istat == 0 .and. .not.allocated(vneigh) ) allocate(vneigh(  nv), stat = istat)
+    if (                   .not.allocated(xadj  ) ) allocate(xadj  (1+nv), stat = istat)
+    if (  istat == 0 .and. .not.allocated(vwgt  ) ) allocate(vwgt  (  nv), stat = istat)
+    if (  istat == 0 .and. .not.allocated(vsize ) ) allocate(vsize (  nv), stat = istat)
+    if (  istat == 0 .and. .not.allocated(tpwgts) ) allocate(tpwgts(  np), stat = istat)
+    if (  istat == 0 .and. .not.allocated(nfacev) ) allocate(nfacev(  nv), stat = istat)
+    if (  istat == 0 .and. .not.allocated(vneigh) ) allocate(vneigh(  nv), stat = istat)
     !
     ne     = 0
     nfacev = 0
@@ -368,9 +368,9 @@ subroutine SwanMeshPartition
     !
     ! allocate remaining data for mesh partitioning
     !
-    if ( istat == 0 .and. .not.allocated(adjncy) ) allocate(adjncy(      ne), stat = istat)
-    if ( istat == 0 .and. .not.allocated(adjw  ) ) allocate(adjw  (      ne), stat = istat)
-    if ( istat == 0 .and. .not.allocated(covts ) ) allocate(covts (maxfv,nv), stat = istat)
+    if (  istat == 0 .and. .not.allocated(adjncy) ) allocate(adjncy(      ne), stat = istat)
+    if (  istat == 0 .and. .not.allocated(adjw  ) ) allocate(adjw  (      ne), stat = istat)
+    if (  istat == 0 .and. .not.allocated(covts ) ) allocate(covts (maxfv,nv), stat = istat)
     !
     if ( istat /= 0 ) then
        write (msgstr, '(a,i6)') 'allocation problem: mesh partitioning data and return code is ',istat
@@ -682,8 +682,8 @@ subroutine SwanCommAdmin
     if (ltrace) call strace (ient,'SwanCommAdmin')
     !
     istat = 0
-    if (                  .not.allocated(jlist ) ) allocate(jlist (nov*ncellsg), stat = istat)
-    if ( istat == 0 .and. .not.allocated(ivertl) ) allocate(ivertl(    nvertsg), stat = istat)
+    if (                   .not.allocated(jlist ) ) allocate(jlist (nov*ncellsg), stat = istat)
+    if (  istat == 0 .and. .not.allocated(ivertl) ) allocate(ivertl(    nvertsg), stat = istat)
     !
     if ( istat /= 0 ) then
        write (msgstr, '(a,i6)') 'allocation problem: comm administration data and return code is ',istat
@@ -966,11 +966,11 @@ subroutine SwanCommAdmin
     ! use array ivertl to store vmark temporarily
     ivertl = vmark
     deallocate(vmark)
-    allocate(vmark(nverts))
+    allocate(vmark (nverts))
     !
     do jvert = 1, nverts
        ivert = ivertg(jvert)
-       vmark(jvert) = ivertl(ivert)
+       vmark (jvert) = ivertl  (ivert)
        ! ghost vertices are marked with exception value
        if ( .not.vres(jvert) ) vmark(jvert) = excmark
     enddo

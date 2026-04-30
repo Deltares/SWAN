@@ -2416,7 +2416,7 @@ end subroutine filsin
       END SUBROUTINE SURF_ROUGH_FAN
 
 
-      SUBROUTINE SURF_ROUGH_ECMWF(U, UST, S_IN, SPCSIG, KWAVE, CD)
+      SUBROUTINE SURF_ROUGH_ECMWF(U, UST, S_IN, SPCSIG, KWAVE)
 !------------------------------------------------------------------------------
 !     variable list
 !     ----------------------------------------------------------------
@@ -2425,7 +2425,6 @@ end subroutine filsin
 !       KWAVE   Real   I   2D    Wavenumber
 !       U       Real   I   True Wind speed.
 !       UST     Real   O   Friction velocity.
-!       CD      Real   O   Drag coefficient.
 !     ----------------------------------------------------------------
 !/
       USE SWCOMM3
@@ -2442,7 +2441,6 @@ end subroutine filsin
       REAL, INTENT(IN)        :: KWAVE(MSC,ICMAX)
       REAL, INTENT(IN)        :: U
       REAL, INTENT(INOUT)     :: UST
-      REAL, INTENT(OUT)       :: CD
 !/
 !/ ------------------------------------------------------------------- /
 !/ Local parameters

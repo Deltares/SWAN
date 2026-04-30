@@ -3366,6 +3366,7 @@
                IF (ITRIAD.EQ.11) CG1 = CG(IS)
 
 !              --- bound super harmonic (sum frequency)
+
                W0  = SPCSIG(IS)
                WN0 = K     (IS)
                C0  = W0 / WN0
@@ -3604,6 +3605,7 @@
 !
                ENDDO
 !
+
             ENDDO
 !
          ENDDO
@@ -5037,7 +5039,7 @@
       REAL :: BIPHAS(MCGRD)
       REAL :: REDC0 (MDC,MSC,MREDS)
       REAL :: REDC1 (MDC,MSC,MREDS)
-      REAL :: QTL1(MSC4D,2), QTL2(MSC4D,2)
+      REAL :: QTL1(MSC4D,2), QTL2(MSC4D,4)
 !
 !  6. Local variables
 !

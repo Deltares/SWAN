@@ -413,6 +413,7 @@ subroutine SwanBpntlist
     IF (ITEST.GE.10) WRITE (PRTEST, 101) 'BOUNDARY', MIP
 101 format (' Generated output curve ', A8, ' with ', I6, ' vertices.')
 !   ***** store number of points of the curve *****
+    ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
     NULLIFY(OPSTMP%NEXTOPS)
     IF ( .NOT.LOPS ) THEN
        FOPS = OPSTMP
@@ -490,6 +491,7 @@ subroutine SwanBpntlist
         ENDDO
         DEALLOCATE(IARR2)
         IF (ITEST.GE.10) WRITE (PRTEST, 101) TRIM(PSNAME), MIP
+        ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
         NULLIFY(OPSTMP%NEXTOPS)
         IF ( .NOT.LOPS ) THEN
           FOPS = OPSTMP

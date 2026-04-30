@@ -279,6 +279,7 @@
 
       TYPE XYPT                                                           40.31
         REAL                :: X, Y, XQ, YQ
+        CHARACTER (LEN=80)  :: ID
         TYPE(XYPT), POINTER :: NEXTXY
       END TYPE XYPT
 
@@ -309,7 +310,7 @@
 !
       LOGICAL   PP                                                        30.72
       INTEGER   IERR, SIRAY                                               30.81 30.72
-      CHARACTER PSNAME*16, STYPE*1, PRNAME*16                             40.31 30.21
+      CHARACTER PSNAME*16, STYPE*1, PRNAME*16, ID*80                      40.31 30.21
       LOGICAL   KEYWIS, BOTDEP                                            30.70
       SAVE IENT
       DATA IENT/0/
@@ -352,6 +353,7 @@
           OPSTMP%OPI(2) = MYK+1                                           40.31
           ALLOCATE(OPSTMP%XP(0))                                          40.31
           ALLOCATE(OPSTMP%YP(0))                                          40.31
+          ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
           NULLIFY(OPSTMP%NEXTOPS)                                         40.31
           IF ( .NOT.LOPS ) THEN                                           40.31
              FOPS = OPSTMP                                                40.31
@@ -441,6 +443,7 @@
           ENDIF
           ALLOCATE(OPSTMP%XP(0))                                          40.31
           ALLOCATE(OPSTMP%YP(0))                                          40.31
+          ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
           NULLIFY(OPSTMP%NEXTOPS)                                         40.31
           IF ( .NOT.LOPS ) THEN                                           40.31
              FOPS = OPSTMP                                                40.31
@@ -517,6 +520,7 @@
 !       ***** store number of points of the curve *****
         OPSTMP%MIP = MIP                                                  40.31
         IF (MIP .EQ. 0) CALL MSGERR(1,'No output points found')
+        ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
         NULLIFY(OPSTMP%NEXTOPS)                                           40.31
         IF ( .NOT.LOPS ) THEN                                             40.31
            FOPS = OPSTMP                                                  40.31
@@ -559,7 +563,7 @@
         DO
           IF (PP) THEN
             IERR = 0                                                      10.18
-            CALL REFIXY (NDS, XP, YP, IERR)                               10.18
+            CALL REFIXY (NDS, XP, YP, IERR, ID)                           10.18
             IF (IERR.EQ.-1) GOTO 47
             IF (IERR.EQ.-2) THEN
               CALL MSGERR (2, 'Error reading point coord. from file')
@@ -573,16 +577,19 @@
           ALLOCATE(TMP)                                                   40.31
           TMP%X = XP                                                      40.31
           TMP%Y = YP                                                      40.31
+          TMP%ID = ID
           NULLIFY(TMP%NEXTXY)                                             40.31
           CURR%NEXTXY => TMP                                              40.31
           CURR => TMP                                                     40.31
         ENDDO
   47    ALLOCATE(OPSTMP%XP(MIP))                                          40.31
         ALLOCATE(OPSTMP%YP(MIP))                                          40.31
+        ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(MIP))                       40.31
         CURR => FRST%NEXTXY                                               40.31
         DO JJ = 1, MIP                                                    40.31
            OPSTMP%XP(JJ) = CURR%X                                         40.31
            OPSTMP%YP(JJ) = CURR%Y                                         40.31
+           OPSTMP%ID(JJ) = CURR%ID                                        40.31
            CURR => CURR%NEXTXY                                            40.31
         END DO                                                            40.31
         DEALLOCATE(TMP)                                                   40.31
@@ -674,6 +681,7 @@
 !         ***** termination *****
           OPSTMP%MIP = MIP                                                40.31
           IF (MIP .EQ. 1) CALL MSGERR (1,'Only one ray is defined')
+          ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
           NULLIFY(OPSTMP%NEXTOPS)                                         40.31
           IF ( .NOT.LOPS ) THEN                                           40.31
              FOPS = OPSTMP                                                40.31
@@ -771,6 +779,7 @@
      &               (2, 'No points with valid depth found')
 !             ***** store number of points of the curve *****
           OPSTMP%MIP = MIP                                                40.31
+          ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
           NULLIFY(OPSTMP%NEXTOPS)                                         40.31
           IF ( .NOT.LOPS ) THEN                                           40.31
              FOPS = OPSTMP                                                40.31
@@ -980,6 +989,7 @@
              OPSTMP%OPR(1) = -999.
           ENDIF                                                           40.80
           IF (MIP .EQ. 0) CALL MSGERR(1,'No output points found')
+          ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
           NULLIFY(OPSTMP%NEXTOPS)                                         40.31
           IF ( .NOT.LOPS ) THEN                                           40.31
              FOPS = OPSTMP                                                40.31
@@ -1249,6 +1259,8 @@
           NVAR = 0                                                        40.31
           ORQTMP%OQI(3) = NVAR                                            40.31
           ORQTMP%OQI(4) = IDLAO                                           40.31
+          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
+          ALLOCATE(ORQTMP%FAC(1))                                         40.31
           OUTP_FILES(NREOQ) = FILENM                                      40.13
 !
 !         read types of output quantities
@@ -1422,8 +1434,8 @@
                 ENDIF                                                     41.90
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
-     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                   40.85
-     &              IVTYPE.GE.60 ) LADDS = .TRUE.                         40.85
+     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.
+     &              (IVTYPE.GE.60 .AND. IVTYPE.LE.74) ) LADDS = .TRUE.
              ELSE IF (IVTYPE.LT.170) THEN                                 41.62
                 NOSWLL = INT(OUTPAR(51))                                  41.72
 !               add NOSWLL partitions of requested partition parameter    41.72
@@ -1468,6 +1480,8 @@
              GOTO 70
           ENDIF
  91       IF (NVAR.GT.0) THEN                                             40.31
+             DEALLOCATE(ORQTMP%IVTYP)                                     40.31
+             DEALLOCATE(ORQTMP%FAC)                                       40.31
              ALLOCATE(ORQTMP%IVTYP(NVAR))                                 40.31
              ALLOCATE(ORQTMP%FAC(NVAR))                                   40.31
              CURR => FRST%NEXTI                                           40.31
@@ -1623,6 +1637,8 @@
 !
         NVAR = 0
         ORQTMP%OQI(3) = NVAR                                              40.31
+        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
+        ALLOCATE(ORQTMP%FAC(1))                                           40.31
 !       read types of variables to be printed in the table
         FRST%I = 0                                                        40.31
         NULLIFY(FRST%NEXTI)                                               40.31
@@ -1785,8 +1801,8 @@
             ENDIF                                                         41.90
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
-     &          IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                       40.85
-     &          IVTYPE.GE.60 ) LADDS = .TRUE.                             40.85
+     &          IVTYPE.EQ.56 .OR.                                         VORTECH
+     &          (IVTYPE.GE.60 .AND. IVTYPE.LE.71) ) LADDS = .TRUE.        VORTECH
             CALL INKEYW ('STA', ' ')                                      40.00
             IF (KEYWIS('UNIT')) THEN
               CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
@@ -1811,6 +1827,7 @@
           GOTO 80
         ENDIF
  90     IF (NVAR.GT.0) THEN                                               40.31
+           DEALLOCATE(ORQTMP%IVTYP)                                       40.31
            ALLOCATE(ORQTMP%IVTYP(NVAR))                                   40.31
            CURR => FRST%NEXTI                                             40.31
            DO JJ = 1, NVAR                                                40.31
@@ -1820,6 +1837,7 @@
            DEALLOCATE(TMP)                                                40.31
         END IF                                                            40.31
 !NCF        IF ( RTYPE.EQ.'TABC') THEN
+!NCF          DEALLOCATE(ORQTMP%FAC)
 !NCF          ALLOCATE(ORQTMP%FAC(NVAR))
 !NCF          ORQTMP%FAC=1.
 !NCF        ELSE
@@ -1942,8 +1960,8 @@
 !
         NVAR = 0                                                          40.31
         ORQTMP%OQI(3) = NVAR                                              40.31
-        ALLOCATE(ORQTMP%IVTYP(0))                                         40.31
-        ALLOCATE(ORQTMP%FAC(0))                                           40.31
+        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
+        ALLOCATE(ORQTMP%FAC(1))                                           40.31
 !       read types of variables to be printed in the table
         CALL INKEYW ('STA', ' ')                                          30.00
         IF (KEYWIS ('OUT')) THEN                                          40.03
@@ -2024,8 +2042,8 @@
 !NCF          IF ( INDEX( FILENM, '.NC'  ).NE.0 .OR.
 !NCF     &         INDEX (FILENM, '.nc'  ).NE.0 )
 !NCF     &       ORQTMP%OQI(4) = 18
-          ALLOCATE(ORQTMP%IVTYP(0))                                       40.31
-          ALLOCATE(ORQTMP%FAC(0))                                         40.31
+          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
+          ALLOCATE(ORQTMP%FAC(1))                                         40.31
 !
           CALL INKEYW ('STA', ' ')                                        30.00
           IF (KEYWIS ('OUT')) THEN                                        40.03
@@ -2591,6 +2609,7 @@
       REAL      CRDP, CRDM, SOMX, SOMY
       REAL      XP,YP,XC,YC,RR,DIRSI,COSDIR,SINDIR,DIRSID,DIRREF
       REAL      RLEN1,RDIST,RLEN2,XC1,YC1,XC2,YC2,W1
+
       REAL      DET, DXLOC, DYLOC, X1, Y1, X2, Y2, X3, Y3                 43.01
 
       LOGICAL   KEYWIS, LOCGRI, CCW, BPARF, BOUNPT, DONALL
@@ -3315,8 +3334,11 @@
         ELSE
 !         boundary condition on one side of the computational grid
           IF (OPTG.EQ.3) THEN                                             40.80 40.31
-             CALL MSGERR(2,                                               40.80 40.31
+!CJK:03-03-2004:Only a warning must be given, swan must not stop on keyword side
+!CJK request of Arjen L., so error code is reduced to 1
+             CALL MSGERR(1,                                               40.80 40.31
      &          ' keyword SIDE should not be used for curvilinear grid')  40.80 40.31
+!CJK:END:03-03-2004
           END IF                                                          40.31
           CALL IGNORE ('SIDE')
 !         *** specification of side for which boundary   ***
@@ -3881,6 +3903,7 @@
       USE SWCOMM4                                                         40.41
       USE M_BNDSPEC                                                       40.31
       USE M_PARALL                                                        42.10
+!NCF      use HRextensions, only: swn_hre_bcnccf
 !
       IMPLICIT NONE
 !
@@ -3983,6 +4006,7 @@
       REAL    :: XP, YP, XP2, YP2
       REAL    :: FREQHZ, DIRDEG, DIRRD1,DIRRAD, EXCV
       CHARACTER BTYPE *4, HEDLIN *80
+      CHARACTER (LEN=80)  :: ID
 !
 !    NBGRPT_PREV is the prevous number of NBGRPT
 !    IIPT2 counter use for the chekinf if there are grid points on nested boundary
@@ -4050,10 +4074,18 @@
 ! 13. Source text
 !
       LOGICAL         CCOORD                                            40.03
-
+!NCF      LOGICAL :: NCF =.FALSE.
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCFILE')
+!NCF      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
+!NCF     &     INDEX (FILENM, '.nc' ).NE.0) THEN
+!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL, LBGP,
+!NCF     &                   XCGRID, YCGRID, KGRPNT,
+!NCF     &                   XYTST,  KGRBND, DONALL)
+!NCF         RETURN
+!NCF      ENDIF
+!NCF!
 !
       NDSL = 0
       IIPT2 = 0                                                           40.05
@@ -4128,7 +4160,7 @@
 
           DO IBOUNC = 1, NBOUNC
             IERR = 0
-            CALL REFIXY (NDSD, XP, YP, IERR)
+            CALL REFIXY (NDSD, XP, YP, IERR, ID)
             IF (ITEST.GE.80) THEN
               WRITE (PRTEST, *) ' B. spectrum ', IBOUNC, XP+XOFFS,
      &        YP+YOFFS, IERR                                              40.03
@@ -5653,6 +5685,7 @@
                IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                    40.80
      &              vert(IXP)%atti(VBC) == 0     .AND.                    40.80
      &              vmark(IXP) < excmark ) THEN                           43.01 42.10
+
                  XP = vert(IXP)%attr(VERTX)                               41.14
                  YP = vert(IXP)%attr(VERTY)                               41.14
 !
@@ -6258,6 +6291,7 @@
             OPSTMP%YP(IPTST) = ycugrd(K)                                  40.80
          ENDDO                                                            40.80
       ENDIF                                                               40.80
+      ALLOCATE(CHARACTER(LEN=80)::OPSTMP%ID(1))
       NULLIFY(OPSTMP%NEXTOPS)                                             40.31
       IF ( .NOT.LOPS ) THEN                                               40.31
          FOPS = OPSTMP                                                    40.31

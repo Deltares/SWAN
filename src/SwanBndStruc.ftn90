@@ -175,6 +175,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
            OPSTMP%YP(jj) = ysid(jj)
         enddo
         deallocate (xsid, ysid)
+        allocate(CHARACTER(LEN=80)::OPSTMP%ID(1))
         nullify (OPSTMP%NEXTOPS)
         if ( .not.LOPS ) then
            FOPS = OPSTMP
@@ -205,6 +206,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
          OPSTMP%YP(jj) = ybnd(jj)
       enddo
       deallocate(xbnd,ybnd)
+      allocate(CHARACTER(LEN=80)::OPSTMP%ID(1))
       nullify (OPSTMP%NEXTOPS)
       if ( .not.LOPS ) then
          FOPS = OPSTMP

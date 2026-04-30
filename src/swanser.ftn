@@ -185,7 +185,7 @@
       END
 !***********************************************************************
 !                                                                      *
-      SUBROUTINE REFIXY (NDS, XX, YY, IERR)
+      SUBROUTINE REFIXY (NDS, XX, YY, IERR, ID)
 !                                                                      *
 !***********************************************************************
 !
@@ -272,11 +272,23 @@
 !
       DOUBLE PRECISION XTMP, YTMP
       REAL             XX, YY
+      CHARACTER(LEN=80) :: ID
+      CHARACTER(LEN=1024) LINE
+      INTEGER IDSTART,IDEND
       SAVE  IENT
       DATA  IENT /0/
       CALL  STRACE (IENT,'REFIXY')
 !
-      READ (NDS, *, END=10, ERR=20) XTMP, YTMP
+      READ (NDS, '(A)', END=10, ERR=20) LINE
+      READ (LINE, *, END=10, ERR=20) XTMP, YTMP
+      IDSTART = MAX(1,INDEX(LINE, '#'))
+      IDSTART = IDSTART + INDEX(LINE(IDSTART:), '"')
+      IDEND   = IDSTART + INDEX(LINE(IDSTART+1:), '"')
+      IF (IDSTART.EQ.IDEND) THEN
+        ID = ' '
+      ELSE
+        ID = LINE(IDSTART:IDEND-1)
+      END IF
       IF (.NOT.LXOFFS) THEN
         XOFFS = REAL(XTMP)
         YOFFS = REAL(YTMP)
@@ -6661,7 +6673,7 @@
 !
       INTEGER   IVAL
       REAL      RVAL
-      CHARACTER FORM*20
+      CHARACTER*(*) FORM
 !
 !  6. Local variables
 !

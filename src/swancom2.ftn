@@ -1856,6 +1856,7 @@
 !                 1) Battjes and Janssen (1978)
 !                 2) Thornton and Guza (1983)
 !                 3) Salmon and Holthuijsen (2013)
+!                 4) biphase scaling of Van der Westhuysen (2009)
 !
 !     Note: white capping is not taken into account
 !
@@ -2041,7 +2042,7 @@
       DOUBLE PRECISION BB,       DIS0,    SbrD,
      &                 SURFA0,   SURFA1,  WS  ,
      &                 TEMP1 ,   TEMP2
-      REAL             SwanIntgratSpc
+      REAL             SwanIntgratSpc, DEPLOC, URSLOC, BIPH, WH, SMEAN
 !
 !
 !  7. Common blocks used
@@ -2139,6 +2140,44 @@
             SbrD   = 5D-1*DBLE(3.+PSURF(5))*WS
             SURFA0 = SbrD - WS
             SURFA1 = SbrD
+         ELSE
+            SURFA0 = 0D0
+            SURFA1 = 0D0
+         ENDIF
+      ELSEIF ( ISURF.EQ.5 ) THEN                                          41.03
+!
+!        --- biphase scaling of Van der Westhuysen (2009)
+!
+         DEPLOC = HM/PSURF(2)
+         URSLOC = (GRAV*2.*SQRT(ETOT))/(SQRT(2.)*SMEBRK**2*DEPLOC**2)
+         BIPH = 0.5*PI*(TANH(PTRIAD(4)/URSLOC)-1.)
+         IF ( BIPH.LT.0. ) THEN
+!
+            IF ( PSURF(6).GT.0. ) THEN                                    41.09
+               SMEAN    = SQRT(8.*ETOT)*KMESPC/(2.*PI)                    41.09
+               PSURF(4) = 4.-(4./PI)*ATAN(PSURF(6)*(SMEAN-0.0375))        41.09
+            ENDIF                                                         41.09
+!
+            WH = (BIPH/PSURF(5))**PSURF(4)
+            WH = MIN(1.,WH)
+!
+            IF ( BB.GT.0D0 ) THEN
+               IF ( BB.LT.1D0 ) THEN
+                  WS = 75D-2*DBLE(WH)*DBLE(PSURF(2))*DBLE(PSURF(1))**3*
+     &                 DBLE(SMEBRK)*SQRT(BB)/DBLE(SQRT(PI))
+                  SbrD = (15D-1-25D-2*DBLE(PSURF(4))*
+     &                                          (1D0+5D0/DBLE(BIPH)))*WS
+               ELSE
+                  WS = 75D-2*DBLE(PSURF(2))*DBLE(PSURF(1))**3*
+     &                 DBLE(SMEBRK)/DBLE(SQRT(PI))
+                  SbrD = WS
+               ENDIF
+               SURFA0 = SbrD - WS
+               SURFA1 = SbrD
+            ELSE
+               SURFA0 = 0D0
+               SURFA1 = 0D0
+            ENDIF
          ELSE
             SURFA0 = 0D0
             SURFA1 = 0D0
@@ -2473,6 +2512,7 @@
 !
       WCIMPL = 0.
       WCCUR  = 0.                                                         41.11
+      WCCUR(1:MDC,1:MSC) = 0.                                             41.11
 !
 ! Calculate coefficients
 !

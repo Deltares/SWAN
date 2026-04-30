@@ -1886,10 +1886,10 @@
      &                   'File is already opened, filename: '//FILTTM)
             ENDIF
             IF (FILTTM.NE.DDNAME .AND. FILTTM.NE.EMPTY) THEN
-              IF (IOSTAT.GT.-2) THEN
+              IF (ITEST.GE.30 .AND. IOSTAT.GT.-2) THEN
                 WRITE (PRINTF, '(A, I4, 6A)') ' unit', IUNIT,
      &                 ' filenames: ', FILTTM, ' and: ', DDNAME
-                CALL MSGERR (2, 'filename and unit number inconsistent')
+                CALL MSGERR (1, 'filename and unit number inconsistent')
               ENDIF
               IOSTAT = IEDDNM
 !             close old file and open new one with given filename
