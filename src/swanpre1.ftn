@@ -309,7 +309,7 @@
       INTEGER           :: IVAL,NUMCOR,MSS,I,J,NVAR,IVTYPE,IFTMAX
       REAL              :: TRCF,HGT,SLP,BK,OGAM,OBET,REF0,XP,YP
       REAL              :: GAMR, GAMT                                     41.71
-      REAL              :: AFIG, HSS, TSS, DSS                            42.06 41.82
+      REAL              :: AFIG, HSS, TSS, DSS, MFR, SHP                  42.09 42.06 41.82
       REAL              :: ALTMP,FRLOW,FRHIG,GAMMA,TMPDIR,VALX,VALY
       REAL*8            :: DIFF
       REAL              :: DEGCNV
@@ -953,13 +953,13 @@
 !             |  DAM <                                    |
 !                     |    DANGremond [hgt] [slope] [Bk]  |
 !
-!      ( FIG [alpha1] [hss] [tss] [dss] [dd] )                &           42.06 41.82
+!     ( FIG [alpha1] [hss] [tss] [dss] [dd] [minfr] [shape] ) &           42.09 42.06 41.82
 !                                                                         40.18
-!                        | -> RSPEC        |                              40.18
-!      ( REFLec [reflc] <                   > )               &
-!                        |    RDIFF [pown] |                              40.13 40.18
+!                       | -> RSPEC        |                               40.18
+!     ( REFLec [reflc] <                   > )                &
+!                       |    RDIFF [pown] |                               40.13 40.18
 !
-!      ( FREEboard [hgt] [gammat] [gammar] Quay )             &           41.71
+!     ( FREEboard [hgt] [gammat] [gammar] Quay )              &           41.71
 !
 !             LINe < [xp] [yp] >                                          40.18 40.09
 !
@@ -991,6 +991,8 @@
         OBSTMP%IGCOEF(3) = 0.                                             41.82
         OBSTMP%IGCOEF(4) = 0.                                             42.06
         OBSTMP%IGCOEF(5) = 0.                                             42.06
+        OBSTMP%IGCOEF(6) = 0.                                             42.09
+        OBSTMP%IGCOEF(7) = 0.                                             42.09
 !
 !       data concerning transmission of energy over/through the obstacle
 !
@@ -1128,11 +1130,15 @@
            CALL INREAL ('TSS'   , TSS , 'UNC', 0.)                        41.82
            CALL INREAL ('DSS'   , DSS , 'STA', -999.)                     42.06
            CALL INREAL ('DD'    , DD  , 'STA', 0.)                        42.06
+           CALL INREAL ('MINFR' , MFR , 'STA', 0.015)                     42.09
+           CALL INREAL ('SHAPE' , SHP , 'STA', 1.5)                       42.09
            OBSTMP%IGCOEF(1) = AFIG
            OBSTMP%IGCOEF(2) = HSS
            OBSTMP%IGCOEF(3) = TSS
            OBSTMP%IGCOEF(4) = DSS
            OBSTMP%IGCOEF(5) = DD
+           OBSTMP%IGCOEF(6) = MFR
+           OBSTMP%IGCOEF(7) = SHP
         ELSE
            LFIG = 0
         ENDIF
@@ -1341,7 +1347,6 @@
 !      | REG [xpinp] [ypinp] [alpinp]  [mxinp] [myinp]  [dxinp] [dyinp] |
 !     <  CURVilinear [stagrx] [stagry] [mxinp] [myinp]                   > &
 !      | UNSTRUCtured                                                   |
-!NCF!      | REGFromfile 'fname'                                                 |
 !      (NONSTATionary [tbeginp] [deltinp] SEC/MIN/HR/DAY [tendinp])
 !
 ! ============================================================================
@@ -1526,10 +1531,35 @@
             IF ( PARLL .AND. .NOT.LOGCOM(7) )                             42.10
      &         CALL MSGERR (4,                                            42.10
      &          'to run in parallel the mesh must be partitioned first')  42.10
+!
+!           --- create copies of parts of xcugrd and ycugrd               43.01
+!               for each subdomain                                        43.01
+            IF (.NOT.ALLOCATED(xcugrdgl)) ALLOCATE(xcugrdgl(nvertsg))     43.01
+            IF (.NOT.ALLOCATED(ycugrdgl)) ALLOCATE(ycugrdgl(nvertsg))     43.01
+            xcugrdgl = xcugrd                                             43.01
+            ycugrdgl = ycugrd                                             43.01
+            DEALLOCATE(xcugrd,ycugrd)                                     43.01
+            ALLOCATE(xcugrd(nverts))                                      43.01
+            ALLOCATE(ycugrd(nverts))                                      43.01
+!
+            IF ( .NOT.PARLL ) THEN                                        43.01
+               xcugrd = xcugrdgl                                          43.01
+               ycugrd = ycugrdgl                                          43.01
+            ELSE                                                          43.01
+               DO J = 1, nverts                                           43.01
+                  I = ivertg(J)                                           43.01
+                  xcugrd(J) = xcugrdgl(I)                                 43.01
+                  ycugrd(J) = ycugrdgl(I)                                 43.01
+               ENDDO                                                      43.01
+            ENDIF                                                         43.01
+!
+!           --- create grid topology
             CALL SwanCreateEdges                                          40.80
             IF (STPNOW()) RETURN                                          40.80
             CALL SwanGridTopology                                         40.80
             IF (STPNOW()) RETURN                                          40.80
+!
+!           --- initialize arrays for unstructured mesh
             CALL SwanInitCompGrid (LOGCOM)                                40.80
             IF (STPNOW()) RETURN                                          40.80
 !
@@ -2130,7 +2160,7 @@
 !   SET  [level]  [nor]  [depmin]  [maxmes]                &
 !        [maxerr]  [grav]  [rho] [cdcap] [uscap] [inrhog]  &
 !        [hsrerr]  CARTesian/NAUTical  [pwtail] [froudmax] &
-!        [icewind]                                         &
+!        [icewind]  [excmark]                              &
 !        [sort]  [nsweep]  CURV  (not documented)
 !        [printf]  [prtest] (not documented)
 !
@@ -2166,6 +2196,7 @@
          ENDIF
          CALL INREAL ('FROUDMAX', PNUMS(18), 'UNC', 0.)                   30.50
          CALL INREAL ('ICEWIND' , ICEWIND  , 'UNC', 0.)
+         CALL ININTG ('EXCMARK' , excmark  , 'UNC', 0 )                   43.01
          CALL INREAL ('SORT'    , usort    , 'UNC', 0.)                   41.68 41.48
          CALL ININTG ('NSWEEP'  , nsweep   , 'UNC', 0 )                   41.68
          IF (KEYWIS ('CURV')) CCURV = .TRUE.                              41.53
@@ -2366,12 +2397,6 @@
           CALL INREAL ('ALPHA',  PSURF(1), 'STA', 1.0)
           CALL INREAL ('GAMMA',  PSURF(4), 'STA', 0.42)
           CALL INREAL ('POWN' ,  PSURF(5), 'STA', 4.0)
-        ELSE IF (KEYWIS('WESTH')) THEN                                    41.09 41.03
-          ISURF = 5
-          CALL INREAL ('ALPHA',  PSURF(1), 'STA', 0.98)                   41.09
-          CALL INREAL ('POWN' ,  PSURF(4), 'STA', 2.5)                    41.09
-          CALL INREAL ('BREF' ,  PSURF(5), 'STA', -1.3963)                41.09
-          CALL INREAL ('SHFAC',  PSURF(6), 'STA', 500.)                   41.09
         ELSE IF (KEYWIS('BKD')) THEN                                      41.38
           ISURF = 6                                                       41.38
           CALL INREAL ('ALPHA' , PSURF(1) ,'STA', 1.00)                   41.47
@@ -2428,10 +2453,6 @@
 !        |    KBJ     [bjstp] [bjalf] [kconv]
 !        |                                                                40.30
 !        | -> AB      [cds2] [br]  CURrent [cds3]                         42.04 41.11 40.53
-!        |
-!        |    WESTHuy [cds2] [br] [p0] [powst] [powk] &                   41.11
-!        |
-!        |            [nldisp] [cds3] [powfsh]                            41.11
 !
 ! =============================================================
 !
@@ -2494,18 +2515,6 @@
              IWCCUR = 1                                                   42.04
              CALL INREAL ('CDS3', PWCAP(14), 'STA', 0.8)                  42.04
           ENDIF                                                           42.04
-        ELSE IF ( KEYWIS ('WESTH')) THEN                                  41.11
-!         *** whitecapping according to Vd Westhuysen et al. (2007) ***   41.11
-!         *** incl. enhanced dissipation on current (yet unpublished)     41.11
-          IWCAP = 7                                                       41.11
-          CALL INREAL ('CDS2',  PWCAP(1),  'STA', 5.0E-5)                 41.11
-          CALL INREAL ('BR',    PWCAP(12), 'STA', 1.75E-3)                41.11
-          CALL INREAL ('P0',    PWCAP(10), 'STA', 4.)                     41.11
-          CALL INREAL ('POWST', PWCAP(9),  'STA', 0.)                     41.11
-          CALL INREAL ('POWK',  PWCAP(11), 'STA', 0.)                     41.11
-          CALL INREAL ('NLDISP',PWCAP(13), 'STA', 0.)                     41.11
-          CALL INREAL ('CDS3'  ,PWCAP(14), 'STA', 1.5)                    41.11
-          CALL INREAL ('POWFSH',PWCAP(15), 'STA', 1.)                     41.11
         ELSE
           CALL WRNKEY
         ENDIF
@@ -3297,22 +3306,30 @@
 !
 ! ============================================================
 !
-!                                 / -> COLL
+!                                  / -> COLL
 !           | -> DCTA [trfac] [p]  \    NONC
 !           |
-!   TRIad  <     LTA [trfac] [cutfr] [dint]            &
+!           |    LTA [trfac] [cutfr] [dint]
+!   TRIad  <                                               &
+!           |    FTIM [trfac] [dint]
 !           |
 !           |    SPB [trfac] [a] [b] [dint]
 !
 !
 !                  | -> ELDeberky [urcrit]
 !                  |
-!         BIPHase <  SAPRykina [a]   (NOT documented)
+!         BIPHase <  SAPRykina [a]   (NOT documented)      &
 !                  |
 !                  | WIT [lpar]
 !
 !
-!   TRIad [itriad] [trfac] [cutfr] [dint] [a] [b] [p] [urcrit] [urslim]   (obsolete)
+!                   |    FG
+!         TRAnsfer <     MS
+!                   |    BRedmose
+!                   | -> QUadwave
+!
+!
+!   TRIad [itriad] [trfac] [cutfr] [dint] [a] [b] [p] [urcrit] [urslim] [ic]  (obsolete)
 !
 ! ============================================================
 !
@@ -3330,8 +3347,8 @@
           ! ==========================================================================
           !
           ITRIAD = 1
-          CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.8)
-          CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)
+          CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 1.0)
+          CALL INREAL ('CUTFR', PTRIAD(2), 'STA', -1.)
           CALL INREAL ('DINT' , PTRIAD(8), 'STA',60.0)
           !
         ELSE IF ( KEYWIS('DCTA') ) THEN
@@ -3345,7 +3362,6 @@
           ITRIAD = 5
           CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 4.4 )
           CALL INREAL ('P'    , PTRIAD(2), 'STA', 4./3.)
-          !
           !
         ELSE IF ( KEYWIS('SPB') ) THEN
           !
@@ -3361,24 +3377,39 @@
           CALL INREAL ('B'    , PTRIAD(7), 'STA', 0.0 )
           CALL INREAL ('DINT' , PTRIAD(8), 'STA',-1.  )
           !
+        ELSE IF ( KEYWIS('FTIM') ) THEN
+          !
+          ! ==========================================================================
+          !
+          ! TRIad FTIM [trfac] [dint]
+          !
+          ! ==========================================================================
+          !
+          ITRIAD = 3
+          CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 1.)
+          CALL INREAL ('DINT' , PTRIAD(8), 'STA',-1.)
+          !
         ELSE
           !
           ! ==========================================================================
           !
-          ! TRIad [itriad] [trfac] [cutfr] [dint] [a] [b] [p] [urcrit] [urslim]
+          ! TRIad [itriad] [trfac] [cutfr] [dint] [a] [b] [p] [urcrit] [urslim] [ic]
           !
           ! ==========================================================================
           !
           CALL ININTG ('ITRIAD', ITRIAD, 'STA', 5)
           IF (ITRIAD.EQ.1) THEN
-             CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.8)                 41.97 41.76 41.44
-             CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)                 40.61 40.56 30.82
+             CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 1.0)                 42.15 41.97 41.76 41.44
+             CALL INREAL ('CUTFR', PTRIAD(2), 'STA', -1.)                 42.11 40.61 40.56 30.82
              CALL INREAL ('DINT' , PTRIAD(8), 'STA',60.0)                 42.01
           ELSEIF (ITRIAD.EQ.2) THEN
              CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 0.90)                41.46
              CALL INREAL ('A'    , PTRIAD(6), 'STA', 0.95)                41.46
              CALL INREAL ('B'    , PTRIAD(7), 'STA', 0.0 )                41.46
              CALL INREAL ('DINT' , PTRIAD(8), 'STA',-1.  )                42.01
+          ELSEIF (ITRIAD.EQ.3) THEN                                       42.15
+             CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 1.)                  42.15
+             CALL INREAL ('DINT' , PTRIAD(8), 'STA',-1.)                  42.15
           ELSEIF (ITRIAD.EQ.5) THEN
              CALL INREAL ('TRFAC', PTRIAD(1), 'STA', 4.4 )                42.01 41.45
              CALL INREAL ('P'    , PTRIAD(2), 'STA', 4./3.)               42.01
@@ -3388,8 +3419,9 @@
              CALL INREAL ('CUTFR', PTRIAD(2), 'STA', 2.5)
              PTRIAD(8) = 0.
           ENDIF
-          CALL INREAL ('URCRIT', PTRIAD(4), 'STA', 0.63)                  41.97 40.13
-          CALL INREAL ('URSLIM', PTRIAD(5), 'STA', 0.1 )                  41.97 40.41 40.23 40.13
+          CALL INREAL ('URCRIT', PTRIAD(4) , 'STA', 0.63)                 41.97 40.13
+          CALL INREAL ('URSLIM', PTRIAD(5) , 'STA', 0.1 )                 41.97 40.41 40.23 40.13
+          CALL INREAL ('IC'    , PTRIAD(10), 'STA', -1. )                 42.15
           !
         ENDIF
         !
@@ -3423,6 +3455,21 @@
               CALL IGNORE ('ELD')
               IBIPH = 1
               CALL INREAL ('URCRIT', PTRIAD(4), 'STA', 0.63)
+           ENDIF
+        ENDIF
+        !
+        CALL INKEYW ('REQ',' ')
+        IF (KEYWIS('TRA') .OR. KEYWIS('IC')) THEN
+           CALL INKEYW ('STA', 'QU')
+           IF (KEYWIS('FG')) THEN
+              PTRIAD(10) = 1.
+           ELSEIF (KEYWIS('MS')) THEN
+              PTRIAD(10) = 2.
+           ELSEIF (KEYWIS('BR')) THEN
+              PTRIAD(10) = 3.
+           ELSE
+              CALL IGNORE ('QU')
+              PTRIAD(10) = 4.
            ENDIF
         ENDIF
         !
@@ -3663,7 +3710,6 @@
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA                                                       40.31
       USE SwanGriddata                                                    40.80
-!NCF      USE HRExtensions
 !
 !
 !
@@ -3775,15 +3821,13 @@
 !
 ! 13. SOURCE TEXT
 !
-      INTEGER   IGRID1, EXCVTR(NUMGRD), IGRID2
+      INTEGER   IGRID1, IGRID2
       CHARACTER SNAMEG *8
       LOGICAL   KEYWIS                                                    30.00
-!NCF      LOGICAL   ISCURVI
       TYPE(OPSDAT), POINTER :: OPSTMP                                     40.31
       SAVE IENT
       DATA IENT/0/
       CALL STRACE(IENT,'SINPGR')
-      EXCVTR = (/0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0/)
 !
 !     *** user gives coord. corner point input grid               ***
 !     *** Regular or curvilinear grid option  for version 30.21   ***
@@ -3869,11 +3913,6 @@
         CALL INREAL ('STAGRY',STAGRY,'STA', 0.)                           30.60
         STAGX(IGRID1) = STAGRX                                            30.21
         STAGY(IGRID1) = STAGRY                                            30.21
-
-        ALPG(IGRID1)  = 0.0 ! reset as it might now have the same value as bot grid
-        COSPG(IGRID1) = COS(ALPG(IGRID1))
-        SINPG(IGRID1) = SIN(ALPG(IGRID1))
-
         MXG(IGRID1) = MXG(IGRID1) - 1
         MYG(IGRID1) = MYG(IGRID1) - 1
 !       default values changed                                            30.60
@@ -3889,16 +3928,6 @@
           CALL ININTG ('MYINP', MYG(IGRID1),'STA',MYC-1)                  30.80
         ENDIF                                                             32.02
         MYG(IGRID1) = MYG(IGRID1) + 1
-!NCF      ELSEIF (KEYWIS('REGF')) THEN
-!NCF        IF (ONED) THEN
-!NCF           CALL MSGERR (4,
-!NCF     &            '1D-grid cannot be read from a netcdf file')
-!NCF           RETURN
-!NCF        ENDIF
-!NCF        IGTYPE(IGRID1) = 1
-!NCF        CALL INCSTR ('FNAME', FILENM, 'REQ', ' ')
-!NCF        CALL swn_hre_inpgr(IGRID1, IGRID2, FILENM, isCurvi)
-!NCF        IF (isCurvi) IGTYPE(IGRID1) = 2
       ELSEIF (KEYWIS('UNSTRUC')) THEN                                     40.80
 !
         IF (ONED) THEN                                                    40.80
@@ -3911,7 +3940,6 @@
      &   'Unstructured input grid cannot be used with curvilinear grid')  40.80
            RETURN                                                         40.80
         ENDIF                                                             40.80
-
 !
         IGTYPE(IGRID1) = 3                                                40.80
         MXG(IGRID1)    = nvertsg                                          40.80
@@ -3962,19 +3990,12 @@
       ENDIF
 !
 !     exception values for input variables                                30.60
-!NCF!       in case of netcdf this value overrides the one from file
 !
       CALL INKEYW ('STA', ' ')                                            30.60
       IF (KEYWIS ('EXC')) THEN                                            30.60
         CALL INREAL ('EXCVAL', EXCFLD(IGRID1), 'REQ', 0.)                 30.60
         IF (IGRID2.GT.0) EXCFLD(IGRID2) = EXCFLD(IGRID1)                  40.80
       ENDIF                                                               30.60
-      IF ( EXCVTR(IGRID1).NE.0 )
-     &  OVEXCV(EXCVTR(IGRID1)) = EXCFLD(IGRID1)
-      IF ( IGRID2.GT.0 ) THEN
-        IF ( EXCVTR(IGRID2).NE.0 )
-     &    OVEXCV(EXCVTR(IGRID2)) = EXCFLD(IGRID2)
-      ENDIF
 !
       LEDS(IGRID1) = 1
       IF (IGRID2.GT.0) LEDS(IGRID2) = 1                                   40.80
@@ -4056,16 +4077,15 @@
       IF (ITEST .GE. 50 .OR. INTES .GE. 5) THEN
         IF (OPSTMP%PSTYPE .EQ. 'F') THEN
           WRITE(PRINTF,6021)IGRID1,'F',XQLEN,YQLEN,
-     &    XPG(IGRID1),YPG(IGRID1),ALPG(IGRID1),MXG(IGRID1),MYG(IGRID1),
-     &    DXG(IGRID1), DYG(IGRID1)
+     &    XPG(IGRID1),YPG(IGRID1),ALPG(IGRID1),MXG(IGRID1),MYG(IGRID1)
         ELSE
           WRITE(PRINTF,6022)IGRID1,OPSTMP%PSTYPE,MXG(IGRID1)-1,
      &    MYG(IGRID1)-1,0,0,0.,MXG(IGRID1),MYG(IGRID1)
         ENDIF
  6021   FORMAT (' INP GRID PARAMETERS: ',/,
      &          'IGRID , FRAMTYPE,XLENFR ,YLENFR  XPFR  YPFR    ALPFR',
-     &          '    MXFR MYFR  DXG  DYG',/,I2,1X,A,4X,
-     &           2(1X,E8.3), 2(1X,E10.3), F7.3, 2(1X,I4),2(1X,F24.16))    40.31 30.60
+     &          '    MXFR MYFR',/,I2,1X,A,4X,
+     &           2(1X,E8.3), 2(1X,E10.3), F7.3, 2(1X,I4))                 40.31 30.60
  6022   FORMAT (' INP GRID PARAMETERS: ',/,
      &          'IGRID, FRAMTYPE ,XMAXFR ,YMAXFR XMINFR YMINFR  ALPFR',
      &          '    MXFR MYFR',/,
@@ -4116,16 +4136,6 @@
       USE SWCOMM4                                                         40.41
       USE M_GENARR                                                        40.31
       USE SwanGriddata                                                    40.80
-!NCF      USE HRExtensions, only: swn_hre_readarray
-!NCF      USE agioncmd, only: open_ncfile
-!ADC      USE Couple2Swan, ONLY: ADCIRC_ETA2 => SWAN_ETA2,                    41.20
-!ADC     &                       ADCIRC_UU2 => SWAN_UU2,                      41.20
-!ADC     &                       ADCIRC_VV2 => SWAN_VV2,                      41.20
-!ADC     &                       ADCIRC_WX2 => SWAN_WX2,                      41.20
-!ADC     &                       ADCIRC_WY2 => SWAN_WY2,                      41.20
-!ADC     &                       COUPCUR, COUPWIND, COUPWLV                   41.20
-!ADC     &                      ,ADCIRC_Z0 => SWAN_Z0,                        41.20
-!ADC     &                       COUPFRIC                                     41.20
 !
 !
 !
@@ -4268,8 +4278,6 @@
       REAL, ALLOCATABLE :: TARR(:)                                        40.31
       LOGICAL    KEYWIS, VECTOR                                           30.00
       LOGICAL    LOGCOM(7)                                                42.10 30.21
-!NCF      LOGICAL  NCF
-      INTEGER    newsize
       SAVE  IENT
       DATA  IENT/0/
       CALL STRACE (IENT,'SREDEP')
@@ -4466,19 +4474,10 @@
          ALLOCATE( TARR(MXG(IGR1)*MYG(IGR1)) )                            40.41
          TARR = 0.                                                        40.41
       END IF                                                              40.41
-!NCF      NCF    = INDEX( FILENM, '.NC'  ).NE.0 .OR.
-!NCF     &         INDEX (FILENM, '.nc'  ).NE.0
-!NCF      IF ( NCF ) THEN
-!NCF          call open_ncfile(FILENM, 'read', IFLNDF(IGR1))
-!NCF          IFLNDF(IGR1) = IFLNDF(IGR1) * -1
-!NCF          CALL swn_hre_readarray(IFLNDF, TARR, MXG, MYG, IFLTIM, IFLFAC,
-!NCF     &         IGR1, FILENM)
-!NCF      ELSE
       CALL INAR2D( TARR        , MXG(IGR1), MYG(IGR1), IFLNDF(IGR1),      40.31 40.02
      &             IFLNDS(IGR1), IFLIFM(IGR1), IFLFRM(IGR1),
      &             IFLIDL(IGR1), IFLFAC(IGR1),
      &             IFLNHD(IGR1), IFLNHF(IGR1))
-!NCF      END IF
       IF (STPNOW()) RETURN                                                34.01
   55  CONTINUE                                                            41.20
       IF (IGR1.EQ.1) THEN                                                 40.31
@@ -4491,7 +4490,7 @@
          IF (.NOT.ALLOCATED(FRIC)) ALLOCATE(FRIC(MXG(IGR1)*MYG(IGR1)))    40.31
          CALL SWCOPR( TARR, FRIC, MXG(IGR1)*MYG(IGR1) )                   40.31
       ELSE IF (IGR1.EQ.5) THEN                                            40.31
-         IF (.NOT.ASSOCIATED(WXI)) ALLOCATE(WXI(MXG(IGR1)*MYG(IGR1)))     40.31
+         IF (.NOT.ALLOCATED(WXI)) ALLOCATE(WXI(MXG(IGR1)*MYG(IGR1)))      40.31
          CALL SWCOPR( TARR, WXI, MXG(IGR1)*MYG(IGR1) )                    40.31
       ELSE IF (IGR1.EQ.7) THEN                                            40.31
          IF (.NOT.ALLOCATED(WLEVL)) ALLOCATE(WLEVL(MXG(IGR1)*MYG(IGR1)))  40.31
@@ -4533,28 +4532,16 @@
            ALLOCATE( TARR(MXG(IGR2)*MYG(IGR2)) )                          40.41
            TARR = 0.                                                      40.41
         END IF                                                            40.41
-!NCF        IF ( NCF ) THEN
-!NCF          IFLNDF(IGR2) = IFLNDF(IGR1)
-!NCF          CALL swn_hre_readarray(IFLNDF, TARR, MXG, MYG, IFLTIM, IFLFAC,
-!NCF     &         IGR2, '')
-!NCF        ELSE
         CALL INAR2D( TARR        , MXG(IGR2), MYG(IGR2), IFLNDF(IGR2),    40.31 40.02
      &               IFLNDS(IGR2), IFLIFM(IGR2), IFLFRM(IGR2),
      &               IFLIDL(IGR2), IFLFAC(IGR2),
      &               IFLNHD(IGR2), 0)
-!NCF        END IF
         IF (STPNOW()) RETURN                                              34.01
         IF (IGR2.EQ.3) THEN                                               40.31
            IF (.NOT.ALLOCATED(UYB)) ALLOCATE(UYB(MXG(IGR2)*MYG(IGR2)))    40.31
            CALL SWCOPR( TARR, UYB, MXG(IGR2)*MYG(IGR2) )                  40.31
         ELSE IF (IGR2.EQ.6) THEN                                          40.31
-           newsize = MXG(IGR2)*MYG(IGR2)
-           IF (.NOT.ASSOCIATED(WYI)) THEN
-              ALLOCATE(WYI(newsize))
-           ELSE IF (SIZE(WYI) .ne. newsize) THEN
-              !DEALLOCATE(WYI)  ! causes unexpected heap error
-              ALLOCATE(WYI(newsize))
-           ENDIF
+           IF (.NOT.ALLOCATED(WYI)) ALLOCATE(WYI(MXG(IGR2)*MYG(IGR2)))    40.31
            CALL SWCOPR( TARR, WYI, MXG(IGR2)*MYG(IGR2) )                  40.31
         ELSE IF (IGR2.EQ.9) THEN                                          40.31
            CALL SWCOPR( TARR, YCGRID, MXG(IGR2)*MYG(IGR2) )               40.31
@@ -6051,7 +6038,6 @@
       USE TIMECOMM                                                        40.41
       USE M_PARALL                                                        40.31
       USE SwanGriddata                                                    40.80
-!NCF      use HRextensions, only: swn_hre_initva
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -6174,7 +6160,6 @@
 !               |            | -> MULTiple |             | -> FREE        41.42 40.62
 !               |  HOTStart <               >  'fname'  <                 41.42 40.62 40.00
 !               |            |    SINGle   |             | UNFormatted    41.42 40.62
-!               |            |    NETCdf   |
 !
 ! ============================================================
 !
@@ -6430,13 +6415,6 @@
               READ (NREF) AC2(:,:,K)
            ENDDO
          ENDIF
-!NCF        ELSEIF (KEYWIS ('NETC') ) THEN
-!
-! Read from netcdf
-!
-!NCF            call IGNORE('NETC')
-!NCF            call swn_hre_initva(FILENM, KGRPNT, AC2)
-!NCF            IF ( STPNOW() ) RETURN
         ELSE                                                              41.42
          CALL IGNORE ('FREE')                                             41.42
          CALL FOR (NREF, FILENM, 'OF', IOSTAT)

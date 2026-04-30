@@ -1249,8 +1249,6 @@
           NVAR = 0                                                        40.31
           ORQTMP%OQI(3) = NVAR                                            40.31
           ORQTMP%OQI(4) = IDLAO                                           40.31
-          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
-          ALLOCATE(ORQTMP%FAC(1))                                         40.31
           OUTP_FILES(NREOQ) = FILENM                                      40.13
 !
 !         read types of output quantities
@@ -1424,8 +1422,8 @@
                 ENDIF                                                     41.90
                 IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                   40.85
      &              IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                   40.85
-     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.
-     &              (IVTYPE.GE.60 .AND. IVTYPE.LE.74) ) LADDS = .TRUE.
+     &              IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                   40.85
+     &              IVTYPE.GE.60 ) LADDS = .TRUE.                         40.85
              ELSE IF (IVTYPE.LT.170) THEN                                 41.62
                 NOSWLL = INT(OUTPAR(51))                                  41.72
 !               add NOSWLL partitions of requested partition parameter    41.72
@@ -1470,8 +1468,6 @@
              GOTO 70
           ENDIF
  91       IF (NVAR.GT.0) THEN                                             40.31
-             DEALLOCATE(ORQTMP%IVTYP)                                     40.31
-             DEALLOCATE(ORQTMP%FAC)                                       40.31
              ALLOCATE(ORQTMP%IVTYP(NVAR))                                 40.31
              ALLOCATE(ORQTMP%FAC(NVAR))                                   40.31
              CURR => FRST%NEXTI                                           40.31
@@ -1627,8 +1623,6 @@
 !
         NVAR = 0
         ORQTMP%OQI(3) = NVAR                                              40.31
-        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
-        ALLOCATE(ORQTMP%FAC(1))                                           40.31
 !       read types of variables to be printed in the table
         FRST%I = 0                                                        40.31
         NULLIFY(FRST%NEXTI)                                               40.31
@@ -1791,8 +1785,8 @@
             ENDIF                                                         41.90
             IF (IVTYPE.EQ.7  .OR. IVTYPE.EQ.9  .OR.                       40.85
      &          IVTYPE.EQ.54 .OR. IVTYPE.EQ.55 .OR.                       40.85
-     &          IVTYPE.EQ.56 .OR.                                         VORTECH
-     &          (IVTYPE.GE.60 .AND. IVTYPE.LE.71) ) LADDS = .TRUE.        VORTECH
+     &          IVTYPE.EQ.56 .OR. IVTYPE.EQ.57 .OR.                       40.85
+     &          IVTYPE.GE.60 ) LADDS = .TRUE.                             40.85
             CALL INKEYW ('STA', ' ')                                      40.00
             IF (KEYWIS('UNIT')) THEN
               CALL MSGERR (1, 'UNIT is ignored in this version')          40.00
@@ -1817,7 +1811,6 @@
           GOTO 80
         ENDIF
  90     IF (NVAR.GT.0) THEN                                               40.31
-           DEALLOCATE(ORQTMP%IVTYP)                                       40.31
            ALLOCATE(ORQTMP%IVTYP(NVAR))                                   40.31
            CURR => FRST%NEXTI                                             40.31
            DO JJ = 1, NVAR                                                40.31
@@ -1827,7 +1820,6 @@
            DEALLOCATE(TMP)                                                40.31
         END IF                                                            40.31
 !NCF        IF ( RTYPE.EQ.'TABC') THEN
-!NCF          DEALLOCATE(ORQTMP%FAC)
 !NCF          ALLOCATE(ORQTMP%FAC(NVAR))
 !NCF          ORQTMP%FAC=1.
 !NCF        ELSE
@@ -1950,8 +1942,8 @@
 !
         NVAR = 0                                                          40.31
         ORQTMP%OQI(3) = NVAR                                              40.31
-        ALLOCATE(ORQTMP%IVTYP(1))                                         40.31
-        ALLOCATE(ORQTMP%FAC(1))                                           40.31
+        ALLOCATE(ORQTMP%IVTYP(0))                                         40.31
+        ALLOCATE(ORQTMP%FAC(0))                                           40.31
 !       read types of variables to be printed in the table
         CALL INKEYW ('STA', ' ')                                          30.00
         IF (KEYWIS ('OUT')) THEN                                          40.03
@@ -2032,8 +2024,8 @@
 !NCF          IF ( INDEX( FILENM, '.NC'  ).NE.0 .OR.
 !NCF     &         INDEX (FILENM, '.nc'  ).NE.0 )
 !NCF     &       ORQTMP%OQI(4) = 18
-          ALLOCATE(ORQTMP%IVTYP(1))                                       40.31
-          ALLOCATE(ORQTMP%FAC(1))                                         40.31
+          ALLOCATE(ORQTMP%IVTYP(0))                                       40.31
+          ALLOCATE(ORQTMP%FAC(0))                                         40.31
 !
           CALL INKEYW ('STA', ' ')                                        30.00
           IF (KEYWIS ('OUT')) THEN                                        40.03
@@ -2486,9 +2478,13 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE M_BNDSPEC                                                       40.31
+      USE M_PARALL                                                        43.01
       USE SwanGriddata                                                    40.80
       USE SwanGridobjects                                                 40.80
       USE SwanCompdata                                                    40.80
+!METIS      USE SwanParallel                                                    43.01
+!
+      IMPLICIT NONE                                                       43.01
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -2533,6 +2529,7 @@
 !     40.80: Marcel Zijlema
 !     40.92: Marcel Zijlema
 !     41.14: Nico Booij
+!     43.01: Marcel Zijlema
 !
 !  1. Updates
 !
@@ -2554,6 +2551,7 @@
 !     40.80, Jun. 07: extension to unstructured grids
 !     40.92, Jun. 08: changes with respect to boundary polygons
 !     41.14, Jul. 10: call SwanBndStruc added
+!     43.01, Aug. 24: parallelization of unstructured boundaries and their conditions
 !
 !  2. Purpose
 !
@@ -2585,15 +2583,20 @@
       INTEGER   MM,IX,IY,ISIDM,ISIDE,KC,KC2,KC1,IX3,IY3,MP
       INTEGER   IP,II,NBSPSS,NFSEQ,IKO,IKO2,IBSPC1,IBSPC2
       INTEGER   VM                                                        40.80
+      INTEGER   IERR, IXB1, IXB2, IXI, IPP, ISH, JBG                      43.01
+      INTEGER   IXG, IXG1, IXG2, ITMP(1), K, NB                           43.01
 
       INTEGER, DIMENSION(:), ALLOCATABLE :: IARR1, IARR2                  40.92
 
       REAL      CRDP, CRDM, SOMX, SOMY
       REAL      XP,YP,XC,YC,RR,DIRSI,COSDIR,SINDIR,DIRSID,DIRREF
       REAL      RLEN1,RDIST,RLEN2,XC1,YC1,XC2,YC2,W1
+      REAL      DET, DXLOC, DYLOC, X1, Y1, X2, Y2, X3, Y3                 43.01
 
-      LOGICAL   KEYWIS, LOCGRI, CCW, BPARF, BOUNPT,DONALL
+      LOGICAL   KEYWIS, LOCGRI, CCW, BPARF, BOUNPT, DONALL
       LOGICAL   LFRST1, LFRST2, LFRST3                                    40.31
+      LOGICAL, SAVE :: BNDDONE = .FALSE.                                  43.01
+      LOGICAL   SwanPointinMesh                                           43.01
 
       INTEGER   NUMP
 
@@ -2688,19 +2691,82 @@
       vert => gridobject%vert_grid                                        40.80
       face => gridobject%face_grid                                        40.80
 !
-      IF (OPTG.EQ.5) THEN                                                 40.80
+      IF (.NOT.BNDDONE) THEN                                              43.01
+         IF (OPTG.EQ.5) THEN                                              40.80
 !
-!        in case of unstructured grid, make list of boundary points
-!        in ascending order
+!           in case of unstructured grid, make list of boundary points
+!           in ascending order
 !
-         CALL SwanBpntlist                                                40.80
-         IF (STPNOW()) RETURN                                             41.39
-      ELSE                                                                41.14
+            CALL SwanBpntlist                                             40.80
+            IF (STPNOW()) RETURN                                          41.39
+!METIS!
+!METIS!           next, gather the lists of boundary points to all processes    43.01
+!METIS!
+!METIS            CALL SwanCollBpntlist                                         43.01
+!METIS            IF (STPNOW()) RETURN                                          43.01
 !
-!        generate output curves BOUNDARY and BOUND_** for structured grids
+            IF (ITEST.GE.50.AND.IAMMASTER) THEN                           43.01
+               NB = SIZE(blist,1)                                         43.01
+               K  = SIZE(blist,2)                                         43.01
+               IF (.NOT.PARLL) K = 1                                      43.01
+               WRITE(PRTEST,*)                                            43.01
+     &                     'test BLIST of the sea/mainland boundary '     43.01
+               KOUNTR = 0                                                 43.01
+               DO IPP = 1, K                                              43.01
+                  DO IP = 1, NB                                           43.01
+                     II = blist(IP,IPP)                                   43.01
+                     IF (.NOT.PARLL) THEN                                 43.01
+                        VM = vmark(II)                                    43.01
+                     ELSE                                                 43.01
+                        VM = bmark(IP,IPP)                                43.01
+                     ENDIF                                                43.01
+                     IF ( II.GT.0 ) THEN                                  43.01
+                        KOUNTR = KOUNTR + 1                               43.01
+                        WRITE(PRTEST,'(A,2I7,2F18.9,I7)')                 43.01
+     &                  ' I, BLIST(I), X, Y, bound marker ',              43.01
+     &                  KOUNTR, II,                                       43.01
+     &                  xcugrdgl(II)+XOFFS,                               43.01
+     &                  ycugrdgl(II)+YOFFS,                               43.01
+     &                  VM                                                43.01
+                     ENDIF                                                43.01
+                  ENDDO                                                   43.01
+               ENDDO                                                      43.01
+            ENDIF                                                         43.01
 !
-         CALL SwanBndStruc ( XCGRID, YCGRID )                             41.14
-      ENDIF                                                               40.80
+!           store global indices of boundary vertices in own subdomain    43.01
+!
+            IF ( PARLL ) THEN                                             43.01
+               NB = nverts - count(mask=vmark==0 .or. vmark>=excmark)     43.01
+               ALLOCATE(bvertg(NB,2))                                     43.01
+               K = 0                                                      43.01
+               DO IP = 1, nverts                                          43.01
+                  IF ( vmark(IP).NE.0 .AND. vmark(IP).LT.excmark ) THEN   43.01
+                     K = K + 1                                            43.01
+                     bvertg(K,1) = IP                                     43.01
+                     bvertg(K,2) = ivertg(IP)                             43.01
+                  ENDIF                                                   43.01
+               ENDDO                                                      43.01
+            ELSE                                                          43.01
+               NB = nverts - count(mask=vmark==0)                         43.01
+               ALLOCATE(bvertg(NB,2))                                     43.01
+               K = 0                                                      43.01
+               DO IP = 1, nverts                                          43.01
+                  IF ( vmark(IP).NE.0 ) THEN                              43.01
+                     K = K + 1                                            43.01
+                     bvertg(K,1) = IP                                     43.01
+                     bvertg(K,2) = IP                                     43.01
+                  ENDIF                                                   43.01
+               ENDDO                                                      43.01
+            ENDIF                                                         43.01
+!
+         ELSE                                                             41.14
+!
+!           generate output curves BOUNDARY and BOUND_** for structured grids
+!
+            CALL SwanBndStruc ( XCGRID, YCGRID )                          41.14
+         ENDIF                                                            40.80
+         BNDDONE = .TRUE.                                                 43.01
+      ENDIF
 !
       CALL INKEYW ('REQ',' ')
       IF (KEYWIS ('SHAP')) THEN
@@ -2787,6 +2853,13 @@
      &    ' command READ BOT or READ UNSTRUC must precede this command')  40.80
           GOTO 900
         ENDIF
+        IF (.NOT.ALOBND) THEN
+           NBGRPT = 0
+           NBSPEC = 0
+           NBFILS = 0
+           NBGGL  = 0
+           ALOBND = .TRUE.
+        ENDIF
 !
         IF (OPTG.EQ.5) THEN                                               40.80
            CALL MSGERR(2,
@@ -2829,6 +2902,13 @@
      &    ' command READ BOT or READ UNSTRUC must precede this command')  40.80
           GOTO 900
         ENDIF
+        IF (.NOT.ALOBND) THEN
+           NBGRPT = 0
+           NBSPEC = 0
+           NBFILS = 0
+           NBGGL  = 0
+           ALOBND = .TRUE.
+        ENDIF
 !
         IF (OPTG.EQ.5) THEN                                               40.80
            CALL MSGERR(2,
@@ -2869,6 +2949,13 @@
           CALL MSGERR(3,
      &    ' command READ BOT or READ UNSTRUC must precede this command')  40.80
           GOTO 900
+        ENDIF
+        IF (.NOT.ALOBND) THEN
+           NBGRPT = 0
+           NBSPEC = 0
+           NBFILS = 0
+           NBGGL  = 0
+           ALOBND = .TRUE.
         ENDIF
 !
         NBFILS = NBFILS + 1
@@ -2943,6 +3030,13 @@
      &    ' command READ BOT or READ UNSTRUC must precede this command')  40.80
           GOTO 900
         ENDIF
+        IF (.NOT.ALOBND) THEN
+           NBGRPT = 0
+           NBSPEC = 0
+           NBFILS = 0
+           NBGGL  = 0
+           ALOBND = .TRUE.
+        ENDIF
 !
 !       first define side or segment
 !
@@ -2994,13 +3088,26 @@
 !             --- unstructured grid
 !
                  CALL SwanFindPoint ( XP, YP, IX2 )                       40.80
-                 IF ( IX2.LT.0 ) THEN                                     40.80
+!
+!                --- find global index of (XP,YP)                         43.01
+!
+                 IF ( PARLL ) THEN                                        43.01
+                    IF ( IX2.GT.0 ) THEN                                  43.01
+                       IXG2 = ivertg(IX2)                                 43.01
+                    ELSE                                                  43.01
+                       IXG2 = -999                                        43.01
+                    ENDIF                                                 43.01
+                    CALL SWREDUCE( IXG2, 1, SWINT, SWMAX )                43.01
+                 ELSE                                                     43.01
+                    IXG2 = IX2                                            43.01
+                 ENDIF                                                    43.01
+                 IF ( IXG2.LT.0 ) THEN                                    43.01 40.80
                     WRITE (MSGSTR, '(A,F12.4,A,F12.4,A)')                 40.80
      &                        ' Boundary point (',XP+XOFFS,',',YP+YOFFS,  40.80
      &                                ') not part of computational grid'  40.80
                     CALL MSGERR( 2, TRIM(MSGSTR) )                        40.80
                  ENDIF                                                    40.80
-                 IF ( vert(IX2)%atti(VMARKER) /= 1 ) THEN                 40.80
+                 IF ( IX2.GT.0 .AND. vert(IX2)%atti(VMARKER) /= 1 ) THEN  43.01 40.80
                     WRITE (MSGSTR, '(A,F12.4,A,F12.4,A)')                 40.80
      &                                ' Vertex (',XP+XOFFS,',',YP+YOFFS,  40.80
      &                                 ') is not a valid boundary point'  40.80
@@ -3015,16 +3122,24 @@
                  IX2 = IX2 + 1                                            40.00
                  IY2 = IY2 + 1
               ELSE                                                        40.80
-                 CALL ININTG ('K' , IX2, 'REP', -1)                       40.03
-                 IF (IX2 .LT. 0) GOTO 42                                  40.00
-                 IF (IX2.LE.0 .OR. IX2.GT.nverts) THEN                    40.80
-                    WRITE (MSGSTR,'(I4,A)') IX2,                          40.80
+                 CALL ININTG ('K' , IXG2, 'REP', -1)                      43.01 40.03
+                 IF (IXG2 .LT. 0) GOTO 42                                 43.01 40.00
+                 IF (IXG2.LE.0 .OR. IXG2.GT.nvertsg) THEN                 43.01 40.80
+                    WRITE (MSGSTR,'(I4,A)') IXG2,                         43.01 40.80
      &                                    ' is not a valid vertex index'  40.80
                     CALL MSGERR( 2, TRIM(MSGSTR) )                        40.80
-                 ELSEIF ( vert(IX2)%atti(VMARKER) /= 1 ) THEN             40.80
-                    WRITE (MSGSTR,'(A,I4,A)') ' Vertex with index ',IX2,  40.80
+                 ENDIF                                                    43.01
+                 IF ( PARLL ) THEN                                        43.01
+                    ITMP = MINLOC(ABS(ivertg-IXG2))                       43.01
+                    IX2  = ITMP(1)                                        43.01
+                    IF ( ivertg(IX2) /= IXG2 ) IX2 = -1                   43.01
+                 ELSE                                                     43.01
+                    IX2 = IXG2                                            43.01
+                 ENDIF                                                    43.01
+                 IF ( IX2.GT.0 .AND. vert(IX2)%atti(VMARKER) /= 1 ) THEN  43.01 40.80
+                   WRITE (MSGSTR,'(A,I4,A)') ' Vertex with index ',IXG2,  43.01 40.80
      &                                  ' is not a valid boundary point'  40.80
-                    CALL MSGERR( 2, TRIM(MSGSTR) )                        40.80
+                   CALL MSGERR( 2, TRIM(MSGSTR) )                         40.80
                  ENDIF                                                    40.80
               ENDIF                                                       40.80
             ENDIF
@@ -3078,13 +3193,25 @@
 !           --- unstructured grid                                         40.80
 !
                IF (LFRST1) THEN                                           40.80
-                  IXB1 = vert(IX2)%atti(BINDX)                            40.80
-                  JBG  = vert(IX2)%atti(BPOL)                             40.92
+                  IF ( IX2.GT.0 ) THEN                                    43.01
+                     JBG = vert(IX2)%atti(BPOL)                           43.01 40.92
+                  ELSE                                                    43.01
+                     JBG = -1                                             43.01
+                  ENDIF                                                   43.01
+                  CALL SWREDUCE( JBG, 1, SWINT, SWMAX )                   43.01
+                  ITMP = MINLOC(ABS(blist(:,JBG)-IXG2))                   43.01
+                  IXB1 = ITMP(1)                                          43.01
                   DET  = 1.                                               40.92
                   LFRST1 = .FALSE.                                        40.80
                ELSE                                                       40.80
-                  IXB1 = vert(IX1)%atti(BINDX)                            40.80
-                  JBG  = vert(IX1)%atti(BPOL)                             40.92
+                  IF ( IX1.GT.0 ) THEN                                    43.01
+                     JBG = vert(IX1)%atti(BPOL)                           43.01 40.92
+                  ELSE                                                    43.01
+                     JBG = -1                                             43.01
+                  ENDIF                                                   43.01
+                  CALL SWREDUCE( JBG, 1, SWINT, SWMAX )                   43.01
+                  ITMP = MINLOC(ABS(blist(:,JBG)-IXG1))                   43.01
+                  IXB1 = ITMP(1)                                          43.01
 !
 !                 1) the wave spectrum along the given segment can be
 !                    imposed in counterclockwise or clockwise direction
@@ -3096,31 +3223,37 @@
 !                    and an arbitrary point inside domain
 !
 !                 first endpoint of segment
-                  X1 = vert(IX1)%attr(VERTX)                              40.80
-                  Y1 = vert(IX1)%attr(VERTY)                              40.80
+                  X1 = xcugrdgl(IXG1)                                     43.01 40.80
+                  Y1 = ycugrdgl(IXG1)                                     43.01 40.80
 !
 !                 second endpoint of segment
-                  X2 = vert(IX2)%attr(VERTX)                              40.80
-                  Y2 = vert(IX2)%attr(VERTY)                              40.80
+                  X2 = xcugrdgl(IXG2)                                     43.01 40.80
+                  Y2 = ycugrdgl(IXG2)                                     43.01 40.80
 !
 !                 an arbitrary internal point                             40.92
-                  DX=0.1*mingsiz
-                  DY=0.1*mingsiz
-                  DO IP=1,4
-                     X3 = X1 - DX
-                     Y3 = Y1 - DY
-                     CALL SwanFindPoint ( X3, Y3, IX )
-                     IF ( JBG>1 .AND. IX.LT.0 ) THEN
-                        X3 = X1 + DX
-                        Y3 = Y1 + DY
+                  DXLOC = mingsiz                                         43.01
+                  CALL SWREDUCE ( DXLOC, 1, SWREAL, SWMIN )               43.01
+                  DYLOC = DXLOC                                           43.01
+                  DO IP = 1, 4
+                     X3 = X1 - DXLOC                                      43.01
+                     Y3 = Y1 - DYLOC                                      43.01
+                     IF ( SwanPointinMesh( X3, Y3 ) ) THEN                43.01
+                        IXG =  1                                          43.01
+                     ELSE                                                 43.01
+                        IXG = -1                                          43.01
+                     ENDIF                                                43.01
+                     CALL SWREDUCE( IXG, 1, SWINT, SWMAX )                43.01
+                     IF ( JBG.GT.1 .AND. IXG.LT.0 ) THEN
+                        X3 = X1 + DXLOC                                   43.01
+                        Y3 = Y1 + DYLOC                                   43.01
                         EXIT
-                     ELSEIF ( JBG==1 .AND. IX.GT.0 ) THEN
+                     ELSEIF ( JBG.EQ.1 .AND. IXG.GT.0 ) THEN
                         EXIT
                      ENDIF
                      IF ( MOD(IP,2).EQ.0 ) THEN
-                        DX = -DX
+                        DXLOC = -DXLOC                                    43.01
                      ELSE
-                        DY = -DY
+                        DYLOC = -DYLOC                                    43.01
                      ENDIF
                   ENDDO
 !
@@ -3134,7 +3267,8 @@
                      IXB1 = nbpt(JBG)-MOD(nbpt(JBG)+1-IXB1,nbpt(JBG))     40.92 40.80
                   ENDIF                                                   40.80
                ENDIF                                                      40.80
-               IXB2 = vert(IX2)%atti(BINDX)                               40.80
+               ITMP = MINLOC(ABS(blist(:,JBG)-IXG2))                      43.01
+               IXB2 = ITMP(1)                                             43.01
 !
 !              determine order of counting
                IF (IXB1.GT.IXB2 ) THEN                                    40.80
@@ -3156,30 +3290,33 @@
                DO IPP = IXB1, IXB2, IXI                                   40.92 40.80
                   IP = MOD(IPP,nbpt(JBG))                                 40.92
                   IF (IP.EQ.0) IP = nbpt(JBG)                             40.92
+                  IXG  = blist(IP,JBG)                                    43.01 40.92 40.80
+                  ITMP = MINLOC(ABS(bvertg(:,2)-IXG))                     43.01
+                  K    = ITMP(1)                                          43.01
+                  IF ( bvertg(K,2) == IXG ) THEN                          43.01
+                     IX = bvertg(K,1)                                     43.01
+                     vert(IX)%atti(VBC) = 1                               40.80
+                  ENDIF                                                   43.01
                   KOUNTR = KOUNTR + 1                                     40.80
-                  IX = blist(IP,JBG)                                      40.92 40.80
-                  vert(IX)%atti(VBC) = 1                                  40.80
                   ALLOCATE(TMP)                                           40.80
-                  TMP%JX = IX                                             40.80
+                  TMP%JX = IXG                                            43.01 40.80
                   NULLIFY(TMP%NEXTXY)                                     40.80
                   CURR%NEXTXY => TMP                                      40.80
                   CURR => TMP                                             40.80
                ENDDO                                                      40.80
             ENDIF                                                         40.80
-            IX1 = IX2
+            IX1  = IX2
+            IXG1 = IXG2                                                   43.01
           END DO
  42       IF (KOUNTR.EQ.0)
      &                CALL MSGERR(1,'No points on the boundaries found')
-          IF (LFRST1) CALL MSGERR (1,
+          IF (KOUNTR.EQ.1) CALL MSGERR (1,
      &        'At least two points needed for a segment')                 40.81
         ELSE
 !         boundary condition on one side of the computational grid
           IF (OPTG.EQ.3) THEN                                             40.80 40.31
-!CJK:03-03-2004:Only a warning must be given, swan must not stop on keyword side
-!CJK request of Arjen L., so error code is reduced to 1
-             CALL MSGERR(1,                                               40.80 40.31
+             CALL MSGERR(2,                                               40.80 40.31
      &          ' keyword SIDE should not be used for curvilinear grid')  40.80 40.31
-!CJK:END:03-03-2004
           END IF                                                          40.31
           CALL IGNORE ('SIDE')
 !         *** specification of side for which boundary   ***
@@ -3408,15 +3545,24 @@
                   IXI  = -1                                               40.80
                ENDIF                                                      40.80
                !
-               ALLOCATE(IARR1(SUM(nbpt)))
+               ALLOCATE(IARR1(nbpt(JBG)))
                K = 0
-               DO IP = IXB1, IXB2, IXI                                    40.92
-                  IX = blist(IP,JBG)                                      40.92
-                  IF ( vmark(IX) == VM ) THEN                             40.92
-                     K = K+1                                              40.92
-                     IARR1(K) = IP                                        40.92
-                  ENDIF
-               ENDDO
+               IF ( .NOT.PARLL ) THEN
+                  DO IP = IXB1, IXB2, IXI                                 40.92
+                     IX = blist(IP,JBG)                                   40.92
+                     IF ( vmark(IX) == VM ) THEN                          40.92
+                        K = K+1                                           40.92
+                        IARR1(K) = IP                                     40.92
+                     ENDIF
+                  ENDDO
+               ELSE
+                  DO IP = IXB1, IXB2, IXI                                 43.01
+                     IF ( bmark(IP,JBG) == VM ) THEN                      43.01
+                        K = K+1                                           43.01
+                        IARR1(K) = IP                                     43.01
+                     ENDIF                                                43.01
+                  ENDDO
+               ENDIF
                !
                IF ( K/=0 ) THEN                                           40.92
                   !
@@ -3433,11 +3579,16 @@
                   !
                   DO IPP = 1, K                                           40.92
                      IP = IARR2(IPP)                                      40.92
-                     IX = blist(IP,JBG)                                   40.92 40.80
+                     IXG  = blist(IP,JBG)                                 43.01 40.92 40.80
+                     ITMP = MINLOC(ABS(bvertg(:,2)-IXG))                  43.01
+                     II   = ITMP(1)                                       43.01
+                     IF ( bvertg(II,2) == IXG ) THEN                      43.01
+                        IX = bvertg(II,1)                                 43.01
+                        vert(IX)%atti(VBC) = 1                            40.80
+                     ENDIF                                                43.01
                      KOUNTR = KOUNTR + 1                                  40.80
-                     vert(IX)%atti(VBC) = 1                               40.80
                      ALLOCATE(TMP)                                        40.80
-                     TMP%JX = IX                                          40.80
+                     TMP%JX = IXG                                         43.01 40.80
                      NULLIFY(TMP%NEXTXY)                                  40.80
                      CURR%NEXTXY => TMP                                   40.80
                      CURR => TMP                                          40.80
@@ -3664,8 +3815,8 @@
                  XC2 = XCGRID(IX,IY)
                  YC2 = YCGRID(IX,IY)
               ELSE                                                        40.80
-                 XC2 = xcugrd(IX)                                         40.80
-                 YC2 = ycugrd(IX)                                         40.80
+                 XC2 = xcugrdgl(IX)                                       43.01 40.80
+                 YC2 = ycugrdgl(IX)                                       43.01 40.80
               ENDIF                                                       40.80
               IF (.NOT.LFRST3) THEN
                 RDIST = RDIST + SQRT ((XC2-XC1)**2 + (YC2-YC1)**2)
@@ -3730,7 +3881,6 @@
       USE SWCOMM4                                                         40.41
       USE M_BNDSPEC                                                       40.31
       USE M_PARALL                                                        42.10
-!NCF      use HRextensions, only: swn_hre_bcnccf
 !
       IMPLICIT NONE
 !
@@ -3900,18 +4050,10 @@
 ! 13. Source text
 !
       LOGICAL         CCOORD                                            40.03
-!NCF      LOGICAL :: NCF =.FALSE.
+
       SAVE      IENT
       DATA      IENT /0/
       CALL STRACE (IENT, 'BCFILE')
-!NCF      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
-!NCF     &     INDEX (FILENM, '.nc' ).NE.0) THEN
-!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL, LBGP,
-!NCF     &                   XCGRID, YCGRID, KGRPNT,
-!NCF     &                   XYTST,  KGRBND, DONALL)
-!NCF         RETURN
-!NCF      ENDIF
-!NCF!
 !
       NDSL = 0
       IIPT2 = 0                                                           40.05
@@ -5510,8 +5652,7 @@
              DO IXP = 1, nverts                                           40.80
                IF ( vert(IXP)%atti(VMARKER) == 1 .AND.                    40.80
      &              vert(IXP)%atti(VBC) == 0     .AND.                    40.80
-     &              vmark(IXP) /= 999 ) THEN                              42.10
-
+     &              vmark(IXP) < excmark ) THEN                           43.01 42.10
                  XP = vert(IXP)%attr(VERTX)                               41.14
                  YP = vert(IXP)%attr(VERTY)                               41.14
 !
@@ -5558,7 +5699,11 @@
 !     &              IXP,NBGRPT,IIPT1,1.-W2,IBSP1,W2,IBSP2
 !
                     ALLOCATE(BGPTMP)                                      40.31
-                    BGPTMP%BGP(1) = IXP                                   40.31
+                    IF (.NOT.PARLL) THEN                                  43.01
+                       BGPTMP%BGP(1) = IXP                                40.31
+                    ELSE                                                  43.01
+                       BGPTMP%BGP(1) = ivertg(IXP)                        43.01
+                    ENDIF                                                 43.01
 !                   next item indicates type of boundary condition
                     BGPTMP%BGP(2) = 1                                     40.31
                     BGPTMP%BGP(3) = NINT(1000. * W2)                      40.31
