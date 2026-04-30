@@ -1244,12 +1244,7 @@ contains
             end if
 !
 ! 6.a) add global attributes
-!
-            call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'project', PROJID) )
-            call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'model',   VERTXT) )
-            if ( NSTATM > 0 ) then
-                call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'run', PROJNR) )
-            end if
+!      moved to subroutine create_ncfile
 
 !
 ! 6.b) create variables
@@ -1460,12 +1455,13 @@ contains
     end subroutine record_index
 
     subroutine swn_outnc_openblockfile(ncfile, myk, mxk, ovlnam, &
-                                       oqi, oqr, ivtyp,irq, xgrdgl, ygrdgl)
+                                       oqi, oqr, ivtyp,irq, idlen, id, xgrdgl, ygrdgl)
         character*80,           intent(   in) :: ncfile
-        integer,                intent(   in) :: myk, mxk, irq
+        integer,                intent(   in) :: myk, mxk, irq, idlen
         integer, dimension(:),  intent(   in) :: oqi, ivtyp
         real*8,  dimension(:),  intent(   in) :: oqr
         character*40,           intent(   in) :: ovlnam(:)
+        character(len=80),      intent(   in) :: id(idlen)
         real,    optional,      intent(   in) :: xgrdgl(mxk, myk), &
                                                  ygrdgl(mxk, myk)
 
@@ -1477,6 +1473,7 @@ contains
         type(mapgrid_type)                    :: mapgrid
         type(pntgrid_type)                    :: pntgrid
         integer, save                         :: IENT=0
+        character*80                          :: locnam
 
         if (LTRACE) call STRACE (IENT,'swn_outnc_openblockfile')
 
@@ -1520,6 +1517,9 @@ contains
                 pntgrid%npoints = mxk
                 allocate (pntgrid%longitude(mxk))
                 allocate (pntgrid%latitude(mxk))
+                if (idlen>1) then
+                   allocate (pntgrid%id(mxk))
+                endif
                 if (present(xgrdgl) .and. present(ygrdgl)) then
                    pntgrid%latitude  = ygrdgl(:,1)
                    pntgrid%longitude = xgrdgl(:,1)
@@ -1527,12 +1527,23 @@ contains
                    pntgrid%latitude  = -999.0
                    pntgrid%longitude = -999.0
                 endif
+                if (idlen>1) then
+                   do i=1, mxk
+                      if (idlen>=i) then
+                         if (len_trim(id(i)) > 0) then
+                            write(locnam,'(a)') id(i)
+                         else
+                            write(locnam,'(a,i0.6)') "station", i
+                         endif
+                      endif
+                      pntgrid%id(i)(1:) = locnam
+                   end do
+                endif
+    
                 if ( KSPHER == 0 ) pntgrid%lunit = 'meter'
 
                 ! Definition mode
                 call create_ncfile(ncfile, ncid, recordaxe(irq), pntgrid=pntgrid, nautical=BNAUT)
-                call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'project', PROJID) )
-                call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'run', PROJNR) )
                 call create_variables(ncid, ivtyp, ovlnam, .false.)
 
                 ! write mode, e.g, fill dimension variables. Note that record dimension
@@ -1594,8 +1605,6 @@ contains
                 if ( KSPHER == 0 ) mapgrid%lunit = 'meter'
 
                 call create_ncfile(ncfile, ncid, recordaxe(irq), mapgrid=mapgrid, nautical=BNAUT)
-                call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'project', PROJID) )
-                call nccheck ( nf90_put_att( ncid, NF90_GLOBAL, 'run', PROJNR) )
                 call create_variables(ncid, ivtyp, ovlnam, .true.)
 
                 ! write mode, e.g, fill dimension variables. Note that record dimension
@@ -1680,10 +1689,12 @@ contains
     end subroutine create_variables
 
     subroutine stnames_init()
+        ! The first index is dictated by array OVKEYW, defined in swanmain::SWINIT
         STNAMES(  4, 1) = 'depth'
         STNAMES(  5, 1) = 'xcur'
         STNAMES(  5, 2) = 'ycur'
         STNAMES(  6, 1) = 'ubot'
+        STNAMES(  7, 1) = 'dissip'
         STNAMES( 10, 1) = 'hs'
         STNAMES( 11, 1) = 'tm01'
         STNAMES( 12, 1) = 'tp'
@@ -1691,6 +1702,10 @@ contains
         STNAMES( 14, 1) = 'thetap'
         STNAMES( 16, 1) = 'spread'
         STNAMES( 17, 1) = 'L'
+        STNAMES( 19, 1) = 'transpx'
+        STNAMES( 19, 2) = 'transpy'
+        STNAMES( 20, 1) = 'fx'
+        STNAMES( 20, 2) = 'fy'
         STNAMES( 26, 1) = 'xwnd'
         STNAMES( 26, 2) = 'ywnd'
         STNAMES( 28, 1) = 'rtm01'
@@ -1706,6 +1721,12 @@ contains
         STNAMES( 51, 1) = 'ssh'
         STNAMES( 52, 1) = 'botl'
         STNAMES( 53, 1) = 'tps'
+        STNAMES( 54, 1) = 'disbot'
+        STNAMES( 55, 1) = 'dissurf'
+        STNAMES( 56, 1) = 'diswcap'
+        STNAMES( 57, 1) = 'disveg'
+        STNAMES( 84, 1) = 'absHswell'
+        STNAMES( 85, 1) = 'fdir'
         STNAMES(100, 1) = 'phs0'
         STNAMES(101, 1) = 'phs1'
         STNAMES(102, 1) = 'phs2'
@@ -1730,7 +1751,6 @@ contains
         STNAMES(143, 1) = 'pspr3'
         STNAMES(144, 1) = 'pspr4'
         STNAMES(145, 1) = 'pspr5'
-        STNAMES( 85, 1) = 'fdir'
         stnames_initialized = .true.
 
     end subroutine stnames_init

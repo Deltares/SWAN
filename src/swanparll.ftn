@@ -4619,7 +4619,7 @@
 !
       USE OCPCOMM4                                                        40.41
       USE SWCOMM1                                                         40.41
-      USE SWCOMM2, ONLY: OPTG                                             41.36
+      USE SWCOMM2, ONLY: OPTG, XOFFS, YOFFS                               43.01 41.36
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE OUTP_DATA
@@ -4888,8 +4888,8 @@
                END DO
             ELSE
                DO IP = 1, MIP
-                  WRITE (NREF, FMT=CRFORM) DBLE(xcugrdgl(IP)),
-     &                                     DBLE(ycugrdgl(IP))
+                  WRITE (NREF, FMT=CRFORM) DBLE(xcugrdgl(IP)+XOFFS),      43.01
+     &                                     DBLE(ycugrdgl(IP)+YOFFS)       43.01
                ENDDO
             ENDIF
 
@@ -5134,6 +5134,7 @@
       INTEGER      I, IBLKN, IDLA, IENT, IF, IFAC, IL, ILPOS, IP, IPD,
      &             IPROC, IUNIT, IUT, IXK, IYK, IVTYPE, J, JVAR, NREF,
      &             NVAR
+!NCF      INTEGER, PARAMETER :: IDLEN=1
       REAL         DFAC, FMAX, FTIP, FTIP1, FTIP2
       REAL         RVAL1, RVAL2
       LOGICAL      EXIST, OPENED, EQREAL
@@ -5145,6 +5146,7 @@
       CHARACTER (LEN=20) :: CTIM                                          40.41
       CHARACTER (LEN=30) :: NAMVAR                                        40.41
       CHARACTER (LEN=80) :: HTXT(3)                                       41.62
+      CHARACTER (LEN=80), ALLOCATABLE :: ID(:)
       REAL, ALLOCATABLE :: VOQ(:,:)
       INTEGER VOQR(NMOVAR)                                                41.62
 !
@@ -5222,6 +5224,8 @@
 
 !           --- open generic output file or reset reference number
 
+!NCF            ALLOCATE(CHARACTER(LEN=80)::ID(IDLEN))
+!NCF            ID(1)=' '
 !NCF            IF (NCF .AND. .NOT.OPENED) THEN                               41.40
 !NCF                IUT    = HIOPEN + IRQ
 !NCF                OQI(1) = IUT
@@ -5229,19 +5233,22 @@
 !NCF                   IF(PSNAME == 'COMPGRID') THEN
 !NCF                      CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
 !NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
-!NCF     &                                          IRQ, XGRDGL, YGRDGL)
+!NCF     &                                          IRQ, IDLEN, ID,
+!NCF     &                                          XGRDGL, YGRDGL)
 !NCF                   ELSE
 !NCF                      CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
 !NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
-!NCF     &                                          IRQ)
+!NCF     &                                          IRQ, IDLEN, ID)
 !NCF                   ENDIF
 !NCF                ELSE
 !NCF                   CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
 !NCF     &                                          OVLNAM, OQI, OQR, IVTYP,
-!NCF     &                                          IRQ, XCUGRDGL, YCUGRDGL)
+!NCF     &                                          IRQ, IDLEN, ID,
+!NCF     &                                          XCUGRDGL, YCUGRDGL)
 !NCF                ENDIF
 !NCF                OPENED = .TRUE.
 !NCF            END IF
+!NCF            DEALLOCATE(ID)
 !NCF
             IF ( .NOT.OPENED ) THEN
                NREF = HIOPEN + IRQ

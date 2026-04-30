@@ -19,6 +19,16 @@ endif(USE_MPI)
 
 message("-- Precision: ${PRECISION}")
 
+#
+# Performance optimization,
+# Introduced when switching to compiler Intel2024.2_IFX:
+# OpenMP:
+#     Windows:                  /arch:CORE-AVX2 /Qftz
+#     Linux  :  NO fp=source    -arch CORE-AVX2  -ftz
+# MPI:
+#     Linux  :  NO fp=source    -arch CORE-AVX2
+#
+
 if (UNIX)
     if(PRECISION STREQUAL "DOUBLE")
         set(r8flag "-r8")
@@ -34,10 +44,10 @@ if (UNIX)
         set(openmp_flag2 )
     else()
         if (NOT USE_MPI)
-            set(openmp_flag1 " -O2 ${r8flag} -qopenmp")
+            set(openmp_flag1 " -O2 ${r8flag} -qopenmp -arch CORE-AVX2 -ftz ")
             set(openmp_flag2 -qopenmp)
         else()
-            set(openmp_flag1 " -O2 ${r8flag} ")
+            set(openmp_flag1 " -O2 ${r8flag} -arch CORE-AVX2 ")
             set(openmp_flag2 )
         endif()
     endif()
@@ -54,7 +64,7 @@ else()
     else()
         set(openmp_flag1 "${r8flag} ")
     endif()
-    set(CMAKE_Fortran_FLAGS "/libs:dll /threads /nologo /heap-arrays:20 /Qauto /traceback /fp:source ${r8flag} ")
+    set(CMAKE_Fortran_FLAGS "/libs:dll /threads /nologo /heap-arrays:20 /Qauto /traceback /fp:source ${r8flag} /arch:CORE-AVX2 /Qftz ")
     set(CMAKE_Fortran_FLAGS_DEBUG "/fpp /debug:full /Od /dbglibs /debug-parameters:used \
                                    /check:bounds /check:stack /check:uninit ${openmp_flag1} ")
     set(CMAKE_Fortran_FLAGS_RELEASE "/fpp /Oy- /Qfp-speculation:safe ${openmp_flag1} ")

@@ -92,10 +92,6 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
 !
     if (ltrace) call strace (ient,'SwanBndStruc')
     !
-    ! if list of boundary vertices is already filled, return
-    !
-    if ( LBV ) return
-    !
     if (.not.allocated(xbnd)) allocate (xbnd(1:2*(mxc+myc-2)))
     if (.not.allocated(ybnd)) allocate (ybnd(1:2*(mxc+myc-2)))
     ibnd = 0
@@ -179,6 +175,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
            OPSTMP%YP(jj) = ysid(jj)
         enddo
         deallocate (xsid, ysid)
+        allocate(CHARACTER(LEN=80)::OPSTMP%ID(1))
         nullify (OPSTMP%NEXTOPS)
         if ( .not.LOPS ) then
            FOPS = OPSTMP
@@ -209,6 +206,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
          OPSTMP%YP(jj) = ybnd(jj)
       enddo
       deallocate(xbnd,ybnd)
+      allocate(CHARACTER(LEN=80)::OPSTMP%ID(1))
       nullify (OPSTMP%NEXTOPS)
       if ( .not.LOPS ) then
          FOPS = OPSTMP
@@ -223,8 +221,5 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
     else
       call MSGERR(1,'No output points found in '//psname)
     endif
-    !
-    ! prevents second entry into this subroutine
-    LBV = .TRUE.
     !
 end subroutine SwanBndStruc

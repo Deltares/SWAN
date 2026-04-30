@@ -235,7 +235,6 @@
 
       INTEGER, SAVE :: NREOQ = 0         ! actual number of requests saved
 
-      LOGICAL, SAVE :: LBV = .FALSE.
 
 !     unit number PVD files
       INTEGER :: UPVDF(1:MAX_OUTP_REQ)
@@ -268,6 +267,7 @@
          REAL                  :: OPR(5)                     ! real coefficients
          INTEGER               :: MIP                        ! number of points
          REAL, POINTER         :: XP(:), YP(:), XQ(:), YQ(:) ! point coordinates
+         CHARACTER (LEN=80), ALLOCATABLE :: ID(:)            ! point id
          TYPE(OPSDAT), POINTER :: NEXTOPS
       END TYPE OPSDAT
 
@@ -329,6 +329,9 @@
          IF ( ASSOCIATED( OPS%YP ) ) THEN
             DEALLOCATE( OPS%YP )
             NULLIFY( OPS%YP )
+         ENDIF
+         IF ( ALLOCATED( OPS%ID ) ) THEN
+            DEALLOCATE( OPS%ID )
          ENDIF
          IF ( OPS%PSTYPE.EQ.'R' .AND. ASSOCIATED( OPS%XQ ) ) THEN
             DEALLOCATE( OPS%XQ )
@@ -549,8 +552,8 @@
 !
       INTEGER MSC4D
 !
-      INTEGER  ISM,  ISM1,  ISP,  ISP1
-      REAL    WISM, WISM1, WISP, WISP1
+      INTEGER  ISM(3,2),  ISM1(3,2),  ISP(3),  ISP1(3)
+      REAL    WISM(3,2), WISM1(3,2), WISP(3), WISP1(3)
 !
       REAL   , DIMENSION(:)    , SAVE, ALLOCATABLE :: BPHTMP
       REAL   , DIMENSION(:,:)  , SAVE, ALLOCATABLE :: QTRI1
@@ -647,6 +650,7 @@
 !
 !  7. Local variables
 !
+!     ALOBND  : if true, user has specified boundary conditions
 !     BFILED  : data concerning boundary condition files
 !     BGP     : array containing data w.r.t. boundary grid points
 !     BSPLOC  : place in array BSPECS where to store interpolated spectra
@@ -676,6 +680,8 @@
 !               2: wave period (peak or mean)
 !               3: average wave direction
 !               4: directional distribution coefficient
+
+      LOGICAL :: ALOBND
 
       TYPE BSPCDAT
          INTEGER                :: BFILED(20) = 0
@@ -884,7 +890,7 @@
          INTEGER                :: FBTYP1, FBTYP2
          REAL                   :: FBCOEF(3)
          INTEGER                :: IGTYP
-         REAL                   :: IGCOEF(5)
+         REAL                   :: IGCOEF(7)
          REAL, POINTER          :: IGFRQD(:)
          INTEGER                :: NCRPTS
          REAL, POINTER          :: XCRP(:), YCRP(:)

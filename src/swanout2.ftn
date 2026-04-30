@@ -15,8 +15,9 @@
 !
 !***********************************************************************
 !                                                                      *
-      SUBROUTINE SWBLOK ( RTYPE, OQI , OQR , IVTYP, FAC, PSNAME,          41.40
-     &                    MXK  , MYK , IRQ , VOQR , VOQ        )          40.51 40.31
+      SUBROUTINE SWBLOK ( RTYPE, OQI , OQR , IVTYP, FAC,
+     &                    PSNAME, MXK  , MYK , IRQ , VOQR , VOQ,
+     &                    IDLEN, ID )
 !                                                                      *
 !***********************************************************************
 !
@@ -154,7 +155,8 @@
       CHARACTER (LEN=20) :: CTIM                                          40.41
       CHARACTER (LEN=30) :: NAMVAR                                        40.41
       CHARACTER (LEN=80) :: HTXT(3)                                       41.62
-
+      INTEGER IDLEN
+      CHARACTER (LEN=80), INTENT(IN) :: ID(IDLEN)
       INTEGER, SAVE :: IENT=0                                             40.13
       IF (LTRACE) CALL STRACE (IENT,'SWBLOK')
 !
@@ -224,6 +226,7 @@
 !NCF        OQI(1) = NREF
 !NCF        CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
 !NCF     &                               OVLNAM, OQI, OQR, IVTYP, IRQ,
+!NCF     &                               IDLEN, ID,
 !NCF     &                               VOQ(:,VOQR(1)),VOQ(:,VOQR(2)))
       ENDIF
       IDLA = OQI(4)                                                       40.31 30.00
@@ -1167,9 +1170,10 @@
       END
 !***********************************************************************
 !                                                                      *
-!NCF      SUBROUTINE SWTABP (RTYPE , OQI  , OQR , IVTYP, PSNAME, MIP, VOQR,
-!NNCF      SUBROUTINE SWTABP (RTYPE , OQI  , IVTYP, PSNAME, MIP, VOQR,         40.31
-     &                   VOQ, IONOD)                                      40.51
+!NCF      SUBROUTINE SWTABP (RTYPE , OQI  , OQR , IVTYP,
+!NNCF      SUBROUTINE SWTABP (RTYPE , OQI  , IVTYP,
+     &                     PSNAME, MIP, VOQR, VOQ, IONOD,
+     &                     IDLEN, ID)
 !                                                                      *
 !***********************************************************************
 
@@ -1297,6 +1301,9 @@
       INTEGER MXOUTL
 !
       PARAMETER (MXOUTL=720)
+      INTEGER IDLEN
+      CHARACTER (LEN=80), INTENT(IN) :: ID(IDLEN)
+
 !
 !  6. Local variables
 !
@@ -1393,6 +1400,7 @@
 !NCF            IF (.NOT.EXIST) CLOSE(NREF, STATUS='DELETE')
 !NCF            CALL swn_outnc_openblockfile(FILENM, 1, MIP,
 !NCF     &                                   OVLNAM, OQI, OQR, IVTYP,OQI(2),
+!NCF     &                                   IDLEN, ID,
 !NCF     &                                   VOQ(:,VOQR(1)),VOQ(:,VOQR(2)))
 !NCF          ENDIF
         END IF                                                            30.82
