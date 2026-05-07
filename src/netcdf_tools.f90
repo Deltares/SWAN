@@ -25,8 +25,8 @@ module netcdf_tools
    !  Stichting Deltares. All rights reserved.
    !
    !-------------------------------------------------------------------------------
-   !  $Id: netcdf_tools.f90 65487 2019-11-26 09:30:00Z jagers $
-   !  $URL: https://svn.oss.deltares.nl/repos/delft3d/trunk/src/third_party_open/swan/src/netcdf_tools.f90 $
+   !  
+   !  $URL$
    !!--description-----------------------------------------------------------------
    !
    !    Function: - Extension on netcdf library,
