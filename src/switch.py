@@ -19,9 +19,9 @@ d = [
 ('-f95'    , 0, '^!F95' ,   ''),
 ('-dos'    , 0, '^!DOS' ,   ''),
 ('-unix'   , 0, '^!UNIX',   ''),
-('-cray'   , 0, '^!\/Cray', ''),
-('-sgi'    , 0, '^!\/SGI',  ''),
-('-impi'   , 0, '^!\/impi', ''),
+('-cray'   , 0, '^!/Cray',  ''),
+('-sgi'    , 0, '^!/SGI',   ''),
+('-impi'   , 0, '^!/impi',  ''),
 ('-cvis'   , 0, '^!CVIS',   ''),
 ('-adcirc' , 0, '^!ADC',    '^!NADC'),
 ('-coh'    , 0, '^!COH',    '^!NCOH'),
@@ -37,7 +37,7 @@ for x in sys.argv[1:]:
 
 if (verbose > 0):
     for p in d:
-        print p
+        print(p+'\n')
 
 def switch_line(line):
     switched = line
@@ -62,11 +62,11 @@ def need_update(old, new):
 def switch_content(old, new):
     if not need_update(old, new):
         if (verbose > 1):
-            print old, ' is up-to-date'
+            print(old + ' is up-to-date\n')
         return
 
     if (verbose > 1):
-        print old, '->', new
+        print(old+'->'+new+'\n')
     f_in = open(old, 'r')
     f_out = open(new, 'w')
 
@@ -83,8 +83,8 @@ free  = glob.glob('*.ftn90')
 
 for f1 in fixed:
     f1new = re.sub('ftn$', 'for', f1)
-    switch_content(f1, f1new)
+    switch_content(f1, '../build_swan/generated/'+f1new)
 
 for f2 in free:
     f2new = re.sub('ftn90$', 'f90', f2)
-    switch_content(f2, f2new)
+    switch_content(f2, '../build_swan/generated/'+f2new)
