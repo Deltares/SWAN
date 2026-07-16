@@ -97,6 +97,7 @@ def run_cmake_configure(
     build_type: str,
     build_dir: Path,
     install_dir: Path,
+    mpi: str,
 ) -> None:
     """Run CMake configure step."""
     build_dir.mkdir(exist_ok=True)
@@ -109,6 +110,7 @@ def run_cmake_configure(
         str(build_dir),
         f"-DCONFIGURATION_TYPE:STRING={config}",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
+        f"-DUSE_MPI={mpi}",
     ]
 
     if platform.system() == "Windows":
@@ -120,6 +122,7 @@ def run_cmake_configure(
         cmd += [f"-DCMAKE_BUILD_TYPE={build_type}"]
 
     print(f"Running CMake configure for {config}...")
+    #print(f"A3M:cmd: {cmd}")
     subprocess.run(cmd, check=True)
 
 
@@ -205,8 +208,20 @@ def main() -> None:
         "--install-dir",
         help="Override install directory path (default: install_<config> on Windows, build_<config>_<build_type>/install on Linux).",
     )
+    parser.add_argument(
+        "--mpi",
+        action="store_true",
+        help="SWAN MPI version instead of OMP version.",
+    )
     args = parser.parse_args()
 
+    if args.mpi:
+        mpi='ON'
+        prl='mpi'
+    else:
+        mpi='OFF'
+        prl='omp'
+            
     # Visual Studio detection (Windows only)
     vs_year = None
     if platform.system() == "Windows":
@@ -215,6 +230,7 @@ def main() -> None:
             print("Warning: Visual Studio not detected. Using CMake default generator.")
 
     print(f"  config     : {args.config}")
+    print(f"  parallel   : {prl}")
     if platform.system() == "Windows":
         print(f"  vs         : {vs_year or 'default'}")
     print(f"  build_type : {args.build_type}")
@@ -244,6 +260,7 @@ def main() -> None:
         build_type=args.build_type,
         build_dir=build_dir,
         install_dir=install_dir,
+        mpi=mpi,
     )
 
     # Build and install
