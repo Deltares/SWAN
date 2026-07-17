@@ -122,7 +122,6 @@ def run_cmake_configure(
         cmd += [f"-DCMAKE_BUILD_TYPE={build_type}"]
 
     print(f"Running CMake configure for {config}...")
-    #print(f"A3M:cmd: {cmd}")
     subprocess.run(cmd, check=True)
 
 
