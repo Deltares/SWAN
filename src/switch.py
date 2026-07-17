@@ -5,39 +5,38 @@ import os
 
 verbose = 0
 for x in sys.argv[1:]:
-    parts = x.split('=')
-    if (len(parts) > 1):
-       if (parts[0] == 'verbose'):
-           verbose = int(parts[1])
+    if (x == 'verbose'):
+        verbose = 1
+
 
 d = [
-('-esmf'   , 0, '^!ESMF',   '^!!ESMF'),
-('-timg'   , 0, '^!TIMG',   ''),
-('-jac'    , 0, '^!JAC' ,   '^!WFR'),
-('-mpi'    , 0, '^!MPI' ,   ''),
-('-pun'    , 0, '^!PUN' ,   '^!NPUN'),
-('-f95'    , 0, '^!F95' ,   ''),
-('-dos'    , 0, '^!DOS' ,   ''),
-('-unix'   , 0, '^!UNIX',   ''),
-('-cray'   , 0, '^!/Cray',  ''),
-('-sgi'    , 0, '^!/SGI',   ''),
-('-impi'   , 0, '^!/impi',  ''),
-('-cvis'   , 0, '^!CVIS',   ''),
-('-adcirc' , 0, '^!ADC',    '^!NADC'),
-('-coh'    , 0, '^!COH',    '^!NCOH'),
-('-netcdf' , 0, '^!NCF',    '^!NNCF'),
-('-matl4 ' , 0, '^!MatL4',  '^!MatL5')
+['-esmf'   , 0, '^!ESMF',   '^!!ESMF'],
+['-timg'   , 0, '^!TIMG',   ''],
+['-jac'    , 0, '^!JAC' ,   '^!WFR'],
+['-mpi'    , 0, '^!MPI' ,   ''],
+['-pun'    , 0, '^!PUN' ,   '^!NPUN'],
+['-f95'    , 0, '^!F95' ,   ''],
+['-dos'    , 0, '^!DOS' ,   ''],
+['-unix'   , 0, '^!UNIX',   ''],
+['-cray'   , 0, '^!/Cray',  ''],
+['-sgi'    , 0, '^!/SGI',   ''],
+['-impi'   , 0, '^!/impi',  ''],
+['-cvis'   , 0, '^!CVIS',   ''],
+['-adcirc' , 0, '^!ADC',    '^!NADC'],
+['-coh'    , 0, '^!COH',    '^!NCOH'],
+['-netcdf' , 0, '^!NCF',    '^!NNCF'],
+['-matl4 ' , 0, '^!MatL4',  '^!MatL5']
 ]
 
 # adjust d based on command line arguments
 for x in sys.argv[1:]:
-    for item in d:
-        if (x == item[0]):
-                item = (item[0], 1, item[2:3])
+    for i,content in enumerate(d):
+        if (x == d[i][0]):
+            d[i][1] = 1
 
 if (verbose > 0):
     for p in d:
-        print(p+'\n')
+        print(p)
 
 def switch_line(line):
     switched = line

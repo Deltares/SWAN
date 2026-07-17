@@ -1,3 +1,36 @@
+# Function to return ifort version number
+function(get_intel_version)
+    # Intel OneAPI versions have different version numbers for their compilers.
+    # Furthermore, the compiler versions reported through CMAKE_Fortran_COMPILER_VERSION do not always match the official compiler version string.
+    # Before OneAPI 2021, the compiler version matches the ifort version (e.g., 2020.2)
+    # After OneAPI 2024, the compiler version matches the ifx version (e.g., 2025.1)
+    # In between, the ifx version does match the OneAPI version, but the ifort version is always reported as 2021.x(x).x.xxxxxxxx.
+    # Up to and including version 2023, the 2021.x version kept increasing, but in OneAPI 2024 the version reported in CMake goes back to 2021.0 or 2021.1.
+    if (${CMAKE_Fortran_COMPILER_VERSION} MATCHES "^2021\\.[0-9]\\.[0-9]\\.(20231010|202[4-9][0-9][0-9][0-9][0-9])|^2024[\\.0-9]*")
+        set(intel_version 24 PARENT_SCOPE)
+    elseif (${CMAKE_Fortran_COMPILER_VERSION} MATCHES "^2021\\.(8|9|10)\\.[\\.0-9]*|^2023[\\.0-9]*")
+        set(intel_version 23 PARENT_SCOPE)
+    elseif (${CMAKE_Fortran_COMPILER_VERSION} MATCHES "^2021\\.(5|6|7)\\.[\\.0-9]*|^2022[\\.0-9]*")
+        set(intel_version 22 PARENT_SCOPE)
+    elseif (${CMAKE_Fortran_COMPILER_VERSION} MATCHES "^20([0-9][0-9])[\\.0-9]*")
+        set(intel_version ${CMAKE_MATCH_1} PARENT_SCOPE) # Set to the result of the first capture group in parentheses (the last two year numbers, for example 25)
+    else()
+        message(FATAL_ERROR "Intel version ${CMAKE_Fortran_COMPILER_VERSION} is not recognized.")
+    endif()
+    if (NOT DEFINED ENV{ONEAPI_ROOT})
+        if (WIN32)
+            message(FATAL_ERROR "ONEAPI_ROOT environment variable not found. \nPlease run CMake from an intel oneapi command prompt for intel 64.")
+        else()
+            message(FATAL_ERROR "ONEAPI_ROOT environment variable not found. \nPlease ensure that the intel environment is set via an environment module or via a setvars script.")
+        endif()
+    endif()
+endfunction()
+
+
+
+
+
+
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE) 
@@ -5,6 +38,8 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
 project(SWAN LANGUAGES Fortran)
 
 enable_language(Fortran C CXX)
+
+get_intel_version()
 
 option(USE_MPI "Use MPI for parallel computing" OFF)
 option(PRECISION "Use single/double precision" SINGLE)
@@ -90,6 +125,39 @@ function(oss_include_libraries library_name dependencies)
     endforeach()
 
 endfunction()
+
+if (WIN32)
+    if (USE_MPI)
+        message(STATUS "Intel MPI")
+        list(APPEND CMAKE_MESSAGE_INDENT "  ")
+
+        if(intel_version GREATER_EQUAL 24)
+            message(STATUS "Using Intel 2024 folder structure.")
+            set(mpi_include_path $ENV{ONEAPI_ROOT}/mpi/latest/include)
+            set(mpi_module_path ${mpi_include_path}/mpi)
+            set(mpi_library_path $<IF:$<CONFIG:Debug>,$ENV{ONEAPI_ROOT}/mpi/latest/lib/mpi/debug,$ENV{ONEAPI_ROOT}/mpi/latest/lib>)
+        else()
+            message(DEPRECATION "Using Intel 2023 folder structure (I_MPI_ONEAPI_ROOT is set to: $ENV{I_MPI_ONEAPI_ROOT})")
+            set(mpi_include_path $ENV{I_MPI_ONEAPI_ROOT}/include)
+            set(mpi_module_path ${mpi_include_path})
+            set(mpi_library_path $ENV{I_MPI_ONEAPI_ROOT}/lib/$<IF:$<CONFIG:Debug>,debug,release>;$ENV{I_MPI_ONEAPI_ROOT}/lib)
+        endif()
+        set(mpi_fortran_library "impi.lib")
+        set(mpi_c_library "impi.lib;impicxx.lib")
+        message(STATUS "mpi include path \"${mpi_include_path}\"")
+        message(STATUS "mpi module path \"${mpi_module_path}\"")
+        message(STATUS "mpi library path \"${mpi_library_path}\"")
+        message(STATUS "mpi fortran library \"${mpi_fortran_library}\"")
+        message(STATUS "mpi c library \"${mpi_c_library}\"")
+        list(POP_BACK CMAKE_MESSAGE_INDENT)
+    endif (USE_MPI)
+endif (WIN32)
+if (UNIX)
+    find_package(MPI REQUIRED)
+    add_definitions(-DHAVE_MPI)
+    set(mpi_module_path ${mpi_include_path})
+endif(UNIX)
+
 
 # Conan: add the CMakeDeps generator output to the search path and find all explicit dependencies.
 # In the CMakeDeps generator, transitively depending on a dll counts as an explicit dependency,
@@ -246,8 +314,7 @@ if (UNIX)
     add_definitions(-DHAVE_CONFIG_H=1)
 endif(UNIX)
 
-target_include_directories(${SWANEXE}
-  PRIVATE
+target_include_directories(${SWANEXE} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/generated
     .
   )
@@ -265,10 +332,11 @@ if(WIN32)
 endif(WIN32)
 
 if (USE_MPI)
-add_executable(hcat "")
-target_sources(hcat
-  PRIVATE
-    ${HCAT}
-  )
+    add_executable(hcat "")
+    target_sources(hcat PRIVATE ${HCAT})
+    target_link_libraries(${SWANEXE} impi)
+    target_include_directories(${SWANEXE} PRIVATE ${mpi_module_path})
+    target_link_directories(${SWANEXE} PRIVATE "${mpi_library_path}")
+    target_link_libraries(${SWANEXE} "${mpi_fortran_library}")
 endif(USE_MPI)
 
