@@ -195,11 +195,11 @@ add_custom_command(
   OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD}
   COMMAND
-    python switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} *.ftn*
+    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} *.ftn*
   WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
   DEPENDS
-    switch.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py
   )
 
 add_library(swanmod "")

@@ -25,7 +25,7 @@ def build_dir_name(config: str, build_type: str) -> str:
     """Build directory name: on Linux includes build type, on Windows does not (multi-config)."""
     if platform.system() == "Windows":
         return f"build_{config}"
-    return f"build_{config}_{build_type.lower()}"
+    return f"build_{config}"
 
 
 def install_dir_name(config: str, build_type: str) -> str:
