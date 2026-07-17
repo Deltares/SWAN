@@ -5,7 +5,6 @@
             "THIRD_PARTY_LIBS_TAG": "oneapi-2024-ifx-release"
         }
     },
-    "postCreateCommand": "bash .devcontainer/delft3d/scripts/post_create_command.sh",
     "mounts": [
         // Persist the bash history into a Docker volume, so you don't lose your bash history when restarting the container.
         // See: https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history
