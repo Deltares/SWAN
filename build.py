@@ -97,7 +97,9 @@ def run_cmake_configure(
     build_type: str,
     build_dir: Path,
     install_dir: Path,
-    mpi: str,
+    prl: str,
+    timing: str,
+    precision: str,
     config_log: str,
 ) -> None:
     """Run CMake configure step."""
@@ -111,9 +113,14 @@ def run_cmake_configure(
         str(build_dir),
         f"-DCONFIGURATION_TYPE:STRING={config}",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-        f"-DUSE_MPI={mpi}",
+        f"-DUSE_MPI={prl}",
+        f"-DTIMING={timing}",
         f"{config_log}",
     ]
+    
+    if precision != "":
+        cmd += [precision]
+
 
     if platform.system() == "Windows":
         cmd += ["-T", "fortran=ifx", "-A", "x64"]
@@ -213,6 +220,16 @@ def main() -> None:
         help="SWAN MPI version instead of OMP version.",
     )
     parser.add_argument(
+        "--timing",
+        action="store_true",
+        help="SWAN with timing output.",
+    )
+    parser.add_argument(
+        "--double",
+        action="store_true",
+        help="SWAN double precision.",
+    )
+    parser.add_argument(
         "--cmake_trace",
         action="store_true",
         help="CMake debug info during config.",
@@ -225,25 +242,39 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mpi:
-        mpi = "ON"
-        prl = "mpi"
+        prl = "ON"
+        prl_message = "mpi"
     else:
-        mpi = "OFF"
-        prl = "omp"
+        prl = "OFF"
+        prl_message = "omp"
+
+    if args.timing:
+        timing = "ON"
+        timing_message = "yes"
+    else:
+        timing = "OFF"
+        timing_message = "no"
+
+    if args.double:
+        precision = "-DPRECISION=DOUBLE"
+        precision_message = "double"
+    else:
+        precision = ""
+        precision_message = "single(default)"
 
     if args.cmake_trace:
         config_log = "--trace-expand"
-        configlogmessage = "verbose"
+        config_log_message = "verbose"
     else:
         config_log = ""
-        configlogmessage = "default"
+        config_log_message = "default"
 
     if args.cmake_verbose:
         build_log = "--verbose"
-        buildlogmessage = "verbose"
+        build_log_message = "verbose"
     else:
         build_log = ""
-        buildlogmessage = "default"
+        build_log_message = "default"
 
     # Visual Studio detection (Windows only)
     vs_year = None
@@ -253,14 +284,16 @@ def main() -> None:
             print("Warning: Visual Studio not detected. Using CMake default generator.")
 
     print(f"  config     : {args.config}")
-    print(f"  parallel   : {prl}")
+    print(f"  parallel   : {prl_message}")
+    print(f"  timing     : {timing_message}")
+    print(f"  precision  : {precision_message}")
     if platform.system() == "Windows":
         print(f"  vs         : {vs_year or 'default'}")
     print(f"  build_type : {args.build_type}")
     print(f"  build      : {args.build}")
     print(f"  keep_build : {args.keep_build}")
-    print(f"  config log : {configlogmessage}")
-    print(f"  build log  : {buildlogmessage}")
+    print(f"  config log : {config_log_message}")
+    print(f"  build log  : {build_log_message}")
     print()
 
     # Resolve build and install directories
@@ -285,7 +318,9 @@ def main() -> None:
         build_type=args.build_type,
         build_dir=build_dir,
         install_dir=install_dir,
-        mpi=mpi,
+        prl=prl,
+        timing=timing,
+        precision=precision,
         config_log=config_log,
     )
 

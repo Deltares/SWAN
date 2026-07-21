@@ -12,6 +12,7 @@ get_intel_version()
 
 option(USE_MPI "Use MPI for parallel computing" OFF)
 option(PRECISION "Use single/double precision" SINGLE)
+option(TIMING "Timing info in output" OFF)
 
 if (USE_MPI)
     message("with MPI")
@@ -75,6 +76,14 @@ else()
     set(openmp_flag2 /Qopenmp)
     set(OS_SWITCH -dos -cvis)
 endif(UNIX)
+
+if (TIMING)
+    message("Timing added to output")
+    set(TIMING_SWITCH -timg)
+else()
+    set(TIMING_SWITCH )
+endif(TIMING)
+
 
 # oss_include_libraries
 # Adds oss dependencies to the specified library.
@@ -232,7 +241,7 @@ add_custom_command(
   OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD}
   COMMAND
-    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} *.ftn*
+    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} *.ftn*
   WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
   DEPENDS
@@ -322,10 +331,10 @@ elseif (WIN32)
     include(InstallRequiredSystemLibraries)
     message(STATUS "A3M1: CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS='${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}'")
     set(DLL_PATHS
-        "$ENV{ONEAPI_ROOT}\\mpi\\latest\\bin\\impi.dll"
-        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\libifcoremd.dll"
-        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\libmmd.dll"
-        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\svml_dispmd.dll"
+        "$ENV{ONEAPI_ROOT}mpi\\latest\\bin\\impi.dll"
+        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\libifcoremd.dll"
+        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\libmmd.dll"
+        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\svml_dispmd.dll"
         )
     message(STATUS "A3M3: DLL_PATHS='${DLL_PATHS}'")
 endif()
