@@ -98,6 +98,7 @@ def run_cmake_configure(
     build_dir: Path,
     install_dir: Path,
     mpi: str,
+    config_log: str,
 ) -> None:
     """Run CMake configure step."""
     build_dir.mkdir(exist_ok=True)
@@ -111,6 +112,7 @@ def run_cmake_configure(
         f"-DCONFIGURATION_TYPE:STRING={config}",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DUSE_MPI={mpi}",
+        f"{config_log}",
     ]
 
     if platform.system() == "Windows":
@@ -125,30 +127,31 @@ def run_cmake_configure(
     subprocess.run(cmd, check=True)
 
 
-def run_cmake_build(config: str, *, build_type: str, build_dir: Path) -> None:
+def run_cmake_build(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake build step."""
+    
     print(f"Building {config} ({build_type})...(1/3)")
     subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel"],
+        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
         check=False,
     )
     print(f"Building {config} ({build_type})...(2/3)")
     subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel"],
+        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
         check=False,
     )
     print(f"Building {config} ({build_type})...(3/3)")
     subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel"],
+        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
         check=True,
     )
 
 
-def run_cmake_install(config: str, *, build_type: str, build_dir: Path) -> None:
+def run_cmake_install(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake install step."""
     print(f"Installing {config} ({build_type})...")
     subprocess.run(
-        ["cmake", "--install", str(build_dir), "--config", build_type],
+        ["cmake", "--install", str(build_dir), "--config", build_type, build_log],
         check=True,
     )
 
@@ -212,6 +215,16 @@ def main() -> None:
         action="store_true",
         help="SWAN MPI version instead of OMP version.",
     )
+    parser.add_argument(
+        "--cmake_trace",
+        action="store_true",
+        help="CMake debug info during config.",
+    )
+    parser.add_argument(
+        "--cmake_verbose",
+        action="store_true",
+        help="CMake debug info during build.",
+    )
     args = parser.parse_args()
 
     if args.mpi:
@@ -220,6 +233,20 @@ def main() -> None:
     else:
         mpi='OFF'
         prl='omp'
+            
+    if args.cmake_trace:
+        config_log='--trace-expand'
+        configlogmessage='verbose'
+    else:
+        config_log=''
+        configlogmessage='default'
+            
+    if args.cmake_verbose:
+        build_log='--verbose'
+        buildlogmessage='verbose'
+    else:
+        build_log=''
+        buildlogmessage='default'
             
     # Visual Studio detection (Windows only)
     vs_year = None
@@ -235,6 +262,8 @@ def main() -> None:
     print(f"  build_type : {args.build_type}")
     print(f"  build      : {args.build}")
     print(f"  keep_build : {args.keep_build}")
+    print(f"  config log : {configlogmessage}")
+    print(f"  build log  : {buildlogmessage}")
     print()
 
     # Resolve build and install directories
@@ -260,12 +289,13 @@ def main() -> None:
         build_dir=build_dir,
         install_dir=install_dir,
         mpi=mpi,
+        config_log=config_log,
     )
 
     # Build and install
     if args.build:
-        run_cmake_build(args.config, build_type=args.build_type, build_dir=build_dir)
-        run_cmake_install(args.config, build_type=args.build_type, build_dir=build_dir)
+        run_cmake_build(args.config, build_type=args.build_type, build_dir=build_dir, build_log=build_log)
+        run_cmake_install(args.config, build_type=args.build_type, build_dir=build_dir, build_log=build_log)
 
     print()
     if platform.system() == "Windows":

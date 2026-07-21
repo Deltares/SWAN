@@ -337,10 +337,52 @@ if (USE_MPI)
     target_include_directories(${SWANEXE} PRIVATE ${mpi_module_path})
     target_link_directories(${SWANEXE} PRIVATE "${mpi_library_path}")
     if(WIN32)
-        target_link_libraries(${SWANEXE} impi "${mpi_fortran_library}")
+        target_link_libraries(${SWANEXE} "${mpi_fortran_library}")
     endif(WIN32)
 endif(USE_MPI)
 
+if (UNIX)
+    set(platform_extension sh)
+    set(library_suffix so)
+    set(library_prefix lib)
+elseif (WIN32)
+    set(platform_extension bat)
+    set(library_suffix dll)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS TRUE) # Ignore warnings about missing ifort libs, we use ifx
+    set(library_prefix "")
+    include(InstallRequiredSystemLibraries)
+    message(STATUS "A3M1: CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS='${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}'")
+    set(DLL_PATHS
+        "$ENV{ONEAPI_ROOT}\\mpi\\latest\\bin\\impi.dll"
+        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\libifcoremd.dll"
+        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\libmmd.dll"
+        "$ENV{ONEAPI_ROOT}\\compiler\\latest\\bin\\svml_dispmd.dll"
+        )
+    message(STATUS "A3M3: DLL_PATHS='${DLL_PATHS}'")
+endif()
+
 install(TARGETS ${SWANEXE} RUNTIME DESTINATION bin)
 install(FILES $<TARGET_RUNTIME_DLLS:${SWANEXE}> DESTINATION bin)
+if (UNIX)
+    install(CODE "
+        execute_process(
+            COMMAND bash
+                \"${CMAKE_CURRENT_SOURCE_DIR}/copy_libs.sh\"
+                \"${CMAKE_INSTALL_PREFIX}/bin\"
+                \"${CMAKE_BINARY_DIR}/conan/generators\"
+            RESULT_VARIABLE result
+        )
+        if(NOT result EQUAL 0)
+            message(FATAL_ERROR \"copy_libs.sh failed with exit code \${result}\")
+        endif()
 
+        set_rpath(\"${CMAKE_INSTALL_PREFIX}/bin\" \"$ORIGIN:$ORIGIN/../lib\")
+        set_rpath(\"${CMAKE_INSTALL_PREFIX}/lib\" \"$ORIGIN\")
+        set_rpath(\"${CMAKE_INSTALL_PREFIX}/share\" \"$ORIGIN/../lib:$ORIGIN\")
+    ")
+elseif (WIN32)
+    message(STATUS "A3M2: CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS='${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}'")
+    message(STATUS "A3M4: DLL_PATHS='${DLL_PATHS}'")
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
+    install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
+endif()

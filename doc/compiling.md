@@ -10,6 +10,6 @@ https://github.com/Deltares/Delft3D/blob/main/doc/compiling_Windows.md
 ## 2. Run Conan, CMake configure, build, install
 
 ### Deltares developers (with Nexus access)
-`python build.py [--build-type Release] [--mpi] [--build]`
+`python build.py [--build-type Release] [--mpi] [--cmake_trace] [--cmake_verbose] [--build]`
 ### External / open-source developers (without Nexus access)
-`python build.py --build-dependencies [--build-type Release] [--mpi] [--build]`
+`python build.py --build-dependencies [--build-type Release] [--mpi][--cmake_trace] [--cmake_verbose] [--build]`
