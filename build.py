@@ -130,30 +130,27 @@ def run_cmake_configure(
 def run_cmake_build(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake build step."""
     
+    cmd = ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel"]
+    if build_log != "":
+        cmd += [build_log]
+    
     print(f"Building {config} ({build_type})...(1/3)")
-    subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
-        check=False,
-    )
+    subprocess.run(cmd, check=False)
     print(f"Building {config} ({build_type})...(2/3)")
-    subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
-        check=False,
-    )
+    subprocess.run(cmd, check=False)
     print(f"Building {config} ({build_type})...(3/3)")
-    subprocess.run(
-        ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel", build_log],
-        check=True,
-    )
+    subprocess.run(cmd, check=True)
 
 
 def run_cmake_install(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake install step."""
+    
+    cmd = ["cmake", "--install", str(build_dir), "--config", build_type]
+    if build_log != "":
+        cmd += [build_log]
+
     print(f"Installing {config} ({build_type})...")
-    subprocess.run(
-        ["cmake", "--install", str(build_dir), "--config", build_type, build_log],
-        check=True,
-    )
+    subprocess.run(cmd, check=True)
 
 
 def main() -> None:
@@ -228,26 +225,26 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mpi:
-        mpi='ON'
-        prl='mpi'
+        mpi = "ON"
+        prl = "mpi"
     else:
-        mpi='OFF'
-        prl='omp'
-            
+        mpi = "OFF"
+        prl = "omp"
+
     if args.cmake_trace:
-        config_log='--trace-expand'
-        configlogmessage='verbose'
+        config_log = "--trace-expand"
+        configlogmessage = "verbose"
     else:
-        config_log=''
-        configlogmessage='default'
-            
+        config_log = ""
+        configlogmessage = "default"
+
     if args.cmake_verbose:
-        build_log='--verbose'
-        buildlogmessage='verbose'
+        build_log = "--verbose"
+        buildlogmessage = "verbose"
     else:
-        build_log=''
-        buildlogmessage='default'
-            
+        build_log = ""
+        buildlogmessage = "default"
+
     # Visual Studio detection (Windows only)
     vs_year = None
     if platform.system() == "Windows":
