@@ -301,14 +301,24 @@ elseif (WIN32)
     include(InstallRequiredSystemLibraries)
     # CMake doesn't like back slashes entering via environment parameters
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IMPI "$ENV{ONEAPI_ROOT}mpi/latest/bin/impi.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_ILP "$ENV{ONEAPI_ROOT}mpi/latest/bin/libmpi_ilp64.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_MPIEXEC "$ENV{ONEAPI_ROOT}mpi/latest/bin/mpiexec.exe")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_HYDRABSTRAP "$ENV{ONEAPI_ROOT}mpi/latest/bin/hydra_bstrap_proxy.exe")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_HYDRAPMI "$ENV{ONEAPI_ROOT}mpi/latest/bin/hydra_pmi_proxy.exe")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_HYDRASERVICE "$ENV{ONEAPI_ROOT}mpi/latest/bin/hydra_service.exe")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_FABRIC "$ENV{ONEAPI_ROOT}mpi/latest/opt/mpi/libfabric/bin/libfabric.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IFCOREMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/libifcoremd.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_MMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/libmmd.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_DISPMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/svml_dispmd.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_VCRUNTIME140 "c:/Windows/System32/vcruntime140.dll")
     set(DLL_PATHS
         "${DLL_PATHS_IMPI}"
+        "${DLL_PATHS_ILP}"
         "${DLL_PATHS_MPIEXEC}"
+        "${DLL_PATHS_HYDRABSTRAP}"
+        "${DLL_PATHS_HYDRAPMI}"
+        "${DLL_PATHS_HYDRASERVICE}"
+        "${DLL_PATHS_FABRIC}"
         "${DLL_PATHS_IFCOREMD}"
         "${DLL_PATHS_MMD}"
         "${DLL_PATHS_DISPMD}"
