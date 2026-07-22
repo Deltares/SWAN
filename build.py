@@ -8,10 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-CONFIGURATIONS = [
-    "swan",
-]
-
 VS_GENERATORS = {
     "2019": "Visual Studio 16 2019",
     "2022": "Visual Studio 17 2022",
@@ -21,23 +17,21 @@ VS_GENERATORS = {
 ROOT = Path(__file__).resolve().parent
 
 
-def build_dir_name(config: str, build_type: str) -> str:
-    """Build directory name: on Linux includes build type, on Windows does not (multi-config)."""
-    if platform.system() == "Windows":
-        return f"build_{config}"
-    return f"build_{config}"
+def build_dir_name() -> str:
+    """Build directory name."""
+    return f"build"
 
 
-def install_dir_name(config: str, build_type: str) -> str:
+def install_dir_name() -> str:
     """Install directory name.
 
-    On Windows: ``install_<config>`` alongside the build directory.
-    On Linux: ``build_<config>_<build_type>/install`` (i.e. inside the build
+    On Windows: ``install`` alongside the build directory.
+    On Linux: ``build/install`` (i.e. inside the build
     directory). This matches what devcontainer users expect.
     """
     if platform.system() == "Windows":
-        return f"install_{config}"
-    return f"{build_dir_name(config, build_type)}/install"
+        return f"install"
+    return f"{build_dir_name()}/install"
 
 
 def detect_visual_studio() -> str | None:
@@ -91,7 +85,6 @@ def run_conan(
 
 
 def run_cmake_configure(
-    config: str,
     *,
     vs_year: str | None,
     build_type: str,
@@ -111,7 +104,6 @@ def run_cmake_configure(
         str(ROOT / "src" / "cmake"),
         "-B",
         str(build_dir),
-        f"-DCONFIGURATION_TYPE:STRING={config}",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DUSE_MPI={prl}",
         f"-DTIMING={timing}",
@@ -130,33 +122,33 @@ def run_cmake_configure(
         # On Linux, single-config generator; pass build type directly
         cmd += [f"-DCMAKE_BUILD_TYPE={build_type}"]
 
-    print(f"Running CMake configure for {config}...")
+    print(f"Running CMake configure ...")
     subprocess.run(cmd, check=True)
 
 
-def run_cmake_build(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
+def run_cmake_build(*, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake build step."""
     
     cmd = ["cmake", "--build", str(build_dir), "--config", build_type, "--parallel"]
     if build_log != "":
         cmd += [build_log]
     
-    print(f"Building {config} ({build_type})...(1/3)")
+    print(f"Building ({build_type})...(1/3)")
     subprocess.run(cmd, check=False)
-    print(f"Building {config} ({build_type})...(2/3)")
+    print(f"Building ({build_type})...(2/3)")
     subprocess.run(cmd, check=False)
-    print(f"Building {config} ({build_type})...(3/3)")
+    print(f"Building ({build_type})...(3/3)")
     subprocess.run(cmd, check=True)
 
 
-def run_cmake_install(config: str, *, build_type: str, build_dir: Path, build_log: str) -> None:
+def run_cmake_install(*, build_type: str, build_dir: Path, build_log: str) -> None:
     """Run CMake install step."""
     
     cmd = ["cmake", "--install", str(build_dir), "--config", build_type]
     if build_log != "":
         cmd += [build_log]
 
-    print(f"Installing {config} ({build_type})...")
+    print(f"Installing ({build_type})...")
     subprocess.run(cmd, check=True)
 
 
@@ -164,16 +156,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Configure, build, and install Delft3D.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--config",
-        default="swan",
-        metavar="CONFIG",
-        help=(
-            "Configuration type to build (default: swan). "
-            "The value is forwarded to CMake, which validates it. "
-            "Known configurations: " + ", ".join(CONFIGURATIONS) + "."
-        ),
     )
     parser.add_argument(
         "--build",
@@ -208,11 +190,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--build-dir",
-        help="Override build directory path (default: build_<config> on Windows, build_<config>_<build_type> on Linux).",
+        help="Override build directory path (default: build on Windows, build on Linux).",
     )
     parser.add_argument(
         "--install-dir",
-        help="Override install directory path (default: install_<config> on Windows, build_<config>_<build_type>/install on Linux).",
+        help="Override install directory path (default: install on Windows, build/install on Linux).",
     )
     parser.add_argument(
         "--mpi",
@@ -283,7 +265,6 @@ def main() -> None:
         if not vs_year:
             print("Warning: Visual Studio not detected. Using CMake default generator.")
 
-    print(f"  config     : {args.config}")
     print(f"  parallel   : {prl_message}")
     print(f"  timing     : {timing_message}")
     print(f"  precision  : {precision_message}")
@@ -297,8 +278,8 @@ def main() -> None:
     print()
 
     # Resolve build and install directories
-    build_dir = ROOT / (args.build_dir or build_dir_name(args.config, args.build_type))
-    install_dir = ROOT / (args.install_dir or install_dir_name(args.config, args.build_type))
+    build_dir = ROOT / (args.build_dir or build_dir_name())
+    install_dir = ROOT / (args.install_dir or install_dir_name())
 
     # Verify VS environment is active when building on Windows
     if platform.system() == "Windows" and args.build and vs_year:
@@ -313,7 +294,6 @@ def main() -> None:
 
     # CMake configure
     run_cmake_configure(
-        args.config,
         vs_year=vs_year,
         build_type=args.build_type,
         build_dir=build_dir,
@@ -326,13 +306,13 @@ def main() -> None:
 
     # Build and install
     if args.build:
-        run_cmake_build(args.config, build_type=args.build_type, build_dir=build_dir, build_log=build_log)
-        run_cmake_install(args.config, build_type=args.build_type, build_dir=build_dir, build_log=build_log)
+        run_cmake_build(build_type=args.build_type, build_dir=build_dir, build_log=build_log)
+        run_cmake_install(build_type=args.build_type, build_dir=build_dir, build_log=build_log)
 
     print()
     if platform.system() == "Windows":
         sln_ext = "slnx" if vs_year == "2026" else "sln"
-        print(f"Generated solution: {build_dir / f'{args.config}.{sln_ext}'}")
+        print(f"Generated solution: {build_dir / f'{sln_ext}'}")
     print("Finished")
 
 

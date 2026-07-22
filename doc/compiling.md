@@ -6,6 +6,9 @@ The SWAN build uses Conan, copied from the Delft3D repository. Execute the follo
 See:   
 https://github.com/Deltares/Delft3D/blob/main/doc/compiling_Linux.md   
 https://github.com/Deltares/Delft3D/blob/main/doc/compiling_Windows.md
+When all one-time configuration is done:
+`python run_conan.py initialize [deltares]`
+
 
 ## 2. Run Conan, CMake configure, build, install
 

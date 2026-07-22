@@ -10,6 +10,8 @@ include(functions.cmake)
 
 get_intel_version()
 
+#
+# Handle command line options
 option(USE_MPI "Use MPI for parallel computing" OFF)
 option(PRECISION "Use single/double precision" SINGLE)
 option(TIMING "Timing info in output" OFF)
@@ -84,25 +86,6 @@ else()
     set(TIMING_SWITCH )
 endif(TIMING)
 
-
-# oss_include_libraries
-# Adds oss dependencies to the specified library.
-#
-# Note that it is assumed that the dependency is located in the PROJECT_BINARY_DIR in a subdirectory with the same dependency name.
-#
-# Argument
-# library_name : The name of the library where dependencies should be added.
-# dependencies : A list of dependencies to set for the library_name.
-function(oss_include_libraries library_name dependencies)
-
-    foreach(dependency IN LISTS ${dependencies})
-        add_dependencies(${library_name} ${dependency})
-        if (UNIX)
-            include_directories( ${PROJECT_BINARY_DIR}/${dependency} )
-        endif()
-    endforeach()
-
-endfunction()
 
 if (WIN32)
     if (USE_MPI)
@@ -236,7 +219,7 @@ set( HCAT
 )
 
 
-# generate code
+# generate code using switch.py
 add_custom_command(
   OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD}
@@ -249,53 +232,37 @@ add_custom_command(
   )
 
 add_library(swanmod "")
-
-target_sources(swanmod
-  PRIVATE
-    ${SWANMOD}
-  )
+target_sources(swanmod PRIVATE ${SWANMOD})
 
 set(SWANEXE "swan")
-if (r8flag STREQUAL "-r8" OR r8flag STREQUAL "/real-size:64")
-    set(SWANEXE "${SWANEXE}_r8")
-endif()
 if (USE_MPI)
     set(SWANEXE "${SWANEXE}_mpi")
 else()
     set(SWANEXE "${SWANEXE}_omp")
+endif()
+if(PRECISION STREQUAL "DOUBLE")
+    set(SWANEXE "${SWANEXE}_doubleprecision")
+endif()
+if (TIMING)
+    set(SWANEXE "${SWANEXE}_timing")
 endif()
 if (UNIX)
     set(SWANEXE "${SWANEXE}.exe")
 endif()
 
 add_executable(${SWANEXE} "")
-
-target_sources(${SWANEXE}
-  PRIVATE
-    ${SWANF}
-  )
+target_sources(${SWANEXE} PRIVATE ${SWANF})
 
 # Add dependencies
 if (UNIX)
     # the `pkg_check_modules` function is created with this call
     find_package(PkgConfig REQUIRED)
-
-    target_link_libraries(swanmod
-         netCDF::netcdff)
-
-    target_link_libraries(${SWANEXE}
-         swanmod
-         netCDF::netcdff)
-
-    #include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
-
+    target_link_libraries(swanmod netCDF::netcdff)
+    target_link_libraries(${SWANEXE} swanmod netCDF::netcdff)
     add_definitions(-DHAVE_CONFIG_H=1)
 endif(UNIX)
 
-target_include_directories(${SWANEXE} PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/generated
-    .
-  )
+target_include_directories(${SWANEXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated .)
 
 if (NOT USE_MPI)
     if(UNIX)
@@ -319,28 +286,40 @@ if (USE_MPI)
     endif(WIN32)
 endif(USE_MPI)
 
+#
+# Install
+# Basicly copied from Delft3D
 if (UNIX)
     set(platform_extension sh)
     set(library_suffix so)
     set(library_prefix lib)
+    set(DLL_PATHS "/opt/intel/oneapi/mpi/latest/bin/mpiexec")
 elseif (WIN32)
     set(platform_extension bat)
     set(library_suffix dll)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS TRUE) # Ignore warnings about missing ifort libs, we use ifx
     set(library_prefix "")
     include(InstallRequiredSystemLibraries)
-    message(STATUS "A3M1: CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS='${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}'")
+    # CMake doesn't like back slashes entering via environment parameters
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IMPI "$ENV{ONEAPI_ROOT}mpi/latest/bin/impi.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_MPIEXEC "$ENV{ONEAPI_ROOT}mpi/latest/bin/mpiexec.exe")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IFCOREMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/libifcoremd.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_MMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/libmmd.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_DISPMD "$ENV{ONEAPI_ROOT}compiler/latest/bin/svml_dispmd.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_VCRUNTIME140 "c:/Windows/System32/vcruntime140.dll")
     set(DLL_PATHS
-        "$ENV{ONEAPI_ROOT}mpi\\latest\\bin\\impi.dll"
-        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\libifcoremd.dll"
-        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\libmmd.dll"
-        "$ENV{ONEAPI_ROOT}compiler\\latest\\bin\\svml_dispmd.dll"
+        "${DLL_PATHS_IMPI}"
+        "${DLL_PATHS_MPIEXEC}"
+        "${DLL_PATHS_IFCOREMD}"
+        "${DLL_PATHS_MMD}"
+        "${DLL_PATHS_DISPMD}"
+        "${DLL_PATHS_VCRUNTIME140}"
         )
-    message(STATUS "A3M3: DLL_PATHS='${DLL_PATHS}'")
 endif()
 
 install(TARGETS ${SWANEXE} RUNTIME DESTINATION bin)
 install(FILES $<TARGET_RUNTIME_DLLS:${SWANEXE}> DESTINATION bin)
+install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
 if (UNIX)
     install(CODE "
         include(\"${CMAKE_CURRENT_SOURCE_DIR}/functions.cmake\")
@@ -359,8 +338,5 @@ if (UNIX)
         set_rpath(\"${CMAKE_INSTALL_PREFIX}/lib\" \"$ORIGIN\")
     ")
 elseif (WIN32)
-    message(STATUS "A3M2: CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS='${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}'")
-    message(STATUS "A3M4: DLL_PATHS='${DLL_PATHS}'")
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
-    install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
 endif()

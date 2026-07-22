@@ -82,8 +82,8 @@ free  = glob.glob('*.ftn90')
 
 for f1 in fixed:
     f1new = re.sub('ftn$', 'for', f1)
-    switch_content(f1, '../build_swan/generated/'+f1new)
+    switch_content(f1, '../build/generated/'+f1new)
 
 for f2 in free:
     f2new = re.sub('ftn90$', 'f90', f2)
-    switch_content(f2, '../build_swan/generated/'+f2new)
+    switch_content(f2, '../build/generated/'+f2new)
