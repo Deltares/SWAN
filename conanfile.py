@@ -3,7 +3,7 @@ from conan.tools.files import save
 
 
 class SWANRecipe(ConanFile):
-    settings = "os", "compiler", "build_type", "arch"
+    settings = "os", "compiler", "build_type", "arch", "fortran_compiler"
     generators = "CMakeDeps"
 
     def requirements(self):
