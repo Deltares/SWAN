@@ -1,0 +1,14 @@
+{
+    "version": "0.5",
+    "requires": [
+        "zlib/1.3.2#7785cdb3a85f7c138a9c4f91f36ba701%1785828272.6947718",
+        "netcdf-fortran/4.6.2#0297d442dccc836d6dd5b29493d447cc%1785828272.8100116",
+        "netcdf/4.9.2#e7c84a1fd8b54b8243cf5c79380e52d9%1785828272.7835124",
+        "hdf5/1.14.2#e11564a0e512f3387e8201ba38aea856%1785828272.7192144"
+    ],
+    "build_requires": [
+        "cmake/4.3.2#5bae0b181463ca4dc3e924a981367ee6%1785828272.7561944"
+    ],
+    "python_requires": [],
+    "config_requires": []
+}
