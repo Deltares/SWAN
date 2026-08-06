@@ -1,7 +1,7 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
-import SWAN.template.*
+import template.*
 
 /*
 The settings script is an entry point for defining a TeamCity
