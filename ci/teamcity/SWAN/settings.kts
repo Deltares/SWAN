@@ -1,4 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 import SWAN.template.*
