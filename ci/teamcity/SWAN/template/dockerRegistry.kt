@@ -1,4 +1,4 @@
-package Delft3D.template
+package SWAN.template
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
