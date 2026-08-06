@@ -1,6 +1,8 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
+import SWAN.template.*
+
 /*
 The settings script is an entry point for defining a TeamCity
 project hierarchy. The script should contain a single call to the
@@ -48,6 +50,8 @@ project {
         param("product", "dummy_value")
 
     }
+
+    template(TemplateDockerRegistry)
 
 
     buildType(Build)
