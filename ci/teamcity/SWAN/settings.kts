@@ -50,6 +50,13 @@ project {
         param("env.UV_INDEX_URL", "https://%nexus_username%:%nexus_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
         param("product", "dummy_value")
 
+        // Windows only:
+        param("container.tag", "vs2022-intel2024-ltsc2025")
+        param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
+        password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
+        param("conan_build_option", "--build-missing")
+        param("env.CONAN_HOME", "C:/conan-cache")
+
     }
 
     template(TemplateDockerRegistry)
