@@ -50,6 +50,8 @@ project {
         param("conan_build_option", "--build-missing")
         param("env.CONAN_HOME", "C:/conan-cache")
 
+        // Why is this needed? it is already defined below
+        param("secure:client-secret", "credentialsJSON:bcf00886-4ae4-4c0a-9701-4e37efab8504")
     }
 
     template(TemplateDockerRegistry)
