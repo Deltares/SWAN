@@ -5,7 +5,6 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import SWAN.template.*
-import SWAN.step.*
 
 object LinuxCollect : BuildType({
 
@@ -13,7 +12,6 @@ object LinuxCollect : BuildType({
 
     templates(
         TemplateLinuxAgent,
-        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateBuildConcurrency

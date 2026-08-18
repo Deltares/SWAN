@@ -5,7 +5,6 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import SWAN.template.*
-import SWAN.step.*
 import SWAN.linux.containers.*
 
 object LinuxBuild : BuildType({
@@ -14,12 +13,10 @@ object LinuxBuild : BuildType({
 
     templates(
         TemplateLinuxAgent,
-        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateFailureCondition,
-        TemplateDockerRegistry,
-        TemplateBuildConcurrency
+        TemplateDockerRegistry
     )
 
     name = "Build"

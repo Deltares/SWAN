@@ -7,7 +7,6 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import SWAN.template.*
-import SWAN.step.*
 
 import Trigger
 import CsvProcessor
@@ -18,7 +17,6 @@ object LinuxTest : BuildType({
 
     templates(
         TemplateLinuxAgent,
-        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateDockerRegistry,
