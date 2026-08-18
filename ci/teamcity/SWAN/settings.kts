@@ -92,7 +92,10 @@ object Build : BuildType({
                 python run_conan.py initialize deltares --ci
                 python build.py --build
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-buildtools-windows:vs2022-intel2024-ltsc2025"
+            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
+            dockerPull = true
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
         }
     }
 })
