@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import SWAN.template.*
+import SWAN.step.*
 
 import Trigger
 import CsvProcessor
@@ -16,6 +17,7 @@ object WindowsTest : BuildType({
     description = "Run TestBench.py on a list of testbench XML files."
 
     templates(
+        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateDockerRegistry,

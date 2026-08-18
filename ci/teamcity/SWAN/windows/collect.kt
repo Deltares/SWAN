@@ -5,12 +5,14 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import SWAN.template.*
+import SWAN.step.*
 
 object WindowsCollect : BuildType({
 
     description = "Prepping the binaries for testing/release and verify the signing and directory structure."
 
     templates(
+        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateDockerRegistry,

@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import SWAN.template.*
+import SWAN.step.*
 import SWAN.linux.containers.*
 
 object LinuxRuntimeContainers : BuildType({
@@ -16,6 +17,7 @@ object LinuxRuntimeContainers : BuildType({
 
     templates(
         TemplateLinuxAgent,
+        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateDockerRegistry

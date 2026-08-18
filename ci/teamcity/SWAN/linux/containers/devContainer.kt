@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import SWAN.template.*
+import SWAN.step.*
 import java.io.File
 
 import Trigger
@@ -17,8 +18,10 @@ object LinuxDevContainer : BuildType({
     templates(
         TemplateLinuxAgent,
         TemplatePublishStatus,
+        TemplateMergeRequest,
         TemplateMonitorPerformance,
-        TemplateDockerRegistry
+        TemplateDockerRegistry,
+        TemplateBuildConcurrency
     )
 
     vcs {

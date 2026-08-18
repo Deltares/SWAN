@@ -11,6 +11,7 @@ object WindowsBuild : BuildType({
     description = "CMake build."
 
     templates(
+        TemplateMergeRequest,
         TemplatePublishStatus,
         TemplateMonitorPerformance,
         TemplateFailureCondition,
@@ -44,6 +45,11 @@ object WindowsBuild : BuildType({
     }
 
     steps {
+        mergeTargetBranch {
+            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
+            dockerPull = true
+        }
         script {
             name = "Build"
             scriptContent = """
