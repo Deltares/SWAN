@@ -5,9 +5,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import SWAN.*
 import SWAN.linux.*
 import SWAN.linux.containers.*
+import SWAN.linux.container_smoketest.*
 import SWAN.windows.*
 import SWAN.template.*
 
+import SWAN.ciUtilities.*
+import SWAN.verschilanalyse.*
 version = "2026.1"
 
 project {
@@ -35,7 +38,18 @@ project {
     }
 
     template(TemplateLinuxAgent)
+    template(TemplateLinuxAgentFips)
+    template(TemplateLinuxAgentNoFips)
+    template(TemplateMergeRequest)
+    template(TemplateDetermineProduct)
+    template(TemplatePublishStatus)
+    template(TemplateMonitorPerformance)
+    template(TemplateFailureCondition)
+    template(TemplateValidationDocumentation)
+    template(TemplateFunctionalityDocumentation)
+    template(TemplateDownloadFromS3)
     template(TemplateDockerRegistry)
+    template(TemplateBuildConcurrency)
 
     subProject {
         id("Linux")
@@ -54,10 +68,15 @@ project {
         id("Windows")
         name = "Windows"
 
+        buildType(WindowsBuildEnvironment)
+        buildType(WindowsCollectEnvironment)
         buildType(WindowsBuild)
         buildType(WindowsCollect)
         buildType(WindowsTest)
         buildTypesOrder = arrayListOf(
+            WindowsBuildEnvironment,
+            WindowsTestEnvironment,
+            WindowsCollectEnvironment,
             WindowsBuild,
             WindowsCollect,
             WindowsTest,
@@ -69,6 +88,11 @@ project {
         RelativeId("Windows")
     )
 
+    buildType(Trigger)
+    buildTypesOrder = arrayListOf(
+        Trigger
+    )
+        
     features {
         dockerRegistry {
             id = "DOCKER_REGISTRY_DELFT3D"
