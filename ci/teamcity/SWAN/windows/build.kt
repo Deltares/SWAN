@@ -10,7 +10,7 @@ object WindowsBuild : BuildType({
 
     description = "CMake build."
 
-    template(TemplateDockerRegistry)
+    templates(TemplateDockerRegistry)
 
     name = "Build"
     buildNumberPattern = "%product%: %build.vcs.number%"

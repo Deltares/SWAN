@@ -1,26 +1,18 @@
-package Delft3D.linux
+package SWAN.linux
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
-import Delft3D.template.*
-import Delft3D.step.*
-import Delft3D.linux.containers.*
+import SWAN.template.*
+import SWAN.linux.containers.*
 
 object LinuxBuild : BuildType({
 
     description = "CMake build."
 
     templates(
-        TemplateLinuxAgent,
-        TemplateMergeRequest,
-        TemplateDetermineProduct,
-        TemplatePublishStatus,
-        TemplateMonitorPerformance,
-        TemplateFailureCondition,
-        TemplateDockerRegistry,
-        TemplateBuildConcurrency
+        TemplateDockerRegistry
     )
 
     name = "Build"

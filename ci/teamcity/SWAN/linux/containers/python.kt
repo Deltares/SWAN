@@ -1,11 +1,10 @@
-package Delft3D.linux.containers
+package SWAN.linux.containers
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
-import Delft3D.template.*
-import Delft3D.step.*
+import SWAN.template.*
 import java.io.File
 
 object LinuxPython : BuildType({
@@ -14,12 +13,7 @@ object LinuxPython : BuildType({
     buildNumberPattern = "%build.vcs.number%"
 
     templates(
-        TemplateLinuxAgent,
-        TemplatePublishStatus,
-        TemplateMergeRequest,
-        TemplateMonitorPerformance,
-        TemplateDockerRegistry,
-        TemplateBuildConcurrency
+        TemplateDockerRegistry
     )
 
     vcs {
@@ -40,13 +34,19 @@ object LinuxPython : BuildType({
     }
 
     steps {
-        exportJiraIssueId {
-            paramName = "env.JIRA_ISSUE_ID"
+        script {
+            name = "Export JIRA issue id"
+            scriptContent = """
+                #!/usr/bin/env bash
+                set -eo pipefail
+                ISSUE_ID=$(echo "%teamcity.build.branch%" | grep -Eo '[A-Z]+-[0-9]+' | head -n1 || true)
+                echo "##teamcity[setParameter name='env.JIRA_ISSUE_ID' value='${'$'}ISSUE_ID']"
+            """.trimIndent()
         }
         script {
             name = "Initialize build parameters"
             val script = File(DslContext.baseDir, "linux/containers/scripts/pythonSetParams.sh")
-            scriptContent = Util.readScript(script)
+            scriptContent = script.readText()
         }
         dockerCommand {
             name = "Build"

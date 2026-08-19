@@ -1,14 +1,10 @@
-package Delft3D.linux.containers
+package SWAN.linux.containers
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
-import Delft3D.template.*
-import Delft3D.step.*
-import java.io.File
-
-import Trigger
+import SWAN.template.*
 
 object LinuxDevContainer : BuildType({
     name = "Dev Container"
@@ -16,12 +12,7 @@ object LinuxDevContainer : BuildType({
     buildNumberPattern = "%build.vcs.number%"
 
     templates(
-        TemplateLinuxAgent,
-        TemplatePublishStatus,
-        TemplateMergeRequest,
-        TemplateMonitorPerformance,
-        TemplateDockerRegistry,
-        TemplateBuildConcurrency
+        TemplateDockerRegistry
     )
 
     vcs {
@@ -51,8 +42,14 @@ object LinuxDevContainer : BuildType({
     }
 
     steps {
-        exportJiraIssueId {
-            paramName = "env.JIRA_ISSUE_ID"
+        script {
+            name = "Export JIRA issue id"
+            scriptContent = """
+                #!/usr/bin/env bash
+                set -eo pipefail
+                ISSUE_ID=$(echo "%teamcity.build.branch%" | grep -Eo '[A-Z]+-[0-9]+' | head -n1 || true)
+                echo "##teamcity[setParameter name='env.JIRA_ISSUE_ID' value='${'$'}ISSUE_ID']"
+            """.trimIndent()
         }
         dockerCommand {
             name = "Build"
@@ -71,12 +68,6 @@ object LinuxDevContainer : BuildType({
     }
 
     dependencies {
-        dependency(Trigger) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-                onDependencyCancel = FailureAction.CANCEL
-            }
-        }
         dependency(LinuxThirdPartyLibs) {
             snapshot {
                 onDependencyFailure = FailureAction.FAIL_TO_START
