@@ -3,6 +3,7 @@ import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 import SWAN.linux.*
+import SWAN.linux.containers.*
 import SWAN.windows.*
 import SWAN.template.*
 
@@ -51,6 +52,8 @@ project {
     subProject {
         id("Linux")
         name = "Linux"
+        buildType(LinuxBuildTools)
+        buildType(LinuxThirdPartyLibs)
         buildType(LinuxBuild)
     }
 
