@@ -45,6 +45,8 @@ project {
         param("product", "dummy_value")
     }
 
+    template(TemplateDockerRegistry)
+
 
     subProject {
         id("Linux")
