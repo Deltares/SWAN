@@ -13,13 +13,13 @@ object WindowsBuild : BuildType({
     templates(TemplateDockerRegistry)
 
     name = "Build"
-    buildNumberPattern = "%product%: %build.vcs.number%"
+    buildNumberPattern = "SWAN: %build.vcs.number%"
 
     allowExternalStatus = true
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
-        build_%product%/install/** => oss_artifacts_x64_%build.vcs.number%.zip!x64
+        build_SWAN/install/** => oss_artifacts_x64_%build.vcs.number%.zip!x64
         unit-test-report-windows.xml
     """.trimIndent()
 
@@ -27,7 +27,6 @@ object WindowsBuild : BuildType({
         param("container.tag", "vs2022-intel2024-ltsc2025")
         param("env.CONAN_HOME", "C:/conan-cache")
         select("build_type", "Release", display = ParameterDisplay.PROMPT, options = listOf("Release", "Debug"))
-        select("product", "auto-select", display = ParameterDisplay.PROMPT, options = listOf("auto-select", "all-testbench", "fm-suite", "d3d4-suite", "fm-testbench", "d3d4-testbench", "waq-testbench", "part-testbench", "rr-testbench", "wave-testbench", "swan-testbench"))
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
     }
