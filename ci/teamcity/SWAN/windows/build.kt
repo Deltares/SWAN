@@ -26,7 +26,7 @@ object WindowsBuild : BuildType({
     params {
         param("container.tag", "vs2022-intel2024-ltsc2025")
         param("env.CONAN_HOME", "C:/conan-cache")
-        select("build_type", "Release", display = ParameterDisplay.PROMPT, options = listOf("Release", "Debug"))
+        param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
     }
@@ -46,7 +46,7 @@ object WindowsBuild : BuildType({
                 python run_conan.py initialize deltares --ci
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
 
-                python build.py --build --ci
+                python build.py --build --build-type %build_type% --ci
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
             dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-buildtools-windows:%container.tag%"

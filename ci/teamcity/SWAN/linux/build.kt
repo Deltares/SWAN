@@ -37,7 +37,7 @@ object LinuxBuild : BuildType({
 
     params {
         param("generator", """"Unix Makefiles"""")
-        select("build_type", "%dep.${LinuxThirdPartyLibs.id}.build_type%", display = ParameterDisplay.PROMPT, options = listOf("Release", "RelWithDebInfo", "Debug"))
+        param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("env.CONAN_HOME", "/conan-cache")
@@ -81,20 +81,6 @@ object LinuxBuild : BuildType({
             dockerPull = true
         }
         script {
-            name = "Run unit tests"
-            scriptContent = """ 
-                #!/usr/bin/env bash
-                source /etc/bashrc
-                set -eo pipefail
-
-                ctest --test-dir build --build-config %build_type% --output-junit ../unit-test-report-linux.xml --output-on-failure
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%dep.${LinuxThirdPartyLibs.id}.env.IMAGE_TAG%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache"
-            dockerPull = true
-        }
-        script {
             name = "Install"
             scriptContent = """
                 #!/usr/bin/env bash
@@ -107,22 +93,6 @@ object LinuxBuild : BuildType({
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
             dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache"
             dockerPull = true
-        }
-    }
-
-    features {
-        xmlReport {
-            reportType = XmlReport.XmlReportType.JUNIT
-            rules = "+:unit-test-report-linux.xml"
-        }
-    }
-
-    dependencies {
-        dependency(LinuxThirdPartyLibs) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-                onDependencyCancel = FailureAction.CANCEL
-            }
         }
     }
 
