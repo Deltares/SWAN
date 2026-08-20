@@ -32,10 +32,10 @@ object LinuxBuild : BuildType({
         param("build_type", "%build_type%")
         param("commit_id", "%build.revisions.revision%")
         param("commit_id_short", "%build.revisions.short%")
-        param("build_tools_image_tag", "%dep.${LinuxBuildTools.id}.env.IMAGE_TAG%")
     }
 
     params {
+        param("container.tag", "oneapi-2024-ifx-release")
         param("generator", """"Unix Makefiles"""")
         param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
@@ -75,7 +75,7 @@ object LinuxBuild : BuildType({
                 python run_conan.py initialize deltares --ci
                 python build.py --build --build-type %build_type% --ci
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%dep.${LinuxThirdPartyLibs.id}.env.IMAGE_TAG%"
+            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
             dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
             dockerPull = true
@@ -89,7 +89,7 @@ object LinuxBuild : BuildType({
 
                 cmake --install build --config %build_type%
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%dep.${LinuxThirdPartyLibs.id}.env.IMAGE_TAG%"
+            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
             dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache"
             dockerPull = true

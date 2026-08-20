@@ -52,8 +52,6 @@ project {
     subProject {
         id("Linux")
         name = "Linux"
-        buildType(LinuxBuildTools)
-        buildType(LinuxThirdPartyLibs)
         buildType(LinuxBuild)
     }
 
