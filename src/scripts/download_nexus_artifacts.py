@@ -9,8 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
-BASE_URI = "https://internal-artifacts.deltares.nl/repository/swan-dev/"
-ARTIFACT_NAME = "41.51.9_ifx2024.2.0_win.zip"
+BASE_URI = "https://internal-artifacts.deltares.nl/repository/swan-dev"
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,7 +76,7 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
 def build_artifact_uri(version: str, platform: str) -> str:
     version_part = quote(version.strip("/\\"), safe="")
     platform_part = quote(platform.strip("/\\"), safe="")
-    return f"{BASE_URI}{version_part}/{platform_part}/{ARTIFACT_NAME}"
+    return f"{BASE_URI}/{version_part}/{platform_part}/swan_{version_part}_{platform_part}.zip"
 
 
 def download_file(uri: str, token_name: str, token_pass: str, destination_folder: Path) -> Path:
@@ -174,7 +173,7 @@ def main() -> int:
     message = "\n  Version example: 41.51.9\n  Check Nexus for available versions\n"
     version = prompt_if_missing(args.version, message + "Version: ")
     
-    message = "\n  Platform options: win or lnx\n"
+    message = "\n  Platform options: x64(Windows) or lnx64(Linux)\n"
     platform = prompt_if_missing(args.platform, message + "Platform: ")
     
     message = "\n  Destination folder example: C:\\artifacts\n"
