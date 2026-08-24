@@ -2804,7 +2804,8 @@
            IF (OPTG.NE.5) THEN                                            40.80
 !             interpolation done in all active and non-active points
               RTMP=DEPMIN
-              DEPMIN=-10.*ABS(MINVAL(COMPDA(:,JDP2)))
+              DEPMIN = -10.*ABS(MINVAL(COMPDA(:,JDP2), 
+     &                  MASK=COMPDA(:,JDP2) .NE. OVEXCV(51)))
               CALL SWIPOL(COMPDA(1,JWLV2),OVEXCV(51),XC, YC, MIP, CROSS,  40.86
      &                    VOQ(1,VOQR(51)) ,KGRPNT, COMPDA(1,JDP2))
               DEPMIN=RTMP
