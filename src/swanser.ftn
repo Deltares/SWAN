@@ -2429,7 +2429,8 @@
 !     XCGRID  input  Coordinates of computational grid in x-direction     30.72
 !     YCGRID  input  Coordinates of computational grid in y-direction     30.72
 !
-      INTEGER KGRPNT(MXC,MYC), CROSS(2,MCGRD)
+      INTEGER KGRPNT(MXC,MYC) 
+      TYPE(OBSTDAT_PTR) :: CROSS(2,MCGRD)
       REAL    XCGRID(MXC,MYC), YCGRID(MXC,MYC)                            30.72
 !
 !  5. Parameter variables
@@ -2542,7 +2543,7 @@
 !
                       IF (TCROSS(X1, X2, X3, X4, Y1, Y2, Y3, Y4,          40.04
      &                           XONOBST)) THEN                           40.04
-                        CROSS(ILINK,ICC) = JJ
+                        CROSS(ILINK,ICC)%PTR => COBST
                       ENDIF
                     ENDIF
   80              CONTINUE
@@ -2560,6 +2561,30 @@
       RETURN
 ! * end of subroutine SWOBST *
       END
+
+      INTEGER FUNCTION FOBST(PTR)
+        USE M_OBSTA
+        USE SWCOMM3
+
+        IMPLICIT NONE
+        TYPE(OBSTDAT), POINTER :: PTR
+        TYPE(OBSTDAT), POINTER :: COBST
+        INTEGER :: JJ
+
+        COBST => FOBSTAC
+        DO 120 JJ = 1, NUMOBS
+            IF (ASSOCIATED(COBST, PTR)) THEN
+                FOBST = JJ
+                RETURN
+            ENDIF
+            IF (.NOT.ASSOCIATED(COBST%NEXTOBST)) EXIT
+            COBST => COBST%NEXTOBST
+ 120    CONTINUE
+        FOBST = -1
+        RETURN
+
+         
+      END FUNCTION FOBST      
 !***********************************************************************
 !                                                                      *
       LOGICAL FUNCTION TCROSS (X1, X2, X3, X4, Y1, Y2, Y3, Y4, X1ONOBST)
@@ -2791,6 +2816,7 @@
       USE SwanGriddata                                                    40.80
       USE SwanCompdata                                                    40.80
       USE SwanIEM, only: ntf, Ebig                                        41.85
+      USE M_OBSTA
 !
       IMPLICIT NONE                                                       40.09
 !
@@ -2929,7 +2955,7 @@
 !     WLEV2    input     Water level in grid points
 !
       INTEGER  KGRPNT(MXC,MYC)
-      INTEGER  LINK(2)                                                    40.03
+      TYPE(OBSTDAT_PTR)  LINK(2)                                                    40.03
       REAL     CHS(MCGRD), OBREDF(MDC,MSC,2), WLEV2(MCGRD), DEP2(MCGRD)   41.71 30.70
       REAL     :: AC2(MDC,MSC,MCGRD)                                      40.09 40.22
 !     Changed ICMAX to MICMAX, since MICMAX doesn't vary over gridpoint   40.22
@@ -3072,19 +3098,15 @@
       DO 90 ILINK = 1 ,2
 !       default transmission coefficient
         TRCF = 1.
-        NMPO = LINK(ILINK)
-        IF (NMPO .EQ. 0) THEN
+      !   NMPO = LINK(ILINK)
+        IF (.NOT. ASSOCIATED(LINK(ILINK)%PTR)) THEN
            OBREDF(1:MDC,1:MSC,ILINK) = 1.                                 40.13
            GOTO 90
         END IF
 !       incoming wave height
         HSIN = CHS(KCGRD(ILINK+1))                                        40.03
         IF (HSIN.LT.0.1E-4) HSIN = 0.1E-4
-        COBST => FOBSTAC                                                  40.31
-        DO JJ = 1, NMPO-1                                                 40.31
-           IF (.NOT.ASSOCIATED(COBST%NEXTOBST)) EXIT                      40.31
-           COBST => COBST%NEXTOBST                                        40.31
-        END DO                                                            40.31
+        COBST => LINK(ILINK)%PTR                                          40.31
 !       in case of freeboard dependent transmission/reflection            41.71
         LFREE = COBST%FBTYP1                                              41.71
         LQUAY = COBST%FBTYP2                                              41.71

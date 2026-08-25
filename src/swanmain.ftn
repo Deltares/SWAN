@@ -144,6 +144,7 @@
       USE SwanBraggScat                                                   41.80
       USE SwanQCM                                                         41.90
       USE SwanGriddata                                                    40.80
+      USE M_OBSTA
 !
       IMPLICIT NONE
 !
@@ -289,7 +290,7 @@
       LOGICAL   LOPEN                                                     34.01
       INTEGER   IRQ, UPVD                                                 41.95
 
-      INTEGER, ALLOCATABLE :: CROSS(:)                                    40.80 40.31
+      TYPE(OBSTDAT_PTR), ALLOCATABLE :: CROSS(:)                          40.80 40.31
       INTEGER, ALLOCATABLE :: BGRIDP(:)                                   40.31
       REAL   , ALLOCATABLE :: BSPECS(:,:,:,:)                             40.31
       REAL   , ALLOCATABLE :: AC1(:,:,:), COMPDA(:,:)                     40.31
@@ -3719,10 +3720,11 @@
 !
 ! 10. SOURCE TEXT
       PARAMETER  (NUNT=20)                        ! m2/s
-      INTEGER   KGRPNT(MXC,MYC), CROSS(2,MCGRD)
+      INTEGER   KGRPNT(MXC,MYC)
+      TYPE(OBSTDAT_PTR) :: CROSS(2,MCGRD)
       INTEGER   BGRIDP(6*NBGRPT)                                          40.31
       REAL      BSPECS(MDC,MSC,NBSPEC,2)                                  40.31
-      INTEGER, ALLOCATABLE :: CROSSGL(:,:)                                40.31
+      TYPE(OBSTDAT_PTR), ALLOCATABLE :: CROSSGL(:,:)                                40.31
       INTEGER   ITMP(1)                                                   43.01
       INTEGER   IUNT(NUNT)
       REAL      FDN, FIGF                                                 41.82
@@ -3907,10 +3909,10 @@
 !     *** in structured grids                                ***          40.80
 !
       IF (NUMOBS .GT. 0 .AND. OPTG.NE.5 .AND. .NOT.OBSTDONE) THEN         42.05 40.80
-        DO INDX = 1, MCGRD                                               040697
-          CROSS(1,INDX) = 0                                              040697
-          CROSS(2,INDX) = 0                                              040697
-        ENDDO                                                            040697
+      !   DO INDX = 1, MCGRD                                               040697
+      !     CROSS(1,INDX) = 0                                              040697
+      !     CROSS(2,INDX) = 0                                              040697
+      !   ENDDO                                                            040697
 !
         ITMP1  = MXC                                                      40.31
         ITMP2  = MYC                                                      40.31
@@ -3919,7 +3921,7 @@
         MYC    = MYCGL                                                    40.31
         MCGRD  = MCGRDGL                                                  40.31
         ALLOCATE(CROSSGL(2,MCGRDGL))                                      40.31
-        CROSSGL = 0                                                       40.31
+        ! CROSSGL = 0                                                       40.31
         CALL SWOBST (XGRDGL, YGRDGL, KGRPGL, CROSSGL)                     40.31 30.7N
         MXC    = ITMP1                                                    40.31
         MYC    = ITMP2                                                    40.31
@@ -3946,10 +3948,12 @@
             DO IIXX = 2,MXC
             I1 = KGRPNT(IIXX,IIYY)
               DO I2 = 1,2
-                IF (CROSS(I2,I1) .NE. 0)
-     &          WRITE(PRINTF,101) IIXX,IIYY,I2,I1,CROSS(I2,I1)
- 101            FORMAT(' POINT(',I4,',',I4,')',
-     &          '  CROSS(',I3,',',I5,')  = ',I5)
+                IF (ASSOCIATED(CROSS(I2,I1)%ptr)) THEN
+                  JJ = FOBST(CROSS(I2,I1)%ptr)
+                  WRITE(PRINTF,101) IIXX,IIYY,I2,I1,JJ
+ 101              FORMAT(' POINT(',I4,',',I4,')',
+     &            '  CROSS(',I3,',',I5,')  = ',I5)
+               ENDIF
               ENDDO
             ENDDO
           ENDDO

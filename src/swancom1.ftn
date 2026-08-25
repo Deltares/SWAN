@@ -65,6 +65,7 @@
       USE m_constants                                                     40.41
       USE m_xnldata                                                       40.41
       USE m_fileio                                                        40.41
+      USE M_OBSTA
 !ESMF      USE M_GENARR, ONLY: SAVE_SINBAC, SINBAC
 !
       IMPLICIT NONE
@@ -844,7 +845,7 @@
 !
       INTEGER :: XYTST(2*NPTST)                                           30.21
       INTEGER :: KGRPNT(MXC,MYC)                                          30.21
-      INTEGER :: CROSS(2,MCGRD)
+      TYPE(OBSTDAT_PTR) :: CROSS(2,MCGRD)
 !
       REAL     AC2(MDC,MSC,MCGRD)     ,                                   30.21
      &         AC1(MDC,MSC,MCGRD)     ,                                   30.21
@@ -2530,6 +2531,7 @@
       USE SwanQCM                                                         41.90
       USE M_PARALL                                                        40.31
       USE M_SNL3                                                          42.01
+      USE M_OBSTA
 !
       IMPLICIT NONE
 !
@@ -2933,7 +2935,8 @@
      &         KSX   ,KSY   ,                                             40.00
      &         IDWMIN,IDWMAX,IDTOT ,ISTOT ,IDDLOW,IDDTOP,
      &         ISSTOP,INOCNV                                              40.00
-      INTEGER  LINK(MICMAX)                                               33.09
+      INTEGER  FOBST
+      TYPE(OBSTDAT_PTR)  LINK(MICMAX)                                               33.09
 !
       REAL     DDX   ,DDY   ,DT    ,                                      40.00
      &         ETOT  ,AC2TOT,ABRBOT,HM    ,HS    ,QBLOC ,                 40.00
@@ -2948,7 +2951,7 @@
       INTEGER :: IDCMAX(MSC)    ,ISCMIN(MDC)    ,ISCMAX(MDC)
       INTEGER :: WWINT(*)
       INTEGER :: KGRPNT(MXC,MYC)                                          40.00
-      INTEGER :: CROSS(2,MCGRD)
+      TYPE(OBSTDAT_PTR) :: CROSS(2,MCGRD)
 !
 !     *** number of arrays for SWAN ***
 !
@@ -3158,78 +3161,78 @@
          IF (PROPSL.EQ.3) THEN
             NLINK  = 10
             IF (SWPDIR .EQ. 1 ) THEN
-               LINK(1)  = CROSS(1,KCGRD(1))                               33.08
-               LINK(2)  = CROSS(2,KCGRD(1))
-               LINK(3)  = CROSS(1,KCGRD(2))
-               LINK(4)  = CROSS(2,KCGRD(2))
-               LINK(5)  = CROSS(1,KCGRD(3))
-               LINK(6)  = CROSS(2,KCGRD(3))
-               LINK(7)  = CROSS(2,KCGRD(4))
-               LINK(8)  = CROSS(1,KCGRD(5))
-               LINK(9)  = CROSS(1,KCGRD(6))
-               LINK(10) = CROSS(2,KCGRD(7))
+               LINK(1)%PTR  => CROSS(1,KCGRD(1))%PTR                               
+               LINK(2)%PTR  => CROSS(2,KCGRD(1))%PTR
+               LINK(3)%PTR  => CROSS(1,KCGRD(2))%PTR
+               LINK(4)%PTR  => CROSS(2,KCGRD(2))%PTR
+               LINK(5)%PTR  => CROSS(1,KCGRD(3))%PTR
+               LINK(6)%PTR  => CROSS(2,KCGRD(3))%PTR
+               LINK(7)%PTR  => CROSS(2,KCGRD(4))%PTR
+               LINK(8)%PTR  => CROSS(1,KCGRD(5))%PTR
+               LINK(9)%PTR  => CROSS(1,KCGRD(6))%PTR
+               LINK(10)%PTR  => CROSS(2,KCGRD(7))%PTR
             ELSE IF (SWPDIR .EQ. 2) THEN
-               LINK(1)  = CROSS(1,KCGRD(2))                               33.08
-               LINK(2)  = CROSS(2,KCGRD(1))
-               LINK(3)  = CROSS(1,KCGRD(6))
-               LINK(4)  = CROSS(2,KCGRD(2))
-               LINK(5)  = CROSS(1,KCGRD(10))
-               LINK(6)  = CROSS(2,KCGRD(3))
-               LINK(7)  = CROSS(2,KCGRD(4))
-               LINK(8)  = CROSS(1,KCGRD(1))
-               LINK(9)  = CROSS(1,KCGRD(8))
-               LINK(10) = CROSS(2,KCGRD(7))
+               LINK(1)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.08
+               LINK(2)%PTR  => CROSS(2,KCGRD(1))%PTR
+               LINK(3)%PTR  => CROSS(1,KCGRD(6))%PTR
+               LINK(4)%PTR  => CROSS(2,KCGRD(2))%PTR
+               LINK(5)%PTR  => CROSS(1,KCGRD(10))%PTR
+               LINK(6)%PTR  => CROSS(2,KCGRD(3))%PTR
+               LINK(7)%PTR  => CROSS(2,KCGRD(4))%PTR
+               LINK(8)%PTR  => CROSS(1,KCGRD(1))%PTR
+               LINK(9)%PTR  => CROSS(1,KCGRD(8))%PTR
+               LINK(10)%PTR => CROSS(2,KCGRD(7))%PTR
             ELSE IF (SWPDIR .EQ. 3) THEN
-               LINK(1)  = CROSS(1,KCGRD(2))                               33.08
-               LINK(2)  = CROSS(2,KCGRD(3))
-               LINK(3)  = CROSS(1,KCGRD(6))
-               LINK(4)  = CROSS(2,KCGRD(10))
-               LINK(5)  = CROSS(1,KCGRD(10))
-               LINK(6)  = CROSS(2,KCGRD(7))
-               LINK(7)  = CROSS(2,KCGRD(1))
-               LINK(8)  = CROSS(1,KCGRD(1))
-               LINK(9)  = CROSS(1,KCGRD(8))
-               LINK(10) = CROSS(2,KCGRD(9))
+               LINK(1)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.08
+               LINK(2)%PTR  => CROSS(2,KCGRD(3))%PTR
+               LINK(3)%PTR  => CROSS(1,KCGRD(6))%PTR
+               LINK(4)%PTR  => CROSS(2,KCGRD(10))%PTR
+               LINK(5)%PTR  => CROSS(1,KCGRD(10))%PTR
+               LINK(6)%PTR  => CROSS(2,KCGRD(7))%PTR
+               LINK(7)%PTR  => CROSS(2,KCGRD(1))%PTR
+               LINK(8)%PTR  => CROSS(1,KCGRD(1))%PTR
+               LINK(9)%PTR  => CROSS(1,KCGRD(8))%PTR
+               LINK(10)%PTR => CROSS(2,KCGRD(9))%PTR
             ELSE IF (SWPDIR .EQ. 4) THEN
-               LINK(1)  = CROSS(1,KCGRD(1))                               33.08
-               LINK(2)  = CROSS(2,KCGRD(3))
-               LINK(3)  = CROSS(1,KCGRD(2))
-               LINK(4)  = CROSS(2,KCGRD(10))
-               LINK(5)  = CROSS(1,KCGRD(3))
-               LINK(6)  = CROSS(2,KCGRD(7))
-               LINK(7)  = CROSS(2,KCGRD(1))
-               LINK(8)  = CROSS(1,KCGRD(5))
-               LINK(9)  = CROSS(1,KCGRD(6))
-               LINK(10) = CROSS(2,KCGRD(9))
+               LINK(1)%PTR  => CROSS(1,KCGRD(1))%PTR                               33.08
+               LINK(2)%PTR  => CROSS(2,KCGRD(3))%PTR
+               LINK(3)%PTR  => CROSS(1,KCGRD(2))%PTR
+               LINK(4)%PTR  => CROSS(2,KCGRD(10))%PTR
+               LINK(5)%PTR  => CROSS(1,KCGRD(3))%PTR
+               LINK(6)%PTR  => CROSS(2,KCGRD(7))%PTR
+               LINK(7)%PTR  => CROSS(2,KCGRD(1))%PTR
+               LINK(8)%PTR  => CROSS(1,KCGRD(5))%PTR
+               LINK(9)%PTR  => CROSS(1,KCGRD(6))%PTR
+               LINK(10)%PTR => CROSS(2,KCGRD(9))%PTR
             ENDIF
          ELSE IF (PROPSL.EQ.2) THEN                                       33.10
             NLINK  = 4                                                    33.10
             IF (SWPDIR .EQ. 1 ) THEN                                      33.10
-               LINK(1)  = CROSS(1,KCGRD(1))                               33.10
-               LINK(2)  = CROSS(2,KCGRD(1))                               33.10
-               LINK(3)  = CROSS(1,KCGRD(2))                               33.10
-               LINK(4)  = CROSS(2,KCGRD(3))                               33.10
+               LINK(1)%PTR  => CROSS(1,KCGRD(1))%PTR                               33.10
+               LINK(2)%PTR  => CROSS(2,KCGRD(1))%PTR                               33.10
+               LINK(3)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.10
+               LINK(4)%PTR  => CROSS(2,KCGRD(3))%PTR                               33.10
             ELSE IF (SWPDIR .EQ. 2) THEN                                  33.10
-               LINK(1)  = CROSS(1,KCGRD(2))                               33.10
-               LINK(2)  = CROSS(2,KCGRD(1))                               33.10
-               LINK(3)  = CROSS(1,KCGRD(6))                               40.59 33.10
-               LINK(4)  = CROSS(2,KCGRD(3))                               33.10
+               LINK(1)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.10
+               LINK(2)%PTR  => CROSS(2,KCGRD(1))%PTR                               33.10
+               LINK(3)%PTR  => CROSS(1,KCGRD(6))%PTR                               40.59 33.10
+               LINK(4)%PTR  => CROSS(2,KCGRD(3))%PTR                               33.10
             ELSE IF (SWPDIR .EQ. 3) THEN                                  33.10
-               LINK(1)  = CROSS(1,KCGRD(2))                               33.10
-               LINK(2)  = CROSS(2,KCGRD(3))                               33.10
-               LINK(3)  = CROSS(1,KCGRD(6))                               40.59 33.10
-               LINK(4)  = CROSS(2,KCGRD(7))                               40.59 33.10
+               LINK(1)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.10
+               LINK(2)%PTR  => CROSS(2,KCGRD(3))%PTR                               33.10
+               LINK(3)%PTR  => CROSS(1,KCGRD(6))%PTR                               40.59 33.10
+               LINK(4)%PTR  => CROSS(2,KCGRD(7))%PTR                               40.59 33.10
             ELSE IF (SWPDIR .EQ. 4) THEN                                  33.10
-               LINK(1)  = CROSS(1,KCGRD(1))                               33.10
-               LINK(2)  = CROSS(2,KCGRD(3))                               33.10
-               LINK(3)  = CROSS(1,KCGRD(2))                               33.10
-               LINK(4)  = CROSS(2,KCGRD(7))                               40.59 33.10
+               LINK(1)%PTR  => CROSS(1,KCGRD(1))%PTR                               33.10
+               LINK(2)%PTR  => CROSS(2,KCGRD(3))%PTR                               33.10
+               LINK(3)%PTR  => CROSS(1,KCGRD(2))%PTR                               33.10
+               LINK(4)%PTR  => CROSS(2,KCGRD(7))%PTR                               40.59 33.10
             ENDIF                                                         33.10
          ENDIF                                                            33.10
          IF (PROPSL.GT.1) THEN                                            33.10
 !           if there is an obstacle crossing, fall back to 1st order      33.10
             DO ILINK = 1, NLINK                                           33.08
-               IF (LINK(ILINK).GT.0) PROPSL = 1                           33.08
+               IF (ASSOCIATED(LINK(ILINK)%PTR)) PROPSL = 1                           33.08
             ENDDO
          ENDIF
       ENDIF
@@ -3511,23 +3514,25 @@
           ENDDO
 !
           IF (SWPDIR .EQ. 1 ) THEN
-             LINK(1) = CROSS(1,KCGRD(1))
-             LINK(2) = CROSS(2,KCGRD(1))
+             LINK(1)%PTR => CROSS(1,KCGRD(1))%PTR
+             LINK(2)%PTR => CROSS(2,KCGRD(1))%PTR
           ELSE IF (SWPDIR .EQ. 2) THEN
-             LINK(1) = CROSS(1,KCGRD(2))
-             LINK(2) = CROSS(2,KCGRD(1))
+             LINK(1)%PTR => CROSS(1,KCGRD(2))%PTR
+             LINK(2)%PTR => CROSS(2,KCGRD(1))%PTR
           ELSE IF (SWPDIR .EQ. 3) THEN
-             LINK(1) = CROSS(1,KCGRD(2))
-             LINK(2) = CROSS(2,KCGRD(3))
+             LINK(1)%PTR => CROSS(1,KCGRD(2))%PTR
+             LINK(2)%PTR => CROSS(2,KCGRD(3))%PTR
           ELSE IF (SWPDIR .EQ. 4) THEN
-             LINK(1) = CROSS(1,KCGRD(1))
-             LINK(2) = CROSS(2,KCGRD(3))
+             LINK(1)%PTR => CROSS(1,KCGRD(1))%PTR
+             LINK(2)%PTR => CROSS(2,KCGRD(3))%PTR
           ENDIF
 
-          IF (LINK(1) .NE. 0 .OR. LINK(2) .NE. 0) THEN                    40.00
-             IF (ITEST .GE. 120) WRITE(PRINTF,10)
-     &          SWPDIR,KCGRD(1),LINK(1),LINK(2)
+          IF (ASSOCIATED(LINK(1)%PTR) .OR. ASSOCIATED(LINK(2)%PTR)) THEN                    40.00
+             IF (ITEST .GE. 120) THEN
+                WRITE(PRINTF,10) SWPDIR,KCGRD(1),
+     &            FOBST(LINK(1)%PTR),FOBST(LINK(2)%PTR)
  10          FORMAT(' SWOMPU:  SWPDIR POINT LINK1  LINK2 = ',4(1X,I5))
+             ENDIF
 !
              CALL SWTRCF (COMPDA(1,JDP2),COMPDA(1,JWLV2),                 41.71 40.31 40.09
      &                    COMPDA(1,JHS), LINK, OBREDF,                    40.09
