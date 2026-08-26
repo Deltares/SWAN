@@ -95,13 +95,15 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
     use SwanQCM
     use m_snl3
     use m_parall
+    use m_obsta, only: OBSTDAT_PTR
 !METIS    use SwanParallel
 !
     implicit none
 !
 !   Argument variables
 !
-    integer, dimension(nfaces), intent(in)         :: cross  ! contains sequence number of obstacles for each face
+    type(OBSTDAT_PTR), dimension(nfaces) &
+                              , intent(in)         :: cross  ! contains sequence number of obstacles for each face
                                                              ! where they crossing or zero if no crossing
     integer, intent(in)                            :: it     ! counter in time space
     integer, dimension(NPTST), intent(in)          :: xytst  ! test points for output purposes
@@ -152,7 +154,7 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
     integer                               :: jc        ! loop counter
     integer                               :: k         ! loop counter
     integer                               :: kvert     ! loop counter over vertices
-    integer, dimension(2)                 :: link      ! local face connected to considered vertex where an obstacle crossed
+    type(OBSTDAT_PTR), dimension(2)       :: link      ! local face connected to considered vertex where an obstacle crossed
     integer                               :: mnisl     ! minimum sigma-index occured in applying limiter
     integer                               :: mxnfl     ! maximum number of use of limiter in spectral space
     integer                               :: mxnfr     ! maximum number of use of rescaling in spectral space
@@ -1052,12 +1054,12 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
                                if ( vb==vu(1) .or. ve==vu(1) ) then
                                   !
                                   iface = cell(icell)%face(j)%atti(FACEID)
-                                  link(1) = cross(iface)
+                                  link(1)%PTR = cross(iface)%PTR
                                   !
                                elseif ( vb==vu(2) .or. ve==vu(2) ) then
                                   !
                                   iface = cell(icell)%face(j)%atti(FACEID)
-                                  link(2) = cross(iface)
+                                  link(2)%PTR = cross(iface)%PTR
                                   !
                                endif
                                !
@@ -1065,7 +1067,7 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
                             !
                          enddo
                          !
-                         if ( link(1)/=0 .or. link(2)/=0 ) then
+                         if ( associated(link(1)%PTR) .or. associated(link(2)%PTR) ) then
                             !
                             call SWTRCF ( compda(1,JDP2), compda(1,JWLV2), compda(1,JHS)  , link, obredf    , ac2, reflso, dummy ,         &
                                           dummy         , dummy          , cax            , cay , rdx       , rdy, anybin, spcsig, spcdir, &

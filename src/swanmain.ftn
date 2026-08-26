@@ -3909,10 +3909,6 @@
 !     *** in structured grids                                ***          40.80
 !
       IF (NUMOBS .GT. 0 .AND. OPTG.NE.5 .AND. .NOT.OBSTDONE) THEN         42.05 40.80
-      !   DO INDX = 1, MCGRD                                               040697
-      !     CROSS(1,INDX) = 0                                              040697
-      !     CROSS(2,INDX) = 0                                              040697
-      !   ENDDO                                                            040697
 !
         ITMP1  = MXC                                                      40.31
         ITMP2  = MYC                                                      40.31
@@ -3921,7 +3917,6 @@
         MYC    = MYCGL                                                    40.31
         MCGRD  = MCGRDGL                                                  40.31
         ALLOCATE(CROSSGL(2,MCGRDGL))                                      40.31
-        ! CROSSGL = 0                                                       40.31
         CALL SWOBST (XGRDGL, YGRDGL, KGRPGL, CROSSGL)                     40.31 30.7N
         MXC    = ITMP1                                                    40.31
         MYC    = ITMP2                                                    40.31
