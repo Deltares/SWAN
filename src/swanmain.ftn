@@ -4947,6 +4947,7 @@
             COMPDA(INDX,JWLV2) = WLVL
             IF (JWLV1.GT.1) COMPDA(INDX,JWLV1) = WLVL                     40.00
             IF (JWLV3.GT.1) COMPDA(INDX,JWLV3) = WLVL                     40.00
+!           if DEP or WLVL is missing, set DEP to Excluded Value
             IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
                   DEP = OVEXCV(4)
             ELSE
@@ -4956,6 +4957,7 @@
             COMPDA(INDX,JWLV2) = WLEV
           ENDIF
 !         add constant water level
+!           if DEP or WLVL is missing, set DEP to Excluded Value
           IF (DEP .EQ. EXCFLD(1)) THEN
             DEPW = OVEXCV(4)
           ELSE
@@ -7174,6 +7176,7 @@
               DEP = SVALQI (XP, YP, 1, DEPTH, 1 ,IX ,IY)                  40.31 30.90
               COMPDA(INDX,JDP1) = COMPDA(INDX,JDP2)
               WLVL = COMPDA(INDX,JWLV2)
+!             if DEP or WLVL is missing, set DEP to Excluded Value
               IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
                 DEPW = OVEXCV(4)
               ELSE
