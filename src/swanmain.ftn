@@ -4947,12 +4947,20 @@
             COMPDA(INDX,JWLV2) = WLVL
             IF (JWLV1.GT.1) COMPDA(INDX,JWLV1) = WLVL                     40.00
             IF (JWLV3.GT.1) COMPDA(INDX,JWLV3) = WLVL                     40.00
-            DEP = DEP + WLVL
+            IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
+                  DEP = OVEXCV(4)
+            ELSE
+                  DEP = DEP + WLVL
+            ENDIF
           ELSE
             COMPDA(INDX,JWLV2) = WLEV
           ENDIF
 !         add constant water level
-          DEPW = DEP + WLEV                                               30.70
+          IF (DEP .EQ. EXCFLD(1)) THEN
+            DEPW = OVEXCV(4)
+          ELSE
+            DEPW = DEP + WLEV                                               30.70
+          ENDIF
           COMPDA(INDX,JDP2) = DEPW
 !         ***In this step the water level at T+DT is copied to the  ***
 !         ***water level at T (Only for first time computation)     ***
@@ -7166,7 +7174,12 @@
               DEP = SVALQI (XP, YP, 1, DEPTH, 1 ,IX ,IY)                  40.31 30.90
               COMPDA(INDX,JDP1) = COMPDA(INDX,JDP2)
               WLVL = COMPDA(INDX,JWLV2)
-              DEPW = DEP + WLVL + WLEV
+              IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
+                DEPW = OVEXCV(4)
+              ELSE
+                DEPW = DEP + WLVL + WLEV
+              ENDIF
+              
               IF (DEPW>DEPWMAX) THEN
                 DEPW = 0.
               ENDIF
