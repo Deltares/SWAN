@@ -2935,7 +2935,7 @@
      &         KSX   ,KSY   ,                                             40.00
      &         IDWMIN,IDWMAX,IDTOT ,ISTOT ,IDDLOW,IDDTOP,
      &         ISSTOP,INOCNV                                              40.00
-      INTEGER  FOBST
+      INTEGER GETOBSTINDEX
       TYPE(OBSTDAT_PTR)  LINK(MICMAX)                                               33.09
 !
       REAL     DDX   ,DDY   ,DT    ,                                      40.00
@@ -3530,8 +3530,9 @@
           IF (ASSOCIATED(LINK(1)%PTR) .OR. ASSOCIATED(LINK(2)%PTR)) THEN                    40.00
              IF (ITEST .GE. 120) THEN
                 WRITE(PRINTF,10) SWPDIR,KCGRD(1),
-     &            FOBST(LINK(1)%PTR),FOBST(LINK(2)%PTR)
- 10          FORMAT(' SWOMPU:  SWPDIR POINT LINK1  LINK2 = ',4(1X,I5))
+     &            GETOBSTINDEX(LINK(1)%PTR),GETOBSTINDEX(LINK(2)%PTR)
+ 10             FORMAT(' SWOMPU:  SWPDIR POINT LINK1  LINK2 = '
+     &          ,4(1X,I5))
              ENDIF
 !
              CALL SWTRCF (COMPDA(1,JDP2),COMPDA(1,JWLV2),                 41.71 40.31 40.09

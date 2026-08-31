@@ -2565,7 +2565,7 @@
 ! * end of subroutine SWOBST *
       END
 
-      INTEGER FUNCTION FOBST(PTR)
+      INTEGER FUNCTION GETOBSTINDEX(PTR)
         USE M_OBSTA
         USE SWCOMM3
 
@@ -2577,17 +2577,17 @@
         COBST => FOBSTAC
         DO 120 JJ = 1, NUMOBS
             IF (ASSOCIATED(COBST, PTR)) THEN
-                FOBST = JJ
+                GETOBSTINDEX = JJ
                 RETURN
             ENDIF
             IF (.NOT.ASSOCIATED(COBST%NEXTOBST)) EXIT
             COBST => COBST%NEXTOBST
  120    CONTINUE
-        FOBST = -1
+        GETOBSTINDEX = -1
         RETURN
 
          
-      END FUNCTION FOBST      
+      END FUNCTION GETOBSTINDEX
 !***********************************************************************
 !                                                                      *
       LOGICAL FUNCTION TCROSS (X1, X2, X3, X4, Y1, Y2, Y3, Y4, X1ONOBST)
@@ -3034,6 +3034,7 @@
      &           NUMCOR, NMPO, ISIGM, IFIG
       INTEGER    LREFDIFF, LRFRD                                          40.31
       INTEGER    LFREE, LQUAY                                             41.71
+      INTEGER    GETOBSTINDEX
       REAL       ALOW, BUPL, FVH, HGT, HSIN, OBET, OBHKT,
      &           SLOPE, BK, L0P, XI0P, BVH, EMAX, ETD, TP,                40.66
      &           FAC1, FAC2,
@@ -3101,7 +3102,6 @@
       DO 90 ILINK = 1 ,2
 !       default transmission coefficient
         TRCF = 1.
-      !   NMPO = LINK(ILINK)
         IF (.NOT. ASSOCIATED(LINK(ILINK)%PTR)) THEN
            OBREDF(1:MDC,1:MSC,ILINK) = 1.                                 40.13
            GOTO 90
@@ -3456,10 +3456,13 @@
            ENDIF                                                          41.93
         ENDIF
 !
-        IF (ITEST .GE. 120)  WRITE (PRTEST,10)
-     &  IXCGRD(1)-1, IYCGRD(1)-1, NMPO, TRCF(1,1)
-  10    FORMAT(' SWTRCF: Point=', 2I5, ' NMPO  = ', I5, ' transm ',       40.03
-     &  F8.3)                                                             40.03
+        IF (ITEST .GE. 120)  THEN
+          NMPO = GETOBSTINDEX(LINK(ILINK)%PTR)
+          WRITE (PRTEST,10)
+     &    IXCGRD(1)-1, IYCGRD(1)-1, NMPO, TRCF(1,1)
+  10      FORMAT(' SWTRCF: Point=', 2I5, ' NMPO  = ', I5, ' transm ',     40.03
+     &    F8.3)                                                           40.03
+        ENDIF
   90  CONTINUE
       IF (.NOT.REFLTST) THEN                                              40.13
         CALL MSGERR(3,'Kt^2 + Kr^2 > 1 ')                                 40.13

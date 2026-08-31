@@ -3944,7 +3944,7 @@
             I1 = KGRPNT(IIXX,IIYY)
               DO I2 = 1,2
                 IF (ASSOCIATED(CROSS(I2,I1)%ptr)) THEN
-                  JJ = FOBST(CROSS(I2,I1)%ptr)
+                  JJ = GETOBSTINDEX(CROSS(I2,I1)%ptr)
                   WRITE(PRINTF,101) IIXX,IIYY,I2,I1,JJ
  101              FORMAT(' POINT(',I4,',',I4,')',
      &            '  CROSS(',I3,',',I5,')  = ',I5)
