@@ -2515,6 +2515,8 @@
             Y4 = COBST%YCRP(JP)                                           40.31
             IF (ITEST.GE. 120) WRITE(PRINTF,30) JP,X4,Y4
   30        FORMAT(' Corner number:', I4,'    XP: ',E10.4,' YP: ',E11.4)
+!$OMP PARALLEL DO PRIVATE(IX,IY,ICC,X1,Y1,ILINK,X2,Y2,ICGRD,XONOBST)
+!$OMP+SHARED(XCGRID,YCGRID,KGRPNT,CROSS,COBST,X3,X4,Y3,Y4)
             DO 100 IX = 1, MXC
               DO 90 IY = 1, MYC
                 ICC = KGRPNT(IX,IY)
@@ -2550,6 +2552,7 @@
                 ENDIF
   90          CONTINUE
  100        CONTINUE
+ !$OMP END PARALLEL DO
             X3 = X4
             Y3 = Y4
  110      CONTINUE
