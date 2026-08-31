@@ -49,14 +49,14 @@ if (UNIX)
         set(openmp_flag2 )
     else()
         if (NOT USE_MPI)
-            set(openmp_flag1 " -O2 ${r8flag} -qopenmp -arch CORE-AVX2 -ftz ")
+            set(openmp_flag1 " -O0 ${r8flag} -qopenmp -arch CORE-AVX2 -ftz ")
             set(openmp_flag2 -qopenmp)
         else()
-            set(openmp_flag1 " -O2 ${r8flag} -arch CORE-AVX2 ")
+            set(openmp_flag1 " -O0 ${r8flag} -arch CORE-AVX2 ")
             set(openmp_flag2 )
         endif()
     endif()
-    set(CMAKE_Fortran_FLAGS "${openmp_flag1} ")
+    set(CMAKE_Fortran_FLAGS "${openmp_flag1} -diag-disable=8291 ")
     set(OS_SWITCH -unix)
 else()
     if(PRECISION STREQUAL "DOUBLE")
@@ -208,6 +208,10 @@ set( HCAT
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanhcat.for
 )
 
+file(GLOB SWAN_SOURCE_FILES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn
+    ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn90
+)
 
 # generate code using switch.py
 add_custom_command(
@@ -219,6 +223,7 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/..
   DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py
+    ${SWAN_SOURCE_FILES}
   )
 
 add_library(swanmod "")
