@@ -68,8 +68,8 @@ project {
             id = "DOCKER_REGISTRY_DELFT3D"
             name = "Docker Registry Delft3d"
             url = "https://containers.deltares.nl/"
-            userName = "%delft3d-user%"
-            password = "%delft3d-secret%"
+            userName = "%swan-harbor-user%"
+            password = "%swan-harbor-secret%"
         }
         feature {
             type = "OAuthProvider"
