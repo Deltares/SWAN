@@ -24,6 +24,18 @@
             "source": "delft3d-conan",
             "target": "/home/dev/.conan2",
         },
+        // Bind mount for models directory
+        {
+            "type": "bind",
+            "source": "/mnt/c/checkouts/models",
+            "target": "/workspaces/models",
+        },
+        // Bind mount for SWAN testbed
+        {
+            "type": "bind",
+            "source": "/mnt/c/checkouts/svn/swan_testbed",
+            "target": "/workspaces/swan_testbed",
+        },
     ],
     "runArgs": ["--ulimit", "stack=-1:-1"],
     "customizations": {
