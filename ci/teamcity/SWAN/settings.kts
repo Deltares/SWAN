@@ -65,15 +65,15 @@ project {
 
     features {
         dockerRegistry {
-            id = "DOCKER_REGISTRY_DELFT3D"
-            name = "Docker Registry Delft3d"
+            id = "DOCKER_REGISTRY_SWAN"
+            name = "Docker Registry SWAN"
             url = "https://containers.deltares.nl/"
             userName = "%swan-harbor-user%"
             password = "%swan-harbor-secret%"
         }
         feature {
             type = "OAuthProvider"
-            param("displayName", "Keeper Vault Delft3d")
+            param("displayName", "Keeper Vault Swan")
             param("secure:client-secret", "credentialsJSON:bcf00886-4ae4-4c0a-9701-4e37efab8504")
             param("providerType", "teamcity-ksm")
         }
