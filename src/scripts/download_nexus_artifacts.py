@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False, required: bool = True) -> str:
+def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False) -> str:
     if value and value.strip():
         return value.strip()
 
@@ -33,10 +33,7 @@ def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False,
         entered = entered.strip()
         if entered:
             return entered
-        if required:
-            print("Value is required.", file=sys.stderr)
-        else:
-            return None
+        print("Value is required.", file=sys.stderr)
 
 
 def validate_folder_name(name: str, arg_name: str) -> str:
@@ -62,7 +59,9 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
 
     # Only fail when both version and platform folder already exist
     if version_folder.exists() and platform_folder.exists():
-        raise ValueError(f"Destination already exists: {platform_folder}")
+        raise ValueError(
+            f"Destination already exists: {platform_folder}"
+        )
 
     # Guard against path collisions with files
     if version_folder.exists() and not version_folder.is_dir():
@@ -161,13 +160,6 @@ def unzip_artifact(zip_path: Path, extract_to: Path) -> None:
     zip_path.unlink()
 
 
-def set_executable_permissions(root: Path) -> None:
-    paths = [root]
-    paths.extend(root.rglob("*"))
-    for path in paths:
-        if path.exists():
-            mode = path.stat().st_mode
-            path.chmod(mode | 0o111)
 
 
 
@@ -180,14 +172,12 @@ def main() -> int:
 
     message = "\n  Version example: 41.51.9\n  Check Nexus for available versions\n"
     version = prompt_if_missing(args.version, message + "Version: ")
-
+    
     message = "\n  Platform options: x64(Windows) or lnx64(Linux)\n"
     platform = prompt_if_missing(args.platform, message + "Platform: ")
-
-    message = "\n  Destination folder example: C:\\artifacts\nJust press Enter to use the current working directory.\n"
-    destination = prompt_if_missing(args.destination, message + "Destination folder: ", required=False)
-    if not destination or not destination.strip():
-        destination = str(Path.cwd())
+    
+    message = "\n  Destination folder example: C:\\artifacts\n"
+    destination = prompt_if_missing(args.destination, message + "Destination folder: ")
 
     try:
         version_folder, platform_folder = prepare_folders(destination, version, platform)
@@ -200,10 +190,6 @@ def main() -> int:
 
         unzip_artifact(zip_path, platform_folder)
         print(f"Extracted to: {platform_folder}")
-
-        set_executable_permissions(platform_folder)
-        print(f"Executable permissions added to all files in folder: {platform_folder}")
-
         return 0
 
     except HTTPError as ex:
