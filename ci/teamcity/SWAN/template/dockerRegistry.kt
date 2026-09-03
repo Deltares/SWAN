@@ -11,7 +11,7 @@ object TemplateDockerRegistry : Template({
     features {
         dockerSupport {
             loginToRegistry = on {
-                dockerRegistryId = "DOCKER_REGISTRY_DELFT3D"
+                dockerRegistryId = "DOCKER_REGISTRY_SWAN"
             }
         }
     }
