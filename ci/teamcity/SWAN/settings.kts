@@ -35,8 +35,8 @@ project {
     description = "contact: BlackOps (black-ops@deltares.nl)"
 
     params {
-        param("delft3d-user", DslContext.getParameter("delft3d-user"))
-        password("delft3d-secret", DslContext.getParameter("delft3d-secret"))
+        param("swan-harbor-user", DslContext.getParameter("swan-harbor-user"))
+        password("swan-harbor-secret", DslContext.getParameter("swan-harbor-secret"))
 
         param("nexus_username", DslContext.getParameter("nexus_username"))
         password("nexus_password", DslContext.getParameter("nexus_password"))
