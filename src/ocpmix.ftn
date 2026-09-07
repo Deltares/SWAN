@@ -1,6 +1,6 @@
 !     Ocean Pack miscellaneous routines
 !
-!     real function DTTIME
+!     real*8 function DTTIME
 !     subroutine    DTINTI
 !     subroutine    DTRETI
 !     char function DTTIWR
@@ -19,7 +19,7 @@
 !
 !*******************************************************************
 !                                                                  *
-      REAL FUNCTION DTTIME (INTTIM)
+      REAL*8 FUNCTION DTTIME (INTTIM)
 !                                                                  *
 !*******************************************************************
 !
@@ -152,10 +152,11 @@
         LOGREF = .TRUE.
         DTTIME = 0.
       ELSE
-        DTTIME = REAL(IDNOW-REFDAY) * 24.*3600.
+        DTTIME = REAL(IDNOW-REFDAY, KIND=8) * 24.*3600.
       ENDIF
-      DTTIME = DTTIME + 3600.*REAL(INTTIM(4)) + 60.*REAL(INTTIM(5)) +
-     &                  REAL(INTTIM(6))
+      DTTIME = DTTIME + 3600.*REAL(INTTIM(4), KIND=8) + 
+     &            60.*REAL(INTTIM(5), KIND=8) +
+     &                  REAL(INTTIM(6), KIND=8)
       RETURN
       END
 !*******************************************************************
@@ -423,12 +424,12 @@
 !
       INTEGER ITIME(6)
 !
-      REAL    RTMP
+      REAL*8    RTMP
 !
 !     DTTIME : Gives time in seconds from a reference day it also initialises the
 !              reference day
 !
-      REAL    DTTIME
+      REAL*8    DTTIME
 !
 !  8. SUBROUTINE USED
 !
