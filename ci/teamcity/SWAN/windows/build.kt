@@ -19,7 +19,7 @@ object WindowsBuild : BuildType({
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
-        install/** => swan_artifacts_x64_%build.vcs.number%.zip!x64
+        artifacts/** => swan_artifacts_x64_%build.vcs.number%.zip!x64
     """.trimIndent()
 
     params {
@@ -38,7 +38,7 @@ object WindowsBuild : BuildType({
 
     steps {
         script {
-            name = "Build"
+            name = "Build OMP"
             scriptContent = """
                 call C:\set-env.cmd
 
@@ -47,6 +47,62 @@ object WindowsBuild : BuildType({
 
                 python build.py --build --build-type %build_type% --ci
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                
+                xcopy install artifacts /E /C /Y /I
+            """.trimIndent()
+            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
+            dockerPull = true
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+        }
+        script {
+            name = "Build MPI"
+            scriptContent = """
+                call C:\set-env.cmd
+
+                python run_conan.py initialize deltares --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+
+                python build.py --mpi --build --build-type %build_type% --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                
+                copy install\bin\swan_mpi.exe artifacts\bin
+            """.trimIndent()
+            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
+            dockerPull = true
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+        }
+        script {
+            name = "Build timing"
+            scriptContent = """
+                call C:\set-env.cmd
+
+                python run_conan.py initialize deltares --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+
+                python build.py --timing --build --build-type %build_type% --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                
+                copy install\bin\swan_omp_timing.exe artifacts\bin
+            """.trimIndent()
+            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
+            dockerPull = true
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+        }
+        script {
+            name = "Build double"
+            scriptContent = """
+                call C:\set-env.cmd
+
+                python run_conan.py initialize deltares --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+
+                python build.py --double --build --build-type %build_type% --ci
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                
+                copy install\bin\swan_omp_doubleprecision.exe artifacts\bin
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
