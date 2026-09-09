@@ -74,7 +74,7 @@ project {
         feature {
             type = "OAuthProvider"
             param("displayName", "Keeper Vault Swan")
-            param("secure:client-secret", "credentialsJSON:bcf00886-4ae4-4c0a-9701-4e37efab8504")
+            param("secure:client-secret", "credentialsJSON:0a926562-e58f-4dce-a897-94e624f3ae79")
             param("providerType", "teamcity-ksm")
         }
     }
