@@ -11,9 +11,7 @@ object LinuxBuild : BuildType({
 
     description = "CMake build."
 
-    templates(
-        TemplateDockerRegistry
-    )
+    templates(TemplateDockerRegistry)
 
     name = "Build"
     buildNumberPattern = "SWAN: %build.vcs.number%"
@@ -22,8 +20,7 @@ object LinuxBuild : BuildType({
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
-        install/** => oss_artifacts_lnx64_%build.vcs.number%.tar.gz!lnx64
-        unit-test-report-linux.xml
+        build_SWAN/install/** => oss_artifacts_lnx64_%build.vcs.number%.tar.gz!lnx64
     """.trimIndent()
 
     outputParams {
@@ -36,17 +33,17 @@ object LinuxBuild : BuildType({
 
     params {
         param("container.tag", "oneapi-2024-ifx-release")
+        param("env.CONAN_HOME", "/conan-cache")
         param("generator", """"Unix Makefiles"""")
         param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
-        param("env.CONAN_HOME", "/conan-cache")
     }
 
     vcs {
         root(DslContext.settingsRoot)
         cleanCheckout = true
-        checkoutDir = "ossbuild-lnx64"
+        checkoutDir = "swanbuild-lnx"
     }
 
     steps {
@@ -75,23 +72,9 @@ object LinuxBuild : BuildType({
                 python run_conan.py initialize deltares --ci
                 python build.py --build --build-type %build_type% --ci
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%container.tag%"
+            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
             dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-            dockerPull = true
-        }
-        script {
-            name = "Install"
-            scriptContent = """
-                #!/usr/bin/env bash
-                source /etc/bashrc
-                set -eo pipefail
-
-                cmake --install build --config %build_type%
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/delft3d-dev/delft3d-third-party-libs:%container.tag%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache"
             dockerPull = true
         }
     }
