@@ -20,7 +20,7 @@ object LinuxBuild : BuildType({
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
-        build_SWAN/install/** => oss_artifacts_lnx64_%build.vcs.number%.tar.gz!lnx64
+        build/install/** => swan_artifacts_lnx64_%build.vcs.number%.tar.gz!lnx64
     """.trimIndent()
 
     outputParams {

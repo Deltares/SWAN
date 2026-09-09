@@ -19,7 +19,7 @@ object WindowsBuild : BuildType({
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
-        build_SWAN/install/** => oss_artifacts_x64_%build.vcs.number%.zip!x64
+        install/** => swan_artifacts_x64_%build.vcs.number%.zip!x64
     """.trimIndent()
 
     params {
