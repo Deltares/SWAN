@@ -68,6 +68,9 @@ object LinuxBuild : BuildType({
                 export CMAKE_INCLUDE_PATH=/usr/local/include:${'$'}CMAKE_INCLUDE_PATH
                 export CMAKE_LIBRARY_PATH=/usr/local/lib:${'$'}CMAKE_LIBRARY_PATH
 
+                echo "env: start"
+                env
+                echo "env: finished"
                 # Initialize Conan and install pre-built dependencies from Nexus
                 python run_conan.py initialize deltares --ci
                 python build.py --build --build-type %build_type% --ci
