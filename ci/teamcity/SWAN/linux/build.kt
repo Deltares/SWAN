@@ -32,7 +32,7 @@ object LinuxBuild : BuildType({
     }
 
     params {
-        param("container.tag", "oneapi-2024-ifx-release")
+        param("container.tag", "oneapi-2024")
         param("env.CONAN_HOME", "/conan-cache")
         param("generator", """"Unix Makefiles"""")
         param("build_type", "Release")
