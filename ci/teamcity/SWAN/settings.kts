@@ -35,8 +35,8 @@ project {
     description = "contact: BlackOps (black-ops@deltares.nl)"
 
     params {
-        param("delft3d-user", DslContext.getParameter("delft3d-user"))
-        password("delft3d-secret", DslContext.getParameter("delft3d-secret"))
+        param("swan-harbor-user", DslContext.getParameter("swan-harbor-user"))
+        password("swan-harbor-secret", DslContext.getParameter("swan-harbor-secret"))
 
         param("nexus_username", DslContext.getParameter("nexus_username"))
         password("nexus_password", DslContext.getParameter("nexus_password"))
@@ -65,16 +65,16 @@ project {
 
     features {
         dockerRegistry {
-            id = "DOCKER_REGISTRY_DELFT3D"
-            name = "Docker Registry Delft3d"
+            id = "DOCKER_REGISTRY_SWAN"
+            name = "Docker Registry SWAN"
             url = "https://containers.deltares.nl/"
-            userName = "%delft3d-user%"
-            password = "%delft3d-secret%"
+            userName = "%swan-harbor-user%"
+            password = "%swan-harbor-secret%"
         }
         feature {
             type = "OAuthProvider"
-            param("displayName", "Keeper Vault Delft3d")
-            param("secure:client-secret", "credentialsJSON:bcf00886-4ae4-4c0a-9701-4e37efab8504")
+            param("displayName", "Keeper Vault Swan")
+            param("secure:client-secret", "credentialsJSON:0a926562-e58f-4dce-a897-94e624f3ae79")
             param("providerType", "teamcity-ksm")
         }
     }

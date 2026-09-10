@@ -9,8 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
-BASE_URI = "https://internal-artifacts.deltares.nl/repository/swan-dev/"
-ARTIFACT_NAME = "41.51.9_ifx2024.2.0_win.zip"
+BASE_URI = "https://internal-artifacts.deltares.nl/repository/swan-dev"
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False) -> str:
+def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False, required: bool = True) -> str:
     if value and value.strip():
         return value.strip()
 
@@ -34,7 +33,10 @@ def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False)
         entered = entered.strip()
         if entered:
             return entered
-        print("Value is required.", file=sys.stderr)
+        if required:
+            print("Value is required.", file=sys.stderr)
+        else:
+            return None
 
 
 def validate_folder_name(name: str, arg_name: str) -> str:
@@ -60,9 +62,7 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
 
     # Only fail when both version and platform folder already exist
     if version_folder.exists() and platform_folder.exists():
-        raise ValueError(
-            f"Destination already exists: {platform_folder}"
-        )
+        raise ValueError(f"Destination already exists: {platform_folder}")
 
     # Guard against path collisions with files
     if version_folder.exists() and not version_folder.is_dir():
@@ -77,7 +77,7 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
 def build_artifact_uri(version: str, platform: str) -> str:
     version_part = quote(version.strip("/\\"), safe="")
     platform_part = quote(platform.strip("/\\"), safe="")
-    return f"{BASE_URI}{version_part}/{platform_part}/{ARTIFACT_NAME}"
+    return f"{BASE_URI}/{version_part}/{platform_part}/swan_{version_part}_{platform_part}.zip"
 
 
 def download_file(uri: str, token_name: str, token_pass: str, destination_folder: Path) -> Path:
@@ -161,6 +161,13 @@ def unzip_artifact(zip_path: Path, extract_to: Path) -> None:
     zip_path.unlink()
 
 
+def set_executable_permissions(root: Path) -> None:
+    paths = [root]
+    paths.extend(root.rglob("*"))
+    for path in paths:
+        if path.exists():
+            mode = path.stat().st_mode
+            path.chmod(mode | 0o111)
 
 
 
@@ -173,12 +180,14 @@ def main() -> int:
 
     message = "\n  Version example: 41.51.9\n  Check Nexus for available versions\n"
     version = prompt_if_missing(args.version, message + "Version: ")
-    
-    message = "\n  Platform options: win or lnx\n"
+
+    message = "\n  Platform options: x64(Windows) or lnx64(Linux)\n"
     platform = prompt_if_missing(args.platform, message + "Platform: ")
-    
-    message = "\n  Destination folder example: C:\\artifacts\n"
-    destination = prompt_if_missing(args.destination, message + "Destination folder: ")
+
+    message = "\n  Destination folder example: C:\\artifacts\nJust press Enter to use the current working directory.\n"
+    destination = prompt_if_missing(args.destination, message + "Destination folder: ", required=False)
+    if not destination or not destination.strip():
+        destination = str(Path.cwd())
 
     try:
         version_folder, platform_folder = prepare_folders(destination, version, platform)
@@ -191,6 +200,10 @@ def main() -> int:
 
         unzip_artifact(zip_path, platform_folder)
         print(f"Extracted to: {platform_folder}")
+
+        set_executable_permissions(platform_folder)
+        print(f"Executable permissions added to all files in folder: {platform_folder}")
+
         return 0
 
     except HTTPError as ex:
