@@ -681,22 +681,19 @@ contains
 
           ierr = nf90_get_att( ncid, NF90_GLOBAL, 'Directional_convention', dconv)
           if (ierr /= nf90_noerr) then
-              do i = 1, size(names_dir)
-                  ierr = nf90_inq_dimid(ncid, names_dir(i), dir_dimid)
-                  if ( ierr == nf90_noerr ) then
-                      firstChar = names_dir(i)(1:1)
-                      if (firstChar == 'n' .or. firstChar == 'N') then
-                          dconv = 'nautical'
-                      else
-                          dconv = 'cartesian'
-                      endif
-                      exit
-                  endif
-              enddo
-          else
-              dconv = ' '
+            do i = 1, size(names_dir)
+                ierr = nf90_inq_dimid(ncid, names_dir(i), dir_dimid)
+                if ( ierr == nf90_noerr ) then
+                    firstChar = names_dir(i)(1:1)
+                    if (firstChar == 'n' .or. firstChar == 'N') then
+                        dconv = 'nautical'
+                    else
+                        dconv = 'cartesian'
+                    endif
+                    exit
+                endif
+            enddo
           endif
-
       end function get_direction_convention
 
     subroutine swn_hre_timf(NDSD, COUNT_IT, TIMCO, TIMF)
@@ -724,7 +721,7 @@ contains
             ri = COUNT_IT
         end if
 
-        timf = real(recordaxe%content(ri) - recordaxe%content(recordaxe%first), 8) - real(toffset,8)
+        timf = real(recordaxe%content(ri) - recordaxe%content(recordaxe%first), 8) + real(toffset,8)
 
     end subroutine swn_hre_timf
 
