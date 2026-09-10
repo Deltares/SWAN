@@ -219,7 +219,7 @@ add_custom_command(
   OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD}
   COMMAND
-    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} *.ftn*
+    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
   WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
   DEPENDS
