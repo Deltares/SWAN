@@ -152,7 +152,7 @@ object LinuxBuild : BuildType({
 
                 # Initialize Conan and install pre-built dependencies from Nexus
                 python run_conan.py initialize deltares --ci
-                python build.py --timing --build --build-type %build_type% --ci
+                python build.py --double --build --build-type %build_type% --ci
                 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
