@@ -306,6 +306,7 @@ elseif (WIN32)
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IFCOREMD "$ENV{ONEAPI_ROOT}/compiler/latest/bin/libifcoremd.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_MMD "$ENV{ONEAPI_ROOT}/compiler/latest/bin/libmmd.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_DISPMD "$ENV{ONEAPI_ROOT}/compiler/latest/bin/svml_dispmd.dll")
+    STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_IOMP5 "$ENV{ONEAPI_ROOT}/compiler/latest/bin/libiomp5md.dll")
     STRING(REGEX REPLACE "\\\\" "/" DLL_PATHS_VCRUNTIME140 "c:/Windows/System32/vcruntime140.dll")
     set(DLL_PATHS
         "${DLL_PATHS_IMPI}"
@@ -318,6 +319,7 @@ elseif (WIN32)
         "${DLL_PATHS_IFCOREMD}"
         "${DLL_PATHS_MMD}"
         "${DLL_PATHS_DISPMD}"
+        "${DLL_PATHS_IOMP5}"
         "${DLL_PATHS_VCRUNTIME140}"
         )
 endif()
