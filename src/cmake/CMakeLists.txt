@@ -120,6 +120,11 @@ find_package(netCDF-Fortran CONFIG REQUIRED)
 
 # generate directory where we place the generated code
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
+set(SWANMOD_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod/swanmod)
+file(MAKE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
+foreach(config ${CMAKE_CONFIGURATION_TYPES})
+    file(MAKE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY}/${config})
+endforeach()
 
 set( SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/m_constants.f90
@@ -137,6 +142,36 @@ set( SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swn_outnc.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
+)
+
+set( SWANMOD_BASE
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/swmod1.for
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/nctablemd.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/serv_xnl4v5.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanGriddata.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanGridobjects.f90
+)
+
+set( SWANMOD_CORE
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/swmod2.for
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/m_constants.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/netcdf_tools.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanCompdata.f90
+)
+
+set( SWANMOD_IO
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/m_fileio.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/agioncmd.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
+)
+
+set( SWANMOD_XNL
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/mod_xnl4v5.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/swn_outnc.f90
+)
+
+set( SWANMOD_EXTENSIONS
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
 )
 
 set( SWANF
@@ -227,8 +262,35 @@ add_custom_command(
     ${SWAN_SOURCE_FILES}
   )
 
+add_library(swanmod_base "")
+target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
+
+add_library(swanmod_core "")
+target_sources(swanmod_core PRIVATE ${SWANMOD_CORE})
+target_link_libraries(swanmod_core PUBLIC swanmod_base)
+
+add_library(swanmod_io "")
+target_sources(swanmod_io PRIVATE ${SWANMOD_IO})
+target_link_libraries(swanmod_io PUBLIC swanmod_core)
+
+add_library(swanmod_xnl "")
+target_sources(swanmod_xnl PRIVATE ${SWANMOD_XNL})
+target_link_libraries(swanmod_xnl PUBLIC swanmod_io)
+
 add_library(swanmod "")
-target_sources(swanmod PRIVATE ${SWANMOD})
+target_sources(swanmod PRIVATE ${SWANMOD_EXTENSIONS})
+target_link_libraries(swanmod PUBLIC swanmod_xnl)
+
+set(SWANMOD_TARGETS swanmod_base swanmod_core swanmod_io swanmod_xnl swanmod)
+foreach(target ${SWANMOD_TARGETS})
+    set_target_properties(${target} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY}
+    )
+    target_include_directories(${target} PUBLIC
+        ${CMAKE_CURRENT_BINARY_DIR}/generated
+        ${SWANMOD_MODULE_DIRECTORY}
+    )
+endforeach()
 
 set(SWANEXE "swan")
 if (USE_MPI)
@@ -248,12 +310,15 @@ endif()
 
 add_executable(${SWANEXE} "")
 target_sources(${SWANEXE} PRIVATE ${SWANF})
+target_include_directories(${SWANEXE} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
 
 # Add dependencies
 if (UNIX)
     # the `pkg_check_modules` function is created with this call
     find_package(PkgConfig REQUIRED)
-    target_link_libraries(swanmod netCDF::netcdff)
+    foreach(target ${SWANMOD_TARGETS})
+        target_link_libraries(${target} PUBLIC netCDF::netcdff)
+    endforeach()
     target_link_libraries(${SWANEXE} swanmod netCDF::netcdff)
     add_definitions(-DHAVE_CONFIG_H=1)
 endif(UNIX)
@@ -262,13 +327,17 @@ target_include_directories(${SWANEXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/genera
 
 if (NOT USE_MPI)
     if(UNIX)
-        target_link_options(swanmod PRIVATE ${openmp_flag2})
+        foreach(target ${SWANMOD_TARGETS})
+            target_link_options(${target} PRIVATE ${openmp_flag2})
+        endforeach()
         target_link_options(${SWANEXE} PRIVATE ${openmp_flag2})
     endif(UNIX)
 endif()
 
 if(WIN32)
-    target_link_libraries(swanmod netCDF::netcdff)
+    foreach(target ${SWANMOD_TARGETS})
+        target_link_libraries(${target} PUBLIC netCDF::netcdff)
+    endforeach()
     target_link_libraries(${SWANEXE} swanmod netCDF::netcdff)
 endif(WIN32)
 
