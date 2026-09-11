@@ -60,10 +60,32 @@ def _register_local_recipes() -> None:
     )
 
 
+def _refresh_remote_login(remote: str, username_env: str, password_env: str) -> None:
+    """Force a fresh login instead of silently reusing a possibly stale cached token.
+
+    Conan reuses a cached login for a remote until it expires, which can mask
+    outdated or incorrect credentials for a build or two after they are rotated.
+    """
+    username = os.environ.get(username_env)
+    password = os.environ.get(password_env)
+    if not username or not password:
+        return
+
+    subprocess.run(["conan", "remote", "logout", remote], check=False)
+    subprocess.run(["conan", "remote", "login", remote, username, "-p", password], check=True)
+
+
 def setup_conan_config_deltares(*, ci: bool = False) -> None:
     """Install full Conan configuration including Deltares Nexus remotes and register local recipes."""
     _conan_config_install(ci=ci)
     _register_local_recipes()
+
+    if ci:
+        _refresh_remote_login(
+            "delft3d-conan-dev",
+            "CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV",
+            "CONAN_PASSWORD_DELFT3D_CONAN_DEV",
+        )
 
 
 def setup_conan_config_external(*, ci: bool = False) -> None:
