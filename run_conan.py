@@ -70,11 +70,12 @@ def _refresh_remote_login(remote: str, username_env: str, password_env: str) -> 
     password = os.environ.get(password_env)
     if not username or not password:
         print(
-            f"Skipping login to remote '{remote}': {username_env} or {password_env} is not set."
+            f"Skipping login to remote '{remote}': {username_env} or {password_env} is not set.",
+            flush=True,
         )
         return
 
-    print(f"Logging in to remote '{remote}' as '{username}' (from {username_env})...")
+    print(f"Logging in to remote '{remote}' as '{username}' (from {username_env})...", flush=True)
     subprocess.run(["conan", "remote", "logout", remote], check=False)
     subprocess.run(["conan", "remote", "login", remote, username, "-p", password], check=True)
 
