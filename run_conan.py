@@ -77,6 +77,8 @@ def _refresh_remote_login(remote: str, username_env: str, password_env: str) -> 
 
     if (username.startswith("**")):
         print("USername is MASKED!!", flush=True)
+    if (username.startswith("qe")):
+        print("Username starts is like Nexus", flush=True)
     print(f"Logging in to remote '{remote}' as '{username}' (from {username_env})...", flush=True)
     subprocess.run(["conan", "remote", "logout", remote], check=False)
     subprocess.run(["conan", "remote", "login", remote, username, "-p", password], check=True)
