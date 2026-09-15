@@ -137,7 +137,7 @@ def run_cmake_build(*, build_type: str, build_dir: Path, build_log: str) -> None
         cmd += [build_log]
     
     print(f"Building ({build_type}).")
-    subprocess.run(cmd, check=False)
+    subprocess.run(cmd, check=True)
 
 
 
