@@ -71,6 +71,9 @@ object LinuxBuild : BuildType({
                 export FC=mpiifx
                 export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
                 export CC=mpiicx
+                echo "HERE"
+                conan remote logout delft3d-conan-dev
+                conan remote login delft3d-conan-dev 
 
                 # Initialize Conan and install pre-built dependencies from Nexus
                 python run_conan.py initialize deltares --ci
