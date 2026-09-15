@@ -143,6 +143,10 @@ set( SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
 )
+# The SWANMOD files are split in 5 blocks, dependent on each other, 
+# to be able to compile on Windows (in one go). 
+# Compiling the fifth block, SWANMOD_EXTENSIONS (with project name "swanmod"), 
+# will result in all SWANMOD files being compiled, ready to be used by the rest of the swan code.
 
 set( SWANMOD_BASE
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swmod1.for
