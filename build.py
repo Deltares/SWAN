@@ -136,12 +136,9 @@ def run_cmake_build(*, build_type: str, build_dir: Path, build_log: str) -> None
     if build_log != "":
         cmd += [build_log]
     
-    print(f"Building ({build_type})...(1/3)")
+    print(f"Building ({build_type}).")
     subprocess.run(cmd, check=False)
-    print(f"Building ({build_type})...(2/3)")
-    subprocess.run(cmd, check=False)
-    print(f"Building ({build_type})...(3/3)")
-    subprocess.run(cmd, check=True)
+
 
 
 def run_cmake_install(*, build_type: str, build_dir: Path, build_log: str) -> None:
