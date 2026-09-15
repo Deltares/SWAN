@@ -89,12 +89,12 @@ def setup_conan_config_deltares(*, ci: bool = False) -> None:
     _conan_config_install(ci=ci)
     _register_local_recipes()
 
-    if ci:
-        _refresh_remote_login(
-            "delft3d-conan-dev",
-            "CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV",
-            "CONAN_PASSWORD_DELFT3D_CONAN_DEV",
-        )
+    # if ci:
+    #     _refresh_remote_login(
+    #         "delft3d-conan-dev",
+    #         "CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV",
+    #         "CONAN_PASSWORD_DELFT3D_CONAN_DEV",
+    #     )
 
 
 def setup_conan_config_external(*, ci: bool = False) -> None:
