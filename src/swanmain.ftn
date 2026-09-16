@@ -26,11 +26,11 @@
 !
 !***********************************************************************
 !                                                                      *
-      SUBROUTINE SWAN (COMM1)
+      SUBROUTINE SWAN_LIB (COMM1)
 !                                                                      *
 !***********************************************************************
 !
-      USE MPI
+!MPI      USE MPI
       USE M_PARALL, ONLY: COMM
 
       IMPLICIT NONE
@@ -129,7 +129,7 @@
 !
 !     --- end of MAIN PROGRAM
 !
-      END SUBROUTINE SWAN
+      END SUBROUTINE SWAN_LIB
 !***********************************************************************
 !                                                                      *
       SUBROUTINE SWMAIN                                                   40.31 34.01

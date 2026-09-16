@@ -2,7 +2,7 @@ program SWAN
 !MPI    use mpi
 !MPI    integer :: ierror
 !MPI!NCOH    call mpi_init(ierror)
-!MPI    call swan(MPI_COMM_WORLD)
-!NMPI   call swan(0)
+!MPI    call SWAN_LIB(MPI_COMM_WORLD)
+!NMPI   call SWAN_LIB(0)
 !MPI!NCOH    call mpi_finalize(ierror)
 end program SWAN

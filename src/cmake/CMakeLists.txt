@@ -72,7 +72,7 @@ else()
     endif()
     set(CMAKE_Fortran_FLAGS "/libs:dll /threads /nologo /heap-arrays:20 /Qauto /traceback /fp:source ${r8flag} /arch:CORE-AVX2 /Qftz ")
     set(CMAKE_Fortran_FLAGS_DEBUG "/fpp /debug:full /Od /dbglibs /debug-parameters:used \
-                                   /check:bounds /check:stack /check:uninit ${openmp_flag1} ")
+                                   /check:bounds /check:stack ${openmp_flag1} ")
     set(CMAKE_Fortran_FLAGS_RELEASE "/fpp /Oy- /Qfp-speculation:safe ${openmp_flag1} ")
     set(openmp_flag2 /Qopenmp)
     set(OS_SWITCH -dos -cvis)
@@ -248,6 +248,10 @@ set(HCAT
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanhcat.for
 )
 
+set(SWANPROGRAM_FILE
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/swanprogram.f90
+)
+
 file(GLOB SWAN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn90
@@ -256,7 +260,7 @@ file(GLOB SWAN_SOURCE_FILES
 # generate code using switch.py
 add_custom_command(
     OUTPUT
-    ${SWANF} ${HCAT} ${SWANMOD}
+    ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE}
     COMMAND
     python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
     WORKING_DIRECTORY
@@ -296,25 +300,28 @@ foreach(target ${SWANMOD_TARGETS})
     )
 endforeach()
 
-set(SWANLIB "swan")
+set(SWANBASE "swan")
 if(USE_MPI)
-    set(SWANLIB "${SWANLIB}_mpi")
+    set(SWANBASE "${SWANBASE}_mpi")
 else()
-    set(SWANLIB "${SWANLIB}_omp")
+    set(SWANBASE "${SWANBASE}_omp")
 endif()
 if(PRECISION STREQUAL "DOUBLE")
-    set(SWANLIB "${SWANLIB}_doubleprecision")
+    set(SWANBASE "${SWANBASE}_doubleprecision")
 endif()
 if(TIMING)
-    set(SWANLIB "${SWANLIB}_timing")
+    set(SWANBASE "${SWANBASE}_timing")
+endif()
+set(SWANLIB "${SWANBASE}_lib")
+set(SWANEXE ${SWANBASE})
+if(UNIX)
+    set(SWANEXE "${SWANEXE}.exe")
 endif()
 
 add_library(${SWANLIB} STATIC "")
 target_sources(${SWANLIB} PRIVATE ${SWANF})
 target_include_directories(${SWANLIB} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
 
-# Keep the legacy install variable intact until the install block is updated.
-set(SWANEXE ${SWANLIB})
 
 # Add dependencies
 if(UNIX)
@@ -329,23 +336,8 @@ endif(UNIX)
 
 target_include_directories(${SWANLIB} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated .)
 
-set(SWANEXE "swan")
-if(USE_MPI)
-    set(SWANEXE "${SWANEXE}_mpi")
-else()
-    set(SWANEXE "${SWANEXE}_omp")
-endif()
-if(PRECISION STREQUAL "DOUBLE")
-    set(SWANEXE "${SWANEXE}_doubleprecision")
-endif()
-if(TIMING)
-    set(SWANEXE "${SWANEXE}_timing")
-endif()
-if(UNIX)
-    set(SWANEXE "${SWANEXE}.exe")
-endif()
-
-add_executable(${SWANEXE} "${CMAKE_CURRENT_BINARY_DIR}/generated/swanprogram.f90")
+add_executable(${SWANEXE} "")
+target_sources(${SWANEXE} PRIVATE ${SWANPROGRAM_FILE})
 target_link_libraries(${SWANEXE} PRIVATE ${SWANLIB})
 target_include_directories(${SWANEXE} PRIVATE ${SWANMOD_MODULE_DIRECTORY} ${CMAKE_CURRENT_BINARY_DIR}/generated .)
 
@@ -370,9 +362,12 @@ if(USE_MPI)
     add_executable(hcat "")
     target_sources(hcat PRIVATE ${HCAT})
     target_include_directories(${SWANLIB} PRIVATE ${mpi_module_path})
+    target_include_directories(${SWANEXE} PRIVATE ${mpi_module_path})
     target_link_directories(${SWANLIB} PRIVATE "${mpi_library_path}")
+    target_link_directories(${SWANEXE} PRIVATE "${mpi_library_path}")
     if(WIN32)
         target_link_libraries(${SWANLIB} PUBLIC "${mpi_fortran_library}")
+        target_link_libraries(${SWANEXE} PUBLIC "${mpi_fortran_library}")
     endif(WIN32)
 endif(USE_MPI)
 
