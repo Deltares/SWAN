@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.30)
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE) 
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
 
 project(SWAN LANGUAGES Fortran)
 
@@ -14,12 +14,12 @@ option(USE_MPI "Use MPI for parallel computing" OFF)
 option(PRECISION "Use single/double precision" SINGLE)
 option(TIMING "Timing info in output" OFF)
 
-if (USE_MPI)
+if(USE_MPI)
     message("with MPI")
     set(CMAKE_Fortran_COMPILER mpiifx)
     set(MPI_SWITCH -mpi)
 else()
-    set(MPI_SWITCH )
+    set(MPI_SWITCH)
 endif(USE_MPI)
 
 message("-- Precision: ${PRECISION}")
@@ -34,26 +34,26 @@ message("-- Precision: ${PRECISION}")
 #     Linux  :  NO fp=source    -arch CORE-AVX2
 #
 
-if (UNIX)
+if(UNIX)
     if(PRECISION STREQUAL "DOUBLE")
         set(r8flag "-r8")
     else()
         set(r8flag "")
     endif()
     if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-        if (NOT USE_MPI)
+        if(NOT USE_MPI)
             set(openmp_flag1 " ${r8flag} -fopenmp -ffree-line-length-none -fallow-argument-mismatch ")
         else()
             set(openmp_flag1 " ${r8flag} -ffree-line-length-none  ")
         endif()
-        set(openmp_flag2 )
+        set(openmp_flag2)
     else()
-        if (NOT USE_MPI)
+        if(NOT USE_MPI)
             set(openmp_flag1 " ${r8flag} -qopenmp -arch CORE-AVX2 -ftz ")
             set(openmp_flag2 -qopenmp)
         else()
             set(openmp_flag1 " ${r8flag} -arch CORE-AVX2 ")
-            set(openmp_flag2 )
+            set(openmp_flag2)
         endif()
     endif()
     set(CMAKE_Fortran_FLAGS "${openmp_flag1} -diag-disable=8291 ")
@@ -65,7 +65,7 @@ else()
     else()
         set(r8flag "")
     endif()
-    if (NOT USE_MPI)
+    if(NOT USE_MPI)
         set(openmp_flag1 "/Qopenmp ${r8flag} ")
     else()
         set(openmp_flag1 "${r8flag} ")
@@ -78,33 +78,33 @@ else()
     set(OS_SWITCH -dos -cvis)
 endif(UNIX)
 
-if (TIMING)
+if(TIMING)
     message("Timing added to output")
     set(TIMING_SWITCH -timg)
 else()
-    set(TIMING_SWITCH )
+    set(TIMING_SWITCH)
 endif(TIMING)
 
 
-if (WIN32)
-    if (USE_MPI)
+if(WIN32)
+    if(USE_MPI)
         message(STATUS "Intel MPI")
         list(APPEND CMAKE_MESSAGE_INDENT "  ")
-            message(STATUS "Using Intel 2024 folder structure.")
-            set(mpi_include_path $ENV{ONEAPI_ROOT}/mpi/latest/include)
-            set(mpi_module_path ${mpi_include_path}/mpi)
-            set(mpi_library_path $<IF:$<CONFIG:Debug>,$ENV{ONEAPI_ROOT}/mpi/latest/lib/mpi/debug,$ENV{ONEAPI_ROOT}/mpi/latest/lib>)
-            set(mpi_fortran_library "impi.lib")
-            set(mpi_c_library "impi.lib;impicxx.lib")
-            message(STATUS "mpi include path \"${mpi_include_path}\"")
-            message(STATUS "mpi module path \"${mpi_module_path}\"")
-            message(STATUS "mpi library path \"${mpi_library_path}\"")
-            message(STATUS "mpi fortran library \"${mpi_fortran_library}\"")
-            message(STATUS "mpi c library \"${mpi_c_library}\"")
+        message(STATUS "Using Intel 2024 folder structure.")
+        set(mpi_include_path $ENV{ONEAPI_ROOT}/mpi/latest/include)
+        set(mpi_module_path ${mpi_include_path}/mpi)
+        set(mpi_library_path $<IF:$<CONFIG:Debug>,$ENV{ONEAPI_ROOT}/mpi/latest/lib/mpi/debug,$ENV{ONEAPI_ROOT}/mpi/latest/lib>)
+        set(mpi_fortran_library "impi.lib")
+        set(mpi_c_library "impi.lib;impicxx.lib")
+        message(STATUS "mpi include path \"${mpi_include_path}\"")
+        message(STATUS "mpi module path \"${mpi_module_path}\"")
+        message(STATUS "mpi library path \"${mpi_library_path}\"")
+        message(STATUS "mpi fortran library \"${mpi_fortran_library}\"")
+        message(STATUS "mpi c library \"${mpi_c_library}\"")
         list(POP_BACK CMAKE_MESSAGE_INDENT)
-    endif (USE_MPI)
-endif (WIN32)
-if (UNIX)
+    endif(USE_MPI)
+endif(WIN32)
+if(UNIX)
     find_package(MPI REQUIRED)
     add_definitions(-DHAVE_MPI)
     set(mpi_module_path ${mpi_include_path})
@@ -126,7 +126,7 @@ foreach(config ${CMAKE_CONFIGURATION_TYPES})
     file(MAKE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY}/${config})
 endforeach()
 
-set( SWANMOD
+set(SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/m_constants.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/m_fileio.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/serv_xnl4v5.f90
@@ -148,7 +148,7 @@ set( SWANMOD
 # Compiling the fifth block, SWANMOD_EXTENSIONS (with project name "swanmod"), 
 # will result in all SWANMOD files being compiled, ready to be used by the rest of the swan code.
 
-set( SWANMOD_BASE
+set(SWANMOD_BASE
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swmod1.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/nctablemd.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/serv_xnl4v5.f90
@@ -156,29 +156,29 @@ set( SWANMOD_BASE
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanGridobjects.f90
 )
 
-set( SWANMOD_CORE
+set(SWANMOD_CORE
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swmod2.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/m_constants.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/netcdf_tools.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanCompdata.f90
 )
 
-set( SWANMOD_IO
+set(SWANMOD_IO
     ${CMAKE_CURRENT_BINARY_DIR}/generated/m_fileio.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/agioncmd.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
 )
 
-set( SWANMOD_XNL
+set(SWANMOD_XNL
     ${CMAKE_CURRENT_BINARY_DIR}/generated/mod_xnl4v5.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swn_outnc.f90
 )
 
-set( SWANMOD_EXTENSIONS
+set(SWANMOD_EXTENSIONS
     ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
 )
 
-set( SWANF
+set(SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanmain.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanVertlist.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanTranspX.f90
@@ -191,7 +191,7 @@ set( SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadEasymeshGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadADCGrid.f90
-# Disabled:    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
+    # Disabled:    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelX.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelS.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPrintGridInfo.f90
@@ -244,27 +244,27 @@ set( SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanBraggScat.f90
 )
 
-set( HCAT
+set(HCAT
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanhcat.for
 )
 
-file(GLOB SWAN_SOURCE_FILES 
+file(GLOB SWAN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn90
 )
 
 # generate code using switch.py
 add_custom_command(
-  OUTPUT
+    OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD}
-  COMMAND
+    COMMAND
     python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
-  WORKING_DIRECTORY
+    WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
-  DEPENDS
+    DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py
     ${SWAN_SOURCE_FILES}
-  )
+)
 
 add_library(swanmod_base "")
 target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
@@ -296,8 +296,41 @@ foreach(target ${SWANMOD_TARGETS})
     )
 endforeach()
 
+set(SWANLIB "swan")
+if(USE_MPI)
+    set(SWANLIB "${SWANLIB}_mpi")
+else()
+    set(SWANLIB "${SWANLIB}_omp")
+endif()
+if(PRECISION STREQUAL "DOUBLE")
+    set(SWANLIB "${SWANLIB}_doubleprecision")
+endif()
+if(TIMING)
+    set(SWANLIB "${SWANLIB}_timing")
+endif()
+
+add_library(${SWANLIB} STATIC "")
+target_sources(${SWANLIB} PRIVATE ${SWANF})
+target_include_directories(${SWANLIB} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
+
+# Keep the legacy install variable intact until the install block is updated.
+set(SWANEXE ${SWANLIB})
+
+# Add dependencies
+if(UNIX)
+    # the `pkg_check_modules` function is created with this call
+    find_package(PkgConfig REQUIRED)
+    foreach(target ${SWANMOD_TARGETS})
+        target_link_libraries(${target} PUBLIC netCDF::netcdff)
+    endforeach()
+    target_link_libraries(${SWANLIB} PUBLIC swanmod netCDF::netcdff)
+    add_definitions(-DHAVE_CONFIG_H=1)
+endif(UNIX)
+
+target_include_directories(${SWANLIB} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated .)
+
 set(SWANEXE "swan")
-if (USE_MPI)
+if(USE_MPI)
     set(SWANEXE "${SWANEXE}_mpi")
 else()
     set(SWANEXE "${SWANEXE}_omp")
@@ -305,35 +338,23 @@ endif()
 if(PRECISION STREQUAL "DOUBLE")
     set(SWANEXE "${SWANEXE}_doubleprecision")
 endif()
-if (TIMING)
+if(TIMING)
     set(SWANEXE "${SWANEXE}_timing")
 endif()
-if (UNIX)
+if(UNIX)
     set(SWANEXE "${SWANEXE}.exe")
 endif()
 
-add_executable(${SWANEXE} "")
-target_sources(${SWANEXE} PRIVATE ${SWANF})
-target_include_directories(${SWANEXE} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
+add_executable(${SWANEXE} "${CMAKE_CURRENT_BINARY_DIR}/generated/swanprogram.f90")
+target_link_libraries(${SWANEXE} PRIVATE ${SWANLIB})
+target_include_directories(${SWANEXE} PRIVATE ${SWANMOD_MODULE_DIRECTORY} ${CMAKE_CURRENT_BINARY_DIR}/generated .)
 
-# Add dependencies
-if (UNIX)
-    # the `pkg_check_modules` function is created with this call
-    find_package(PkgConfig REQUIRED)
-    foreach(target ${SWANMOD_TARGETS})
-        target_link_libraries(${target} PUBLIC netCDF::netcdff)
-    endforeach()
-    target_link_libraries(${SWANEXE} swanmod netCDF::netcdff)
-    add_definitions(-DHAVE_CONFIG_H=1)
-endif(UNIX)
-
-target_include_directories(${SWANEXE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated .)
-
-if (NOT USE_MPI)
+if(NOT USE_MPI)
     if(UNIX)
         foreach(target ${SWANMOD_TARGETS})
             target_link_options(${target} PRIVATE ${openmp_flag2})
         endforeach()
+        target_link_options(${SWANLIB} PRIVATE ${openmp_flag2})
         target_link_options(${SWANEXE} PRIVATE ${openmp_flag2})
     endif(UNIX)
 endif()
@@ -342,27 +363,27 @@ if(WIN32)
     foreach(target ${SWANMOD_TARGETS})
         target_link_libraries(${target} PUBLIC netCDF::netcdff)
     endforeach()
-    target_link_libraries(${SWANEXE} swanmod netCDF::netcdff)
+    target_link_libraries(${SWANLIB} PUBLIC swanmod netCDF::netcdff)
 endif(WIN32)
 
-if (USE_MPI)
+if(USE_MPI)
     add_executable(hcat "")
     target_sources(hcat PRIVATE ${HCAT})
-    target_include_directories(${SWANEXE} PRIVATE ${mpi_module_path})
-    target_link_directories(${SWANEXE} PRIVATE "${mpi_library_path}")
+    target_include_directories(${SWANLIB} PRIVATE ${mpi_module_path})
+    target_link_directories(${SWANLIB} PRIVATE "${mpi_library_path}")
     if(WIN32)
-        target_link_libraries(${SWANEXE} "${mpi_fortran_library}")
+        target_link_libraries(${SWANLIB} PUBLIC "${mpi_fortran_library}")
     endif(WIN32)
 endif(USE_MPI)
 
 #
 # Install
 # Basicly copied from Delft3D
-if (UNIX)
+if(UNIX)
     set(platform_extension sh)
     set(library_suffix so)
     set(library_prefix lib)
-elseif (WIN32)
+elseif(WIN32)
     set(platform_extension bat)
     set(library_suffix dll)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS TRUE) # Ignore warnings about missing ifort libs, we use ifx
@@ -394,12 +415,13 @@ elseif (WIN32)
         "${DLL_PATHS_DISPMD}"
         "${DLL_PATHS_IOMP5}"
         "${DLL_PATHS_VCRUNTIME140}"
-        )
+    )
 endif()
 
+install(TARGETS ${SWANLIB} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS ${SWANEXE} RUNTIME DESTINATION bin)
 install(FILES $<TARGET_RUNTIME_DLLS:${SWANEXE}> DESTINATION bin)
-if (UNIX)
+if(UNIX)
     install(CODE "
         include(\"${CMAKE_CURRENT_SOURCE_DIR}/functions.cmake\")
         execute_process(
@@ -418,7 +440,7 @@ if (UNIX)
         file(REMOVE \"${CMAKE_INSTALL_PREFIX}/lib/libc.so.6\")
         file(REMOVE \"${CMAKE_INSTALL_PREFIX}/lib/libgcc_s.so.1\")
     ")
-elseif (WIN32)
+elseif(WIN32)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
 endif()
