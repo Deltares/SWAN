@@ -8,8 +8,9 @@
 #   export CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=<your-nexus-username>
 #   export CONAN_PASSWORD_DELFT3D_CONAN_DEV=<your-nexus-password>
 #
-# Usage: ./ci/teamcity/build_omp_local.sh [build_type]
+# Usage: ./ci/teamcity/build_all_local.sh [build_type] [build_tag]
 #   build_type: Release (default) | Debug | RelWithDebInfo ...
+#   build_tag:   Git branch or tag to use for the build (default: current branch)
 
 set -eo pipefail
 
@@ -23,7 +24,9 @@ if [[ -z "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV:-}" || -z "${CONAN_PASSWORD_D
     exit 1
 fi
 
+
 BUILD_TYPE="${1:-Release}"
+BUILD_TAG="${2:-${BRANCH_NAME}}"
 
 # Adjust/remove this if you're not using the oneAPI container environment.
 source /etc/bashrc 2>/dev/null || true
@@ -59,14 +62,14 @@ cp build/install/bin/swan_omp_timing.exe artifacts/bin
 python build.py --double --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
 
-echo "Current branch: ${BRANCH_NAME}"
-ARCHIVE_NAME="swan_${BRANCH_NAME}_lnx64"
+echo "Current build tag: ${BUILD_TAG}"
+ARCHIVE_NAME="swan_${BUILD_TAG}_lnx64"
 zip -r "build/${ARCHIVE_NAME}.zip" artifacts
 zipnote "build/${ARCHIVE_NAME}.zip" \
     | sed "s|^@ artifacts\(.*\)$|@ artifacts\1\n@=${ARCHIVE_NAME}\1|" \
     | zipnote -w "build/${ARCHIVE_NAME}.zip"
 
-NEXUS_ARTIFACT_URL="https://internal-artifacts.deltares.nl/repository/swan-dev/${BRANCH_NAME}/lnx64/${ARCHIVE_NAME}.zip"
+NEXUS_ARTIFACT_URL="https://internal-artifacts.deltares.nl/repository/swan-dev/${BUILD_TAG}/lnx64/${ARCHIVE_NAME}.zip"
 curl --fail --show-error --silent \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
     --upload-file "build/${ARCHIVE_NAME}.zip" \

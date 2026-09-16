@@ -13,9 +13,10 @@
 #   export DOCKER_REGISTRY_USERNAME=<your-harbor-username>
 #   export DOCKER_REGISTRY_PASSWORD=<your-harbor-password-or-robot-token>
 #
-# Usage: ./ci/teamcity/build_omp_docker.sh [build_type] [container_tag]
+# Usage: ./ci/teamcity/build_all_docker.sh [build_type] [container_tag] [repo_root]
 #   build_type:    Release (default) | Debug | RelWithDebInfo ...
 #   container_tag: oneapi-2024 (default)
+#   repo_root:     repository to mount into the container (default: detected from this script)
 
 set -eo pipefail
 
@@ -33,9 +34,10 @@ fi
 
 BUILD_TYPE="${1:-Release}"
 CONTAINER_TAG="${2:-oneapi-2024}"
+REPO_ROOT="${3:-$(pwd)}"
+BUILD_TAG="${4:-$(git -C "${REPO_ROOT}" branch --show-current)}"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 docker run --rm \
     --mount type=volume,source=swan-conan-cache,target=/conan-cache \
@@ -43,6 +45,7 @@ docker run --rm \
     -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV \
     -e CONAN_PASSWORD_DELFT3D_CONAN_DEV \
     -v "${REPO_ROOT}:/workspace" \
+    -v "${SCRIPT_ROOT}:/scripts" \
     -w /workspace \
     "containers.deltares.nl/swan-dev/swan-buildtools-linux:${CONTAINER_TAG}" \
-    ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh "${BUILD_TYPE}"
+    "/scripts/SWAN/linux/containers/scripts/build_all_local.sh" "${BUILD_TYPE}" "${BUILD_TAG}"
