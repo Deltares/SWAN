@@ -13,6 +13,10 @@
 
 set -eo pipefail
 
+export REPOSITORY_PATH="${REPOSITORY_PATH:-/workspace}"
+git config --global --add safe.directory "${REPOSITORY_PATH}"
+export BRANCH_NAME="$(git -C "${REPOSITORY_PATH}" branch --show-current)"
+
 if [[ -z "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV:-}" || -z "${CONAN_PASSWORD_DELFT3D_CONAN_DEV:-}" ]]; then
     echo "ERROR: CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV and CONAN_PASSWORD_DELFT3D_CONAN_DEV must be set." >&2
     echo "Export your Nexus credentials for the 'delft3d-conan-dev' remote before running this script." >&2
@@ -54,3 +58,16 @@ cp build/install/bin/swan_omp_timing.exe artifacts/bin
 
 python build.py --double --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
+
+echo "Current branch: ${BRANCH_NAME}"
+ARCHIVE_NAME="swan_${BRANCH_NAME}_lnx64"
+zip -r "build/${ARCHIVE_NAME}.zip" artifacts
+zipnote "build/${ARCHIVE_NAME}.zip" \
+    | sed "s|^@ artifacts\(.*\)$|@ artifacts\1\n@=${ARCHIVE_NAME}\1|" \
+    | zipnote -w "build/${ARCHIVE_NAME}.zip"
+
+NEXUS_ARTIFACT_URL="https://internal-artifacts.deltares.nl/repository/swan-dev/${BRANCH_NAME}/lnx64/${ARCHIVE_NAME}.zip"
+curl --fail --show-error --silent \
+    --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
+    --upload-file "build/${ARCHIVE_NAME}.zip" \
+    "${NEXUS_ARTIFACT_URL}"

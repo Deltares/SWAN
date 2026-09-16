@@ -44,5 +44,5 @@ docker run --rm \
     -e CONAN_PASSWORD_DELFT3D_CONAN_DEV \
     -v "${REPO_ROOT}:/workspace" \
     -w /workspace \
-    "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:${CONTAINER_TAG}" \
+    "containers.deltares.nl/swan-dev/swan-buildtools-linux:${CONTAINER_TAG}" \
     ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh "${BUILD_TYPE}"
