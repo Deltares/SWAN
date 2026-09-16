@@ -137,7 +137,8 @@
 
 !MPI!     --- enroll in MPI
 !MPI
-!MPI!NCOH      CALL MPI_INIT ( IERR )
+!MPI!NCOH!     The call to MPI_INIT is moved to swanprogram.ftn90 
+!MPI!NCOH      IERR = MPI_SUCCESS
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
@@ -154,7 +155,7 @@
 
 !MPI!     --- get node number INODE
 !MPI
-!MPI!NCOH      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, INODE, IERR )
+!MPI!NCOH      CALL MPI_COMM_RANK ( COMM, INODE, IERR )
       INODE = INODE + 1
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
@@ -170,7 +171,7 @@
 !MPI
 !MPI!     --- determine total number of processes
 !MPI
-!MPI!NCOH      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROC, IERR )
+!MPI!NCOH      CALL MPI_COMM_SIZE ( COMM, NPROC, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
@@ -214,6 +215,7 @@
 !
 !MPI      USE MPI
       USE OCPCOMM4                                                        40.41
+      USE M_PARALL, ONLY: COMM
 !
       IMPLICIT NONE
 !
@@ -304,19 +306,19 @@
 !MPI      CALL MPI_INITIALIZED ( PARALMPI, IERR )
 !MPI      IF ( PARALMPI ) THEN
 !MPI
-!MPI!NCOH         CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
+!MPI!NCOH         CALL MPI_BARRIER ( COMM, IERR )
 !MPI
 !MPI         IF ( LEVERR.GE.4 ) THEN
 !MPI
 !MPI!        --- in case of a severe error abort all MPI processes
 !MPI
-!MPI!NCOH            CALL MPI_ABORT ( MPI_COMM_WORLD, LEVERR, IERR )
+!MPI!NCOH            CALL MPI_ABORT ( COMM, LEVERR, IERR )
 !MPI
 !MPI         ELSE
 !MPI
 !MPI!        --- otherwise stop MPI operations on this computer
 !MPI
-!MPI!NCOH            CALL MPI_FINALIZE ( IERR )
+!MPI!NCOH!            The call to MPI_FINALIZE is moved to swanprogram.ftn90
 !MPI
 !MPI         END IF
 !MPI
@@ -434,7 +436,7 @@
 
 !MPI!     --- blocks until all nodes have called this routine
 !MPI
-!MPI!NCOH      CALL MPI_BARRIER ( MPI_COMM_WORLD, IERR )
+!MPI!NCOH      CALL MPI_BARRIER ( COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
@@ -567,7 +569,7 @@
       IF (.NOT.PARLL) RETURN
 
 !MPI!NCOH      CALL MPI_SEND ( IPTR, ILEN, ITYPE, IDEST-1,
-!MPI!NCOH     &                ITAG, MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                ITAG, COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
@@ -706,7 +708,7 @@
       IF (.NOT.PARLL) RETURN
 
 !MPI!NCOH      CALL MPI_RECV ( IPTR, ILEN, ITYPE, ISOURCE-1, ITAG,
-!MPI!NCOH     &                MPI_COMM_WORLD, ISTAT, IERR )
+!MPI!NCOH     &                COMM, ISTAT, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS(1) = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS(1),IF1,IL1)
@@ -840,7 +842,7 @@
 
 !TIMG      CALL SWTSTA(201)
 !MPI!NCOH      CALL MPI_BCAST ( IPTR, ILEN, ITYPE, MASTER-1,
-!MPI!NCOH     &                 MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                 COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS,IF,IL)
@@ -994,7 +996,7 @@
 !MPI!     --- gather the array sizes to the master
 !MPI
 !MPI!NCOH      CALL MPI_GATHER( IILEN, 1, SWINT, ICOUNT, 1, SWINT,
-!MPI!NCOH     &                 MASTER-1, MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                 MASTER-1, COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS,IF,IL)
@@ -1029,7 +1031,7 @@
 !MPI!         to the master
 !MPI
 !MPI!NCOH      CALL MPI_GATHERV( IIPTR, IILEN, ITYPE, IOPTR, ICOUNT, IDSPLC,
-!MPI!NCOH     &                  ITYPE, MASTER-1, MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                  ITYPE, MASTER-1, COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS,IF,IL)
@@ -1277,7 +1279,7 @@
 
 !TIMG      CALL SWTSTA(202)
 !MPI!NCOH      CALL MPI_ALLREDUCE ( IARR, ITEMP, ILEN, SWINT,
-!MPI!NCOH     &                     ITYPRD, MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                     ITYPRD, COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS,IF,IL)
@@ -1413,7 +1415,7 @@
 
 !TIMG      CALL SWTSTA(202)
 !MPI!NCOH      CALL MPI_ALLREDUCE ( ARR, TEMP, ILEN, SWREAL,
-!MPI!NCOH     &                     ITYPRD, MPI_COMM_WORLD, IERR )
+!MPI!NCOH     &                     ITYPRD, COMM, IERR )
 !MPI      IF ( IERR.NE.MPI_SUCCESS ) THEN
 !MPI         CHARS = INTSTR(IERR)
 !MPI         CALL TXPBLA(CHARS,IF,IL)
