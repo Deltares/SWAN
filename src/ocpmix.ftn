@@ -157,7 +157,6 @@
       DTTIME = DTTIME + 3600.*REAL(INTTIM(4), KIND=8) + 
      &            60.*REAL(INTTIM(5), KIND=8) +
      &                  REAL(INTTIM(6), KIND=8)
-      print *, 'DTTIME = ', DTTIME
       RETURN
       END
 !*******************************************************************
