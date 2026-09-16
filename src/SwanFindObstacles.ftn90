@@ -55,7 +55,7 @@ subroutine SwanFindObstacles ( cross )
 !
 !   Argument variables
 !
-    integer, dimension(nfaces), intent(out) :: cross           ! contains sequence number of obstacles for each face
+    type(OBSTDAT_PTR), dimension(nfaces), intent(out) :: cross           ! contains sequence number of obstacles for each face
                                                                ! where they crossing or zero if no crossing
 !
 !   Local variables
@@ -92,10 +92,6 @@ subroutine SwanFindObstacles ( cross )
     vert => gridobject%vert_grid
     face => gridobject%face_grid
     !
-    ! initialize array cross
-    !
-    cross = 0
-    !
     ! go to first obstacle
     !
     cobst => FOBSTAC
@@ -124,7 +120,7 @@ subroutine SwanFindObstacles ( cross )
              xv(2) = vert(ve)%attr(VERTX)
              yv(2) = vert(ve)%attr(VERTY)
              !
-             if ( SwanCrossObstacle( xv, yv, xobs, yobs ) ) cross(iface) = j
+             if ( SwanCrossObstacle( xv, yv, xobs, yobs ) ) cross(iface)%PTR => cobst
              !
           enddo faceloop
           !
