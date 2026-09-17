@@ -80,3 +80,5 @@ rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
 
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >run_testbench_"${TEST_VERSION}"_lnx64_OMP.log 2>&1
+echo "End Tests"
+ls -la .
