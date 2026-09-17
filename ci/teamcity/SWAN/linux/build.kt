@@ -26,6 +26,7 @@ object LinuxBuild : BuildType({
     
     failureConditions {
         testFailure = false
+        executionTimeoutMin = 240
     }
     
     outputParams {

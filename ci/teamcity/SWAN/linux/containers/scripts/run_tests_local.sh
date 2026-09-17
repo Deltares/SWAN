@@ -83,14 +83,25 @@ rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
 LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 
+export OMP_NUM_THREADS=4
+export NPROCESSES=1
+
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >"${LOG_FILE}" 2>&1
+
+export OMP_NUM_THREADS=1
+export NPROCESSES=4
+
+LOG_FILE_MPI="run_testbench_${TEST_VERSION}_lnx64_MPI.log"
+.venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp >"${LOG_FILE_MPI}" 2>&1
 echo "End Tests"
 
-cat "${LOG_FILE}"
+tail -n 100 "${LOG_FILE}"
+tail -n 100 "${LOG_FILE_MPI}"
 
 cd "${ORIGINAL_DIR}"
 rm -rf test_results
 mkdir -p test_results
 
 cp -a "${TESTBED_FOLDER}/${LOG_FILE}" test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/${LOG_FILE_MPI}" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
