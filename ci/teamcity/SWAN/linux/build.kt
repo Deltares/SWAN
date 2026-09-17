@@ -41,6 +41,7 @@ object LinuxBuild : BuildType({
         param("svn_username", DslContext.getParameter("svn_username"))
         password("svn_password", DslContext.getParameter("svn_password"))
         password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
+        param("env.UV_INDEX_URL", "https://%nexus_conan_username%:%nexus_conan_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
     }
 
     vcs {
@@ -89,7 +90,8 @@ object LinuxBuild : BuildType({
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
                 "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
                 "-e SVN_USER_NAME=%svn_username% " +
-                "-e SVN_PASSWORD"
+                "-e SVN_PASSWORD " +
+                "-e UV_INDEX_URL"
             dockerPull = true
         }
     }
