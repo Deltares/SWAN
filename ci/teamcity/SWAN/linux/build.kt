@@ -94,7 +94,8 @@ object LinuxBuild : BuildType({
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --ulimit stack=-1:-1 --mount type=volume,source=swan-test-cache,target=/workspace " +
+            // Intel MPI's shared-memory transport needs more than Docker's default 64m /dev/shm
+            dockerRunParameters = "--rm --ulimit stack=-1:-1 --shm-size=2g --mount type=volume,source=swan-test-cache,target=/workspace " +
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
                 "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
                 "-e SVN_USER_NAME=%svn_username% " +
