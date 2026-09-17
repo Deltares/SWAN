@@ -87,7 +87,7 @@ LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 export OMP_NUM_THREADS=4
 export NPROCESSES=1
 
-.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/OMP_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
+.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/OMP_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
 
 tail -n 100 "${LOG_FILE}"
 
