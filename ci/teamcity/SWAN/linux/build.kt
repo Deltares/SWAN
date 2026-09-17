@@ -85,7 +85,6 @@ object LinuxBuild : BuildType({
                 source /etc/bashrc
                 pwd
                 ls -la /workspace
-                echo "%nexus_username%"
                 ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
