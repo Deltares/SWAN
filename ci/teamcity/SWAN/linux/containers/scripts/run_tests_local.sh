@@ -22,6 +22,7 @@ TEST_VERSION="$2"
 REF_VERSION="$3"
 mkdir -p "${TESTBED_FOLDER}"
 
+cd "${TESTBED_FOLDER}"
 
 if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
 	svn update \
