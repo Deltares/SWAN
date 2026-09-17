@@ -38,6 +38,8 @@ object LinuxBuild : BuildType({
         param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
+        param("svn_username", DslContext.getParameter("svn_username"))
+        password("svn_password", DslContext.getParameter("svn_password"))
     }
 
     vcs {
@@ -77,14 +79,16 @@ object LinuxBuild : BuildType({
                 #!/usr/bin/env bash
                 source /etc/bashrc
                 pwd
-                ls /workspace
+                ls -la /workspace
                 ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
             dockerRunParameters = "--rm --mount type=volume,source=swan-test-cache,target=/workspace " +
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
-                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
+                "-e SVN_USER_NAME=%svn_username% " +
+                "-e SVN_PASSWORD=%svn_password%"
             dockerPull = true
         }
     }
