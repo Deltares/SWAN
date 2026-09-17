@@ -21,8 +21,7 @@ object LinuxBuild : BuildType({
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
         artifacts/** => swan_artifacts_lnx64_%build.vcs.number%.zip!lnx64
-        run_testbench_* => test_logs
-        stat_output => test_logs
+        test_results/** => test_logs
     """.trimIndent()
 
     outputParams {
@@ -85,7 +84,13 @@ object LinuxBuild : BuildType({
                 source /etc/bashrc
                 pwd
                 ls -la /workspace
-                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
+                test_exit=0
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN" || test_exit=$?
+                
+                cp -a /workspace/run_testbench_*.log . 2>/dev/null || true
+                rm -rf stat_output
+                cp -a /workspace/stat_output . 2>/dev/null || true
+                exit "${test_exit}"
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux

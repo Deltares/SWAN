@@ -22,7 +22,10 @@ TEST_VERSION="$2"
 REF_VERSION="$3"
 mkdir -p "${TESTBED_FOLDER}"
 
+ORIGINAL_DIR="${PWD}"
+
 cd "${TESTBED_FOLDER}"
+
 
 if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
 	svn update \
@@ -82,3 +85,10 @@ rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >run_testbench_"${TEST_VERSION}"_lnx64_OMP.log 2>&1
 echo "End Tests"
 ls -la .
+
+cd "${ORIGINAL_DIR}"
+rm -rf test_results
+mkdir -p test_results
+
+cp -a "${TESTBED_FOLDER}/run_testbench_"* test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
