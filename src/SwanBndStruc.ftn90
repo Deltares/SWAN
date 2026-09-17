@@ -92,6 +92,10 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
 !
     if (ltrace) call strace (ient,'SwanBndStruc')
     !
+    ! if list of boundary vertices is already filled, return
+    !
+    if (SwanBndStruc_done) return
+    !
     if (.not.allocated(xbnd)) allocate (xbnd(1:2*(mxc+myc-2)))
     if (.not.allocated(ybnd)) allocate (ybnd(1:2*(mxc+myc-2)))
     ibnd = 0
@@ -164,7 +168,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
       write (psname, '(A6, I2.2)') 'BOUND_', iside
       mip = ispt
       if (mip>0) then
-        allocate(OPSTMP)
+        call constructor(OPSTMP)
         OPSTMP%PSNAME = psname
         OPSTMP%PSTYPE = 'C'
         OPSTMP%MIP = mip
@@ -195,7 +199,7 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
     psname = 'BOUNDARY'
     mip = ibnd
     if (mip>0) then
-      allocate(OPSTMP)
+      call constructor(OPSTMP)
       OPSTMP%PSNAME = psname
       OPSTMP%PSTYPE = 'C'
       OPSTMP%MIP = mip
@@ -221,5 +225,8 @@ subroutine SwanBndStruc ( xcgrid, ycgrid )
     else
       call MSGERR(1,'No output points found in '//psname)
     endif
+    !
+    ! prevent second unnecessary entry into this subroutine
+    SwanBndStruc_done = .true.
     !
 end subroutine SwanBndStruc

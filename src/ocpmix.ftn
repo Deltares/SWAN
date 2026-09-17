@@ -1773,15 +1773,16 @@
 !
 !  8. SOURCE TEXT
 !
-      SAVE      IENT, IFUN
+      SAVE      IENT
 !
       DATA FISTAT(1),FISTAT(2) / 'OLD','NEW'/
      &     FISTAT(3),FISTAT(4) / 'SCRATCH','UNKNOWN'/
      &     FORM(1),FORM(2) / 'FORMATTED','UNFORMATTED'/
 !
-      DATA IENT /0/, IFUN /0/
+      DATA IENT /0/
       CALL STRACE (IENT, 'FOR')
 !
+      IFUN = 0
       IF (ITEST.GE.80) WRITE (PRTEST, 2) IUNIT, DDNAME, SF, IOSTAT
    2  FORMAT (' Entry FOR: ', I3, 1X, A36, A2, I7)
       DDNAME_L = DDNAME                                                   40.03
@@ -1854,6 +1855,8 @@
             ELSE
                IFUN = IFUN + 1
             ENDIF
+            INQUIRE (UNIT=IFUN, OPENED=OPENED)
+            IF (OPENED) GOTO 60
 !Casey 160728: Merging the changes from Jason in an earlier version of SWAN.
             SELECT CASE(IFUN)                                             40.88
             CASE(411:417)                                                 40.88
@@ -1919,8 +1922,9 @@
 !CVIS     &         SHARED,                                                    40.41
      &      ACCESS='SEQUENTIAL',FORM=FORM(IFO))
          END IF
+         IFUN = IUNIT
       END IF
-      HIOPEN = IFUN
+      HIOPEN = MAX(HIOPEN,IFUN)
   80  IF (ITEST.GE.30) WRITE (PRINTF, 82) IUNIT, DDNAME, SF
   82  FORMAT (' File opened: ', I6, 2X, A36, 2X, A2)
       RETURN
