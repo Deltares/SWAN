@@ -40,6 +40,7 @@ object LinuxBuild : BuildType({
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("svn_username", DslContext.getParameter("svn_username"))
         password("svn_password", DslContext.getParameter("svn_password"))
+        password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
     }
 
     vcs {
@@ -88,7 +89,7 @@ object LinuxBuild : BuildType({
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
                 "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
                 "-e SVN_USER_NAME=%svn_username% " +
-                "-e SVN_PASSWORD=%svn_password%"
+                "-e SVN_PASSWORD"
             dockerPull = true
         }
     }
