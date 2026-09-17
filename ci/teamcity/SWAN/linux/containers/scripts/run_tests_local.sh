@@ -81,14 +81,16 @@ unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
 cp -a "${EXTRACTION_DIR}/swan_${REF_VERSION}_lnx64/." "${EXECUTABLE_DIR}/"
 rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
+LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 
-.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >run_testbench_"${TEST_VERSION}"_lnx64_OMP.log 2>&1
+.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >"${LOG_FILE}" 2>&1
 echo "End Tests"
-ls -la .
+
+cat "${LOG_FILE}"
 
 cd "${ORIGINAL_DIR}"
 rm -rf test_results
 mkdir -p test_results
 
-cp -a "${TESTBED_FOLDER}/run_testbench_"* test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/${LOG_FILE}" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
