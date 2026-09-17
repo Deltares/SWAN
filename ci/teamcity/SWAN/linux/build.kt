@@ -21,6 +21,8 @@ object LinuxBuild : BuildType({
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
         artifacts/** => swan_artifacts_lnx64_%build.vcs.number%.zip!lnx64
+        run_testbench_* => test_logs
+        stat_output => test_logs
     """.trimIndent()
 
     outputParams {
