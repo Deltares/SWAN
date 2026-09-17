@@ -57,7 +57,8 @@ object LinuxBuild : BuildType({
             """.trimIndent()
         }
         script {
-            name = "Build OMP"
+            name = "Build ALL"
+            enabled = false
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
@@ -65,7 +66,25 @@ object LinuxBuild : BuildType({
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=swan-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+            dockerRunParameters = "--rm --mount type=volume,source=swan-conan-cache,target=/conan-cache " +
+                "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
+                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+            dockerPull = true
+        }
+        script {
+            name = "Test OMP"
+            scriptContent = """
+                #!/usr/bin/env bash
+                source /etc/bashrc
+                pwd
+                ls /workspace
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
+            """.trimIndent()
+            dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
+            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
+            dockerRunParamete/rs = "--rm --mount type=volume,source=swan-test-cache,target=/workspace " +
+                "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
+                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
             dockerPull = true
         }
     }
