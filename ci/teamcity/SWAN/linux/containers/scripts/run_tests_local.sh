@@ -18,6 +18,7 @@ if [[ "${SVN_USER_NAME}" != fun* ]]; then
 	echo "ERROR: SVN_USER_NAME not correct!" >&2
 	exit 1
 fi
+echo "L: ${#SVN_PASSWORD}"
 
 if [[ "${SVN_PASSWORD}" != *M ]]; then
 	echo "ERROR: SVN_PASSWORD not correct!" >&2
