@@ -41,7 +41,10 @@ object LinuxBuild : BuildType({
         param("svn_username", DslContext.getParameter("svn_username"))
         password("svn_password", DslContext.getParameter("svn_password"))
         password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
-        param("env.UV_INDEX_URL", "https://%nexus_conan_username%:%nexus_conan_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
+        param("nexus_username", DslContext.getParameter("nexus_username"))
+        password("nexus_password", DslContext.getParameter("nexus_password"))
+        
+        param("env.UV_INDEX_URL", "https://%nexus_username%:%nexus_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
     }
 
     vcs {
