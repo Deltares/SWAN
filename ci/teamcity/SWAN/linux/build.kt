@@ -83,12 +83,12 @@ object LinuxBuild : BuildType({
             dockerPull = true
         }
         script {
-            name = "Test OMP"
+            name = "Test All"
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                pwd
-                ls -la /workspace
+                echo "Number of processors:"
+                nproc
                 ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
                 
             """.trimIndent()

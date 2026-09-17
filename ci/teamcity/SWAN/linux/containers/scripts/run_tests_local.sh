@@ -44,12 +44,13 @@ else
 		"${TESTBED_FOLDER}"
 fi
 
-rm -rf .venv
-uv venv --python 3.12
+if [[ ! -d .venv ]]; then
+	uv venv --python 3.12
+fi
 source .venv/bin/activate
 pwd
 ls -la .
-uv pip install -r ./pip/lnx-requirements.txt
+uv pip sync ./pip/lnx-requirements.txt
 
 
 EXECUTABLE_DIR="/workspace/executables/swan/${TEST_VERSION}/lnx64"
@@ -86,7 +87,7 @@ LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 export OMP_NUM_THREADS=4
 export NPROCESSES=1
 
-.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >"${LOG_FILE}" 2>&1
+.venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
 
 tail -n 100 "${LOG_FILE}"
 
@@ -99,7 +100,7 @@ export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:/usr/local/lib:/opt/rh/
 export FI_PROVIDER_PATH="/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib/prov:/usr/lib64/libfabric"
 LOG_FILE_MPI="run_testbench_${TEST_VERSION}_lnx64_MPI.log"
 
-.venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp >"${LOG_FILE_MPI}" 2>&1
+.venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE_MPI}"
 echo "End Tests"
 
 tail -n 100 "${LOG_FILE_MPI}"
@@ -111,3 +112,4 @@ mkdir -p test_results
 cp -a "${TESTBED_FOLDER}/${LOG_FILE}" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/${LOG_FILE_MPI}" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/swan_output" test_results/ 2>/dev/null || true
