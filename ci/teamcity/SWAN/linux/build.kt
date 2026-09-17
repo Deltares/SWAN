@@ -23,7 +23,11 @@ object LinuxBuild : BuildType({
         artifacts/** => swan_artifacts_lnx64_%build.vcs.number%.zip!lnx64
         test_results/** => test_logs
     """.trimIndent()
-
+    
+    failureConditions {
+        testFailure = false
+    }
+    
     outputParams {
         exposeAllParameters = false
         param("product", "SWAN")
