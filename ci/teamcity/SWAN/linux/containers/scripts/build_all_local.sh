@@ -28,6 +28,8 @@ fi
 BUILD_TYPE="${1:-Release}"
 BUILD_TAG="${2:-${BRANCH_NAME}}"
 
+echo "Current build tag: ${BUILD_TAG}"
+
 # Adjust/remove this if you're not using the oneAPI container environment.
 source /etc/bashrc 2>/dev/null || true
 
@@ -62,7 +64,6 @@ cp build/install/bin/swan_omp_timing.exe artifacts/bin
 python build.py --double --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
 
-echo "Current build tag: ${BUILD_TAG}"
 ARCHIVE_NAME="swan_${BUILD_TAG}_lnx64"
 zip -r "build/${ARCHIVE_NAME}.zip" artifacts
 zipnote "build/${ARCHIVE_NAME}.zip" \

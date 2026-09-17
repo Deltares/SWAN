@@ -61,7 +61,7 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh
+                ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh Release "%teamcity.build.branch%"
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
