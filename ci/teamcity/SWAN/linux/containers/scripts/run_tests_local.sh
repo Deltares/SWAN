@@ -14,6 +14,13 @@ if [[ -z "${SVN_USER_NAME:-}" || -z "${SVN_PASSWORD:-}" ]]; then
 	exit 1
 fi
 
+if [[ "${SVN_USER_NAME}" != fun* ]]; then
+	echo "ERROR: SVN_USER_NAME not correct!" >&2
+	exit 1
+fi
+
+
+
 TESTBED_FOLDER="$1"
 TEST_VERSION="$2"
 REF_VERSION="$3"
