@@ -69,7 +69,7 @@ object LinuxBuild : BuildType({
         }
         script {
             name = "Build ALL"
-            enabled = false
+            enabled = true
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
