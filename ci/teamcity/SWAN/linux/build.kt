@@ -84,13 +84,8 @@ object LinuxBuild : BuildType({
                 source /etc/bashrc
                 pwd
                 ls -la /workspace
-                test_exit=0
-                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN" || test_exit=$?
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
                 
-                cp -a /workspace/run_testbench_*.log . 2>/dev/null || true
-                rm -rf stat_output
-                cp -a /workspace/stat_output . 2>/dev/null || true
-                exit "${test_exit}"
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
