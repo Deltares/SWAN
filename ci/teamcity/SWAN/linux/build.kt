@@ -77,7 +77,7 @@ object LinuxBuild : BuildType({
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=swan-conan-cache,target=/conan-cache " +
+            dockerRunParameters = "--rm --ulimit stack=-1:-1 --mount type=volume,source=swan-conan-cache,target=/conan-cache " +
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
                 "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
             dockerPull = true
@@ -94,7 +94,7 @@ object LinuxBuild : BuildType({
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=swan-test-cache,target=/workspace " +
+            dockerRunParameters = "--rm --ulimit stack=-1:-1 --mount type=volume,source=swan-test-cache,target=/workspace " +
                 "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
                 "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
                 "-e SVN_USER_NAME=%svn_username% " +
