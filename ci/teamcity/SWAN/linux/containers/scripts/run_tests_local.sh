@@ -14,17 +14,6 @@ if [[ -z "${SVN_USER_NAME:-}" || -z "${SVN_PASSWORD:-}" ]]; then
 	exit 1
 fi
 
-if [[ "${SVN_USER_NAME}" != fun* ]]; then
-	echo "ERROR: SVN_USER_NAME not correct!" >&2
-	exit 1
-fi
-echo "L: ${#SVN_PASSWORD}"
-
-if [[ "${SVN_PASSWORD}" != *M ]]; then
-	echo "ERROR: SVN_PASSWORD not correct!" >&2
-	exit 1
-fi
-
 echo "Starting test setup..."
 
 
@@ -34,13 +23,29 @@ REF_VERSION="$3"
 mkdir -p "${TESTBED_FOLDER}"
 
 
-svn checkout \
-	--non-interactive \
-	--no-auth-cache \
-	--username "${SVN_USER_NAME}" \
-	--password "${SVN_PASSWORD}" \
-	"${TESTBED_URL}" \
-	"${TESTBED_FOLDER}"
+if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
+	svn update \
+		--non-interactive \
+		--no-auth-cache \
+		--username "${SVN_USER_NAME}" \
+		--password "${SVN_PASSWORD}" \
+		"${TESTBED_FOLDER}"
+else
+	svn checkout \
+		--non-interactive \
+		--no-auth-cache \
+		--username "${SVN_USER_NAME}" \
+		--password "${SVN_PASSWORD}" \
+		"${TESTBED_URL}" \
+		"${TESTBED_FOLDER}"
+fi
+
+rm -rf .venv
+uv venv --python 3.12
+source .venv/bin/activate
+pwd
+ls -la .
+uv pip install -r ./pip/lnx-requirements.txt
 
 
 EXECUTABLE_DIR="/workspace/executables/swan/${TEST_VERSION}/lnx64"
@@ -72,9 +77,5 @@ unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
 cp -a "${EXTRACTION_DIR}/swan_${REF_VERSION}_lnx64/." "${EXECUTABLE_DIR}/"
 rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
-rm -rf .venv
-uv venv --python 3.12
-source .venv/bin/activate
-uv pip install -r pip/lnx-requirements.txt
 
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/archive/two_swan_cases.inp >run_testbench_"${TEST_VERSION}"_lnx64_OMP.log 2>&1
