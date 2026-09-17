@@ -19,6 +19,12 @@ if [[ "${SVN_USER_NAME}" != fun* ]]; then
 	exit 1
 fi
 
+if [[ "${SVN_PASSWORD}" != *M ]]; then
+	echo "ERROR: SVN_PASSWORD not correct!" >&2
+	exit 1
+fi
+
+echo "Starting test setup..."
 
 
 TESTBED_FOLDER="$1"
