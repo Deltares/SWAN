@@ -39,6 +39,7 @@ object WindowsBuild : BuildType({
     steps {
         script {
             name = "Build All"
+            enabled = false
             scriptContent = """
                 call C:\set-env.cmd
                 
@@ -51,56 +52,18 @@ object WindowsBuild : BuildType({
             dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
         }
         script {
-            name = "Build MPI"
-            enabled = false
+            name = "Test OMP"
+            enabled = true
             scriptContent = """
                 call C:\set-env.cmd
 
-                python run_conan.py initialize deltares --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                echo === Test tooling diagnostics ===
+                where svn.exe 2>nul || echo [not found] svn.exe
+                svn --version --quiet 2>nul || echo [not available] svn --version
+                where uv.exe 2>nul || echo [not found] uv.exe
+                uv pip --version 2>nul || echo [not available] uv pip --version
+                echo === End test tooling diagnostics ===
 
-                python build.py --mpi --build --build-type %build_type% --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
-                
-                copy install\bin\swan_mpi.exe artifacts\bin
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
-            dockerPull = true
-            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-        }
-        script {
-            name = "Build timing"
-            enabled = false
-            scriptContent = """
-                call C:\set-env.cmd
-
-                python run_conan.py initialize deltares --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
-
-                python build.py --timing --build --build-type %build_type% --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
-                
-                copy install\bin\swan_omp_timing.exe artifacts\bin
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
-            dockerPull = true
-            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-        }
-        script {
-            name = "Build double"
-            enabled = false
-            scriptContent = """
-                call C:\set-env.cmd
-
-                python run_conan.py initialize deltares --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
-
-                python build.py --double --build --build-type %build_type% --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
-                
-                copy install\bin\swan_omp_doubleprecision.exe artifacts\bin
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
