@@ -272,7 +272,7 @@ contains
         type(mapgrid_type)                     :: mapgrid
         type(recordaxe_type)                   :: recordaxe
 
-        real, external :: DTTIME
+        real(kind=8), external :: DTTIME
 
         call open_ncfile( ncfile, 'read', ncid)
         if ( ITEST >= 50 ) write(PRINTF,'("Open ", A)') trim(ncfile)
@@ -702,10 +702,10 @@ contains
         real(kind=8),           intent(  out)        :: timf
         integer, save                                :: IENT=0
         integer                                      :: ri
-        real                                         :: toffset
+        real(kind=8)                                 :: toffset
         type(recordaxe_type)                         :: recordaxe
 
-        real, external :: DTTIME
+        real(kind=8), external :: DTTIME
 
         call STRACE (IENT, 'swn_hre_timf')
 

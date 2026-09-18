@@ -897,6 +897,10 @@
          TYPE(OBSTDAT), POINTER :: NEXTOBST
       END TYPE OBSTDAT
 
+      TYPE OBSTDAT_PTR
+         TYPE(OBSTDAT), POINTER :: PTR => NULL()  ! auto-initializes to null
+      END TYPE OBSTDAT_PTR
+
       TYPE(OBSTDAT), SAVE, TARGET  :: FOBSTAC
 
 !  8. Subroutines and functions used

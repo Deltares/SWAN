@@ -43,7 +43,7 @@ subroutine SwanPrepComp ( cross )
 !
     use ocpcomm4
     use swcomm3
-    use m_obsta, only: OBSTDONE
+    use m_obsta, only: OBSTDONE, OBSTDAT_PTR
     use SwanGriddata
     use SwanGridobjects
 !
@@ -51,7 +51,7 @@ subroutine SwanPrepComp ( cross )
 !
 !   Argument variables
 !
-    integer, dimension(nfaces), intent(out) :: cross ! contains sequence number of obstacles for each face
+    type(OBSTDAT_PTR), dimension(nfaces), intent(out) :: cross ! contains sequence number of obstacles for each face
                                                      ! where they crossing or zero if no crossing
 !
 !   Local variables
