@@ -87,8 +87,6 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                echo "Number of processors:"
-                nproc
                 ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
                 
             """.trimIndent()

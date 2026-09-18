@@ -100,22 +100,6 @@ export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:/usr/local/lib:/opt/rh/
 export FI_PROVIDER_PATH="/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib/prov:/usr/lib64/libfabric"
 LOG_FILE_MPI="run_testbench_${TEST_VERSION}_lnx64_MPI.log"
 
-# echo "===== MPI environment diagnostics ($(date -u)) ====="
-# echo "--- uname ---"; uname -a
-# echo "--- ulimit -a ---"; ulimit -a
-# echo "--- nproc ---"; nproc
-# echo "--- free -h ---"; free -h
-# echo "--- df -h /dev/shm ---"; df -h /dev/shm
-# echo "--- /proc/meminfo (Shmem/Commit) ---"; grep -Ei 'shmem|commit' /proc/meminfo
-# echo "--- cgroup memory limit ---"
-# cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo "not available"
-# echo "--- dmesg (bus error / oom / kill) ---"
-# dmesg 2>/dev/null | grep -Ei 'bus error|oom|killed process|segfault' || echo "dmesg not available"
-# echo "===== end diagnostics ====="
-
-# Verbose Intel MPI/libfabric startup logging to help diagnose intermittent SIGBUS/kill failures
-# export I_MPI_DEBUG=5
-# export FI_LOG_LEVEL=info
 
 .venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE_MPI}"
 echo "End Tests"
