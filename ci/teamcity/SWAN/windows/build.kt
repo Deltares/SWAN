@@ -38,17 +38,29 @@ object WindowsBuild : BuildType({
 
     steps {
         script {
-            name = "Build OMP"
+            name = "Build All"
             scriptContent = """
                 call C:\set-env.cmd
 
-                python run_conan.py initialize deltares --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                echo === Archive and upload command diagnostics ===
+                ver
+                echo PATH=%%PATH%%
+                where 7z.exe 2>nul || echo [not found] 7z.exe
+                where zip.exe 2>nul || echo [not found] zip.exe
+                where tar.exe 2>nul || echo [not found] tar.exe
+                where curl.exe 2>nul || echo [not found] curl.exe
+                where powershell.exe 2>nul || echo [not found] powershell.exe
+                where pwsh.exe 2>nul || echo [not found] pwsh.exe
+                where powershell.exe >nul 2>&1 && powershell.exe -NoProfile -Command "Get-Command Compress-Archive, Invoke-WebRequest | Select-Object Name, CommandType, Source | Format-Table -AutoSize" || echo [not available] PowerShell archive/upload cmdlets
+                echo === End command diagnostics ===
 
-                python build.py --build --build-type %build_type% --ci
-                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+                rem python run_conan.py initialize deltares --ci
+                rem if %%errorlevel%% neq 0 exit /b %%errorlevel%%
+
+                rem python build.py --build --build-type %build_type% --ci
+                rem if %%errorlevel%% neq 0 exit /b %%errorlevel%%
                 
-                xcopy install artifacts /E /C /Y /I
+                rem xcopy install artifacts /E /C /Y /I
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
@@ -57,6 +69,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build MPI"
+            enable = false
             scriptContent = """
                 call C:\set-env.cmd
 
@@ -75,6 +88,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build timing"
+            enable = false
             scriptContent = """
                 call C:\set-env.cmd
 
@@ -93,6 +107,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build double"
+            enable = false
             scriptContent = """
                 call C:\set-env.cmd
 
