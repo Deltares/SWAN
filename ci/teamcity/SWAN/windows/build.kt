@@ -69,7 +69,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build MPI"
-            enable = false
+            enabled = false
             scriptContent = """
                 call C:\set-env.cmd
 
@@ -88,7 +88,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build timing"
-            enable = false
+            enabled = false
             scriptContent = """
                 call C:\set-env.cmd
 
@@ -107,7 +107,7 @@ object WindowsBuild : BuildType({
         }
         script {
             name = "Build double"
-            enable = false
+            enabled = false
             scriptContent = """
                 call C:\set-env.cmd
 
