@@ -57,14 +57,15 @@ if (-not (Test-Path -Path ".venv" -PathType Container)) {
 uv pip sync ./pip/win-requirements.txt
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$ArchivePlatform = "win64"
+$ArchivePlatform = "x64"
 foreach ($Version in @($TestVersion, $RefVersion)) {
     $ExecutableDir = Join-Path $ExecutableRoot "$Version\$ArchivePlatform"
     $ArchiveName = "swan_${Version}_${ArchivePlatform}.zip"
+    Write-Host "Processing version $Version for platform $ArchivePlatform"
     $ExtractionDir = Join-Path $env:TEMP "swan_${Version}_${ArchivePlatform}"
     $ArchivePath = Join-Path $env:TEMP $ArchiveName
     $ArchiveUrl = "https://internal-artifacts.deltares.nl/repository/swan-dev/$Version/$ArchivePlatform/$ArchiveName"
-
+    Write-Host "Downloading archive from $ArchiveUrl"
     New-Item -ItemType Directory -Force -Path $ExecutableDir | Out-Null
     Invoke-WebRequest -Uri $ArchiveUrl -OutFile $ArchivePath -Authentication Basic -Credential (
         [pscredential]::new(
@@ -72,10 +73,11 @@ foreach ($Version in @($TestVersion, $RefVersion)) {
             (ConvertTo-SecureString $env:CONAN_PASSWORD_DELFT3D_CONAN_DEV -AsPlainText -Force)
         )
     )
-
+    Write-Host "Downloaded archive to $ArchivePath"m
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ExtractionDir
     New-Item -ItemType Directory -Force -Path $ExtractionDir | Out-Null
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractionDir -Force
+    Write-Host "Copying extracted files from $ExtractionDir to $ExecutableDir"
     Copy-Item -Path (Join-Path $ExtractionDir "swan_${Version}_${ArchivePlatform}\*") -Destination $ExecutableDir -Recurse -Force
     Remove-Item -Recurse -Force $ArchivePath, $ExtractionDir
 }
