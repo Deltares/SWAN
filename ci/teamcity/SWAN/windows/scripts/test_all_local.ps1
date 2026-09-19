@@ -48,4 +48,15 @@ if (Test-Path ".svn") {
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-exit 0
+if (-not (Test-Path -Path ".venv" -PathType Container)) {
+    uv venv --python 3.12
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+. ".\.venv\Scripts\Activate.ps1"
+Get-Location
+Get-ChildItem -Force .
+uv pip sync ./pip/lnx-requirements.txt
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+

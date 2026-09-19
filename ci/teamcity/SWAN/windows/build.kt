@@ -31,6 +31,8 @@ object WindowsBuild : BuildType({
         param("svn_username", DslContext.getParameter("svn_username"))
         password("svn_password", DslContext.getParameter("svn_password"))
         password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
+
+        param("env.UV_INDEX_URL", "https://%nexus_conan_username%:%nexus_conan_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
     }
 
     vcs {
@@ -66,7 +68,9 @@ object WindowsBuild : BuildType({
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
             dockerPull = true
-            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% -e SVN_USER_NAME=%svn_username% -e SVN_PASSWORD"
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% -e " +
+                                    "SVN_USER_NAME=%svn_username% -e SVN_PASSWORD " +
+                                    "-e UV_INDEX_URL"
         }
     }
 
