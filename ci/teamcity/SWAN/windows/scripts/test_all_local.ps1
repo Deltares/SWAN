@@ -42,6 +42,7 @@ if (-not (Test-Path $TestbedFolder)) { New-Item -ItemType Directory -Path $Testb
 Set-Location $TestbedFolder
 
 if (Test-Path ".svn") {
+    svn cleanup .
     svn update --non-interactive --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" .
 } else {
     svn checkout --non-interactive  --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" "$TestbedUrl" .
