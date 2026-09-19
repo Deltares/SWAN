@@ -97,9 +97,9 @@ foreach ($Item in @(
     (Join-Path $TestbedFolder "stat_output"),
     (Join-Path $TestbedFolder "swan_output")
 )) {
-    Write-Host "Processing item $Item"
     if (Test-Path $Item) {
-        Copy-Item -Path $Item -Destination "test_results" -Force -ErrorAction SilentlyContinue
+        Write-Host "Processing item $Item"
+        Copy-Item -Path $Item -Destination "test_results" -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
 
