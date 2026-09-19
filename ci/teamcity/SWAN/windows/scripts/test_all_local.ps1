@@ -68,13 +68,12 @@ foreach ($Version in @($TestVersion, $RefVersion)) {
     $ArchiveUrl = "https://internal-artifacts.deltares.nl/repository/swan-dev/$Version/$ArchivePlatform/$ArchiveName"
     Write-Host "Downloading archive from $ArchiveUrl"
     New-Item -ItemType Directory -Force -Path $ExecutableDir | Out-Null
-    Invoke-WebRequest -Uri $ArchiveUrl -OutFile $ArchivePath -Authentication Basic -Credential (
-        [pscredential]::new(
-            $env:CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV,
-            (ConvertTo-SecureString $env:CONAN_PASSWORD_DELFT3D_CONAN_DEV -AsPlainText -Force)
-        )
-    )
-    Write-Host "Downloaded archive to $ArchivePath"m
+    curl.exe --fail --show-error --silent --location `
+        --user "${env:CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${env:CONAN_PASSWORD_DELFT3D_CONAN_DEV}" `
+        $ArchiveUrl `
+        --output $ArchivePath
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Host "Downloaded archive to $ArchivePath"
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ExtractionDir
     New-Item -ItemType Directory -Force -Path $ExtractionDir | Out-Null
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractionDir -Force
