@@ -94,10 +94,10 @@ New-Item -ItemType Directory -Force -Path "test_results" | Out-Null
 
 foreach ($Item in @(
     (Join-Path $TestbedFolder $LogFile),
-    (Join-Path $TestbedFolder "${LogFile}_MPI"),
     (Join-Path $TestbedFolder "stat_output"),
     (Join-Path $TestbedFolder "swan_output")
 )) {
+    Write-Host "Processing item $Item"
     if (Test-Path $Item) {
         Copy-Item -Path $Item -Destination "test_results" -Force -ErrorAction SilentlyContinue
     }
