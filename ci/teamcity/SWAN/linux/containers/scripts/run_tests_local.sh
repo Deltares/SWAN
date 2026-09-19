@@ -89,8 +89,6 @@ export NPROCESSES=1
 
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/OMP_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
 
-tail -n 100 "${LOG_FILE}"
-
 export OMP_NUM_THREADS=1
 export NPROCESSES=4
 
@@ -104,7 +102,6 @@ LOG_FILE_MPI="run_testbench_${TEST_VERSION}_lnx64_MPI.log"
 .venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE_MPI}"
 echo "End Tests"
 
-tail -n 100 "${LOG_FILE_MPI}"
 
 cd "${ORIGINAL_DIR}"
 rm -rf test_results
