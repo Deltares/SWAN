@@ -84,7 +84,7 @@ foreach ($Version in @($TestVersion, $RefVersion)) {
 
 $LogFile = "run_testbench_${TestVersion}_${ArchivePlatform}_OMP.log"
 
-& ".\.venv\Scripts\python.exe" run_testbench.py --prl omp --ref $RefVersion --test $TestVersion --cases settings/templates/archive/two_swan_cases.inp 2>&1 |
+& ".\.venv\Scripts\python.exe" run_testbench.py --prl omp --ref $RefVersion --test $TestVersion --cases settings/templates/MPI_DELTARES_swan_cases.inp 2>&1 |
     Tee-Object -FilePath $LogFile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
