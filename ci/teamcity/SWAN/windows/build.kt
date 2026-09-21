@@ -63,7 +63,7 @@ object WindowsBuild : BuildType({
             scriptContent = """
                 call C:\set-env.cmd
 
-                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\test_all_local.ps1 C:\workspace "%teamcity.build.branch%" "41.51.9CONAN"
+                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace "%teamcity.build.branch%" "41.51.9CONAN"
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-windows:%container.tag%"

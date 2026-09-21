@@ -3,8 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 rem Runs the SWAN OMP test inside the Windows build image.
 rem Usage: test_docker.bat <test-version> [ref-version] [repo-root] [container-tag]
-rem        test_docker.bat shell [repo-root] [container-tag]
-rem   The "shell" form drops you into an interactive PowerShell session in the
+rem       Runs the tests inside the Docker container instead of locally.
 rem   container (same env vars/mounts) instead of running test_all_local.bat.
 
 if not defined SVN_USER_NAME (
@@ -27,29 +26,6 @@ if not defined CONAN_PASSWORD_DELFT3D_CONAN_DEV (
     exit /b 1
 )
 
-set "MODE=%~1"
-if /i "%MODE%"=="shell" (
-    set "REPO_ROOT=%~2"
-    if not defined REPO_ROOT set "REPO_ROOT=%CD%"
-
-    set "CONTAINER_TAG=%~3"
-    if not defined CONTAINER_TAG set "CONTAINER_TAG=vs2022-intel2024-ltsc2025"
-
-    set "SCRIPT_ROOT=%~dp0SWAN\windows\scripts"
-
-    docker run --rm -it ^
-        -e SVN_USER_NAME ^
-        -e SVN_PASSWORD ^
-        -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV ^
-        -e CONAN_PASSWORD_DELFT3D_CONAN_DEV ^
-        -v "!REPO_ROOT!:C:/workspace" ^
-        -v "!SCRIPT_ROOT!:C:/scripts" ^
-        -w C:/workspace ^
-        "containers.deltares.nl/swan-dev/swan-buildtools-windows:!CONTAINER_TAG!" ^
-        powershell -NoExit -Command "Write-Host 'Interactive shell ready. Scripts are in C:\scripts, workspace mounted at C:\workspace.'"
-
-    exit /b !ERRORLEVEL!
-)
 
 set "TEST_VERSION=%~1"
 if not defined TEST_VERSION (
@@ -78,6 +54,6 @@ docker run --rm ^
     -v "%SCRIPT_ROOT%:C:/scripts" ^
     -w C:/workspace ^
     "containers.deltares.nl/swan-dev/swan-buildtools-windows:%CONTAINER_TAG%" ^
-    powershell -NoProfile -ExecutionPolicy Bypass -File C:\scripts\test_all_local.ps1 C:\workspace "%TEST_VERSION%" "%REF_VERSION%"
+    powershell -NoProfile -ExecutionPolicy Bypass -File C:\scripts\run_tests_local.ps1 C:\workspace "%TEST_VERSION%" "%REF_VERSION%"
 
 exit /b %ERRORLEVEL%
