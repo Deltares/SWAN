@@ -45,7 +45,7 @@ object WindowsBuild : BuildType({
     steps {
         script {
             name = "Build All"
-            enabled = false
+            enabled = true
             scriptContent = """
                 call C:\set-env.cmd
                 
