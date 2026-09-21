@@ -8,7 +8,7 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPref
 # already installed by the base image). The cache uses long, URL-encoded
 # directory names that break the Windows container layer import if they ever
 # persist beyond this RUN, so the setup exe and package cache must not be kept.
-ADD setup-x86_64.exe C:\\cygwin-setup-x86_64.exe
+RUN Invoke-WebRequest -Uri 'https://cygwin.com/setup-x86_64.exe' -OutFile 'C:\cygwin-setup-x86_64.exe'
 RUN Start-Process -FilePath 'C:\cygwin-setup-x86_64.exe' -Wait -NoNewWindow -ArgumentList \
     '--quiet-mode', \
     '--no-shortcuts', \

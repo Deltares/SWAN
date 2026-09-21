@@ -19,6 +19,7 @@ object WindowsBuild : BuildType({
     artifactRules = """
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
+        test_results/** => test_logs
         artifacts/** => swan_artifacts_x64_%build.vcs.number%.zip!x64
     """.trimIndent()
 
@@ -28,6 +29,11 @@ object WindowsBuild : BuildType({
         param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
+        param("svn_username", DslContext.getParameter("svn_username"))
+        password("svn_password", DslContext.getParameter("svn_password"))
+        password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
+
+        param("env.UV_INDEX_URL", "https://%nexus_conan_username%:%nexus_conan_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
     }
 
     vcs {
@@ -39,7 +45,7 @@ object WindowsBuild : BuildType({
     steps {
         script {
             name = "Build All"
-            enabled = false
+            enabled = true
             scriptContent = """
                 call C:\set-env.cmd
                 
@@ -49,38 +55,31 @@ object WindowsBuild : BuildType({
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
             dockerPull = true
-            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=swan-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
         }
         script {
-            name = "Test OMP"
+            name = "Test ALL"
             enabled = true
             scriptContent = """
                 call C:\set-env.cmd
 
-                echo === Test tooling diagnostics ===
-                where svn.exe 2>nul || echo [not found] svn.exe
-                svn --version --quiet 2>nul || echo [not available] svn --version
-                where uv.exe 2>nul || echo [not found] uv.exe
-                uv pip --version 2>nul || echo [not available] uv pip --version
-                echo === End test tooling diagnostics ===
-
+                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace "%teamcity.build.branch%" "41.51.9CONAN"
+                if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
+            dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-windows:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Windows
             dockerPull = true
-            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m --cpus %teamcity.agent.hardware.cpuCount% --mount type=volume,source=delft3d-conan-cache,target=C:/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-        }
-    }
-
-    features {
-        xmlReport {
-            reportType = XmlReport.XmlReportType.JUNIT
-            rules = "+:unit-test-report-windows.xml"
+            dockerRunParameters = "--memory %teamcity.agent.hardware.memorySizeMb%m " + 
+                                    "--cpus %teamcity.agent.hardware.cpuCount% " + 
+                                    "--mount type=volume,source=swan-test-cache,target=C:/workspace " + 
+                                    "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% -e " +
+                                    "SVN_USER_NAME=%svn_username% -e SVN_PASSWORD=%svn_password% " +
+                                    "-e UV_INDEX_URL"
         }
     }
 
     failureConditions {
-        executionTimeoutMin = 120
+        executionTimeoutMin = 180
     }
 
     requirements {
