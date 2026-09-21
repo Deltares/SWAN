@@ -78,13 +78,6 @@ object WindowsBuild : BuildType({
         }
     }
 
-    features {
-        xmlReport {
-            reportType = XmlReport.XmlReportType.JUNIT
-            rules = "+:unit-test-report-windows.xml"
-        }
-    }
-
     failureConditions {
         executionTimeoutMin = 180
     }
