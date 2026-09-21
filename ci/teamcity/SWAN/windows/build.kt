@@ -86,7 +86,7 @@ object WindowsBuild : BuildType({
     }
 
     failureConditions {
-        executionTimeoutMin = 120
+        executionTimeoutMin = 180
     }
 
     requirements {
