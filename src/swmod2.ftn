@@ -1367,6 +1367,7 @@
       INTEGER SWCHAR, SWINT, SWREAL
       INTEGER SWMAX, SWMIN, SWSUM
       LOGICAL IAMMASTER, PARLL
+      INTEGER COMM
 !
 !     *** information related to global domain and subdomains
 !

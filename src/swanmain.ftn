@@ -26,10 +26,13 @@
 !
 !***********************************************************************
 !                                                                      *
-      PROGRAM SWAN
+      SUBROUTINE SWAN_LIB (COMM1)
 !                                                                      *
 !***********************************************************************
 !
+!MPI      USE MPI
+      USE M_PARALL, ONLY: COMM
+
       IMPLICIT NONE
 !
 !
@@ -88,6 +91,8 @@
 !
 !     Main program
 !
+      INTEGER COMM1
+!
 !  8. Subroutines used
 !
 !     SWEXITMPI                                                           40.30
@@ -104,6 +109,8 @@
 !     routine SWMAIN. See couple2swan.F                                   41.20
 !
 ! 13. Source Code
+!
+      COMM = COMM1
 !
 !     --- initialize the MPI execution environment                        40.30
 
@@ -122,7 +129,7 @@
 !
 !     --- end of MAIN PROGRAM
 !
-      END
+      END SUBROUTINE SWAN_LIB
 !***********************************************************************
 !                                                                      *
       SUBROUTINE SWMAIN                                                   40.31 34.01
@@ -4953,12 +4960,22 @@
             COMPDA(INDX,JWLV2) = WLVL
             IF (JWLV1.GT.1) COMPDA(INDX,JWLV1) = WLVL                     40.00
             IF (JWLV3.GT.1) COMPDA(INDX,JWLV3) = WLVL                     40.00
-            DEP = DEP + WLVL
+!           if DEP or WLVL is missing, set DEP to Excluded Value
+            IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
+                  DEP = OVEXCV(4)
+            ELSE
+                  DEP = DEP + WLVL
+            ENDIF
           ELSE
             COMPDA(INDX,JWLV2) = WLEV
           ENDIF
 !         add constant water level
-          DEPW = DEP + WLEV                                               30.70
+!           if DEP or WLVL is missing, set DEP to Excluded Value
+          IF (DEP .EQ. EXCFLD(1)) THEN
+            DEPW = OVEXCV(4)
+          ELSE
+            DEPW = DEP + WLEV                                               30.70
+          ENDIF
           COMPDA(INDX,JDP2) = DEPW
 !         ***In this step the water level at T+DT is copied to the  ***
 !         ***water level at T (Only for first time computation)     ***
@@ -7172,7 +7189,13 @@
               DEP = SVALQI (XP, YP, 1, DEPTH, 1 ,IX ,IY)                  40.31 30.90
               COMPDA(INDX,JDP1) = COMPDA(INDX,JDP2)
               WLVL = COMPDA(INDX,JWLV2)
-              DEPW = DEP + WLVL + WLEV
+!             if DEP or WLVL is missing, set DEP to Excluded Value
+              IF (DEP .EQ. EXCFLD(1) .OR. WLVL .EQ. EXCFLD(7)) THEN
+                DEPW = OVEXCV(4)
+              ELSE
+                DEPW = DEP + WLVL + WLEV
+              ENDIF
+              
               IF (DEPW>DEPWMAX) THEN
                 DEPW = 0.
               ENDIF
