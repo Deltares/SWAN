@@ -65,17 +65,17 @@ cp -rf build/install artifacts
 echo "== build MPI ..."
 python build.py --mpi --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_mpi.exe artifacts/bin
-cp build/install/lib/swan_mpi_lib.a artifacts/lib
+cp build/install/lib/libswan_mpi_lib.a artifacts/lib
 
 echo "== build timing ..."
 python build.py --timing --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_timing.exe artifacts/bin
-cp build/install/lib/swan_omp_timing_lib.a artifacts/lib
+cp build/install/lib/libswan_omp_timing_lib.a artifacts/lib
 
 echo "== build double ..."
 python build.py --double --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
-cp build/install/lib/swan_omp_doubleprecision_lib.a artifacts/lib
+cp build/install/lib/libswan_omp_doubleprecision_lib.a artifacts/lib
 
 echo "== Collect artifacts ..."
 ARCHIVE_NAME="swan_${BUILD_TAG}_lnx64"
