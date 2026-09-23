@@ -37,24 +37,38 @@ $OriginalDir = (Get-Location).Path
 $VenvDir = Join-Path $TestbedFolder ".venv"
 $ExecutableRoot = Join-Path $TestbedFolder "executables\swan"
 
-Write-Host "Starting test setup..."
+Write-Host "== Starting test setup..."
 if (-not (Test-Path $TestbedFolder)) { New-Item -ItemType Directory -Path $TestbedFolder | Out-Null }
 Set-Location $TestbedFolder
 
+Write-Host "== Clean output folders ..."
+Join-Path $TestbedFolder "run_testbench_*.log" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Join-Path $TestbedFolder "analyse_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Join-Path $TestbedFolder "analyse_timings" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Join-Path $TestbedFolder "plot_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Join-Path $TestbedFolder "stat_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Join-Path $TestbedFolder "swan_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+
+
 if (Test-Path ".svn") {
+    Write-Host "== SVN update ..."
     svn cleanup .
     svn update --non-interactive --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" .
 } else {
+    Write-Host "== SVN checkout ..."
     svn checkout --non-interactive  --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" "$TestbedUrl" .
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not (Test-Path -Path ".venv" -PathType Container)) {
+    Write-Host "== Create venv ..."
     uv venv --python 3.12
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 . ".\.venv\Scripts\Activate.ps1"
+
+Write-Host "== Update venv ..."
 uv pip sync ./pip/win-requirements.txt
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -62,7 +76,6 @@ $ArchivePlatform = "x64"
 foreach ($Version in @($TestVersion, $RefVersion)) {
     $ExecutableDir = Join-Path $ExecutableRoot "$Version\$ArchivePlatform"
     $ArchiveName = "swan_${Version}_${ArchivePlatform}.zip"
-    Write-Host "Processing version $Version for platform $ArchivePlatform"
     $ExtractionDir = Join-Path $env:TEMP "swan_${Version}_${ArchivePlatform}"
     $ArchivePath = Join-Path $env:TEMP $ArchiveName
     $ArchiveUrl = "https://internal-artifacts.deltares.nl/repository/swan-dev/$Version/$ArchivePlatform/$ArchiveName"
@@ -73,34 +86,36 @@ foreach ($Version in @($TestVersion, $RefVersion)) {
         $ArchiveUrl `
         --output $ArchivePath
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    Write-Host "Downloaded archive to $ArchivePath"
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ExtractionDir
     New-Item -ItemType Directory -Force -Path $ExtractionDir | Out-Null
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractionDir -Force
-    Write-Host "Copying extracted files from $ExtractionDir to $ExecutableDir"
     Copy-Item -Path (Join-Path $ExtractionDir "swan_${Version}_${ArchivePlatform}\*") -Destination $ExecutableDir -Recurse -Force
     Remove-Item -Recurse -Force $ArchivePath, $ExtractionDir
 }
 
 $LogFile = "run_testbench_${TestVersion}_${ArchivePlatform}_OMP.log"
 
+Write-Host "== Run testbench OMP ..."
 & ".\.venv\Scripts\python.exe" run_testbench.py --prl omp --ref $RefVersion --test $TestVersion --cases settings/templates/OMP_DELTARES_swan_cases.inp 2>&1 |
     Tee-Object -FilePath $LogFile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "== Collect artifacts ..."
 Set-Location $OriginalDir
 if (Test-Path "test_results") { Remove-Item -Recurse -Force "test_results" }
 New-Item -ItemType Directory -Force -Path "test_results" | Out-Null
 
 foreach ($Item in @(
     (Join-Path $TestbedFolder $LogFile),
+    (Join-Path $TestbedFolder "analyse_output"),
+    (Join-Path $TestbedFolder "analyse_timings"),
+    (Join-Path $TestbedFolder "plot_output"),
     (Join-Path $TestbedFolder "stat_output"),
-    (Join-Path $TestbedFolder "swan_output")
+    (Join-Path $TestbedFolder "swan_output" "*" "*.log" -Resolve)
 )) {
     if (Test-Path $Item) {
-        Write-Host "Processing item $Item"
         Copy-Item -Path $Item -Destination "test_results" -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
 
-
+Write-Host "== ... run_tests_local finished"

@@ -19,11 +19,10 @@ object LinuxBuild : BuildType({
     allowExternalStatus = true
     artifactRules = """
         #teamcity:symbolicLinks=as-is
-        **/*.log => logging
         artifacts/** => swan_artifacts_lnx64_%build.vcs.number%.zip!lnx64
         test_results/** => test_logs
     """.trimIndent()
-    
+
     failureConditions {
         testFailure = false
         executionTimeoutMin = 240

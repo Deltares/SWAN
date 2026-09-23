@@ -28,11 +28,15 @@ fi
 BUILD_TYPE="${1:-Release}"
 BUILD_TAG="${2:-${BRANCH_NAME}}"
 
-echo "Current build tag: ${BUILD_TAG}"
+echo "================================="
+echo "== Current build tag: ${BUILD_TAG}"
+echo "================================="
 
 # Adjust/remove this if you're not using the oneAPI container environment.
+echo "== Source bashrc ..."
 source /etc/bashrc 2>/dev/null || true
 
+echo "== Export path and compilers ..."
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}
 export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 export CMAKE_PREFIX_PATH=/usr/local:${CMAKE_PREFIX_PATH}
@@ -43,35 +47,48 @@ export FC=mpiifx
 export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
 export CC=mpiicx
 
+echo "== Current folder and its contents ..."
 pwd
-ls
-
+ls -la .
 
 # conan remote logout delft3d-conan-dev
 # conan remote login delft3d-conan-dev "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}" -p "${CONAN_PASSWORD_DELFT3D_CONAN_DEV}"
 
 # Initialize Conan and install pre-built dependencies from Nexus
+echo "== run_conan.py ..."
 python run_conan.py initialize deltares --ci
+
+echo "== build OMP ..."
 python build.py --build --build-type "${BUILD_TYPE}" --ci
 cp -rf build/install artifacts
 
+echo "== build MPI ..."
 python build.py --mpi --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_mpi.exe artifacts/bin
+cp build/install/lib/swan_mpi_lib.a artifacts/lib
 
+echo "== build timing ..."
 python build.py --timing --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_timing.exe artifacts/bin
+cp build/install/lib/swan_omp_timing_lib.a artifacts/lib
 
+echo "== build double ..."
 python build.py --double --build --build-type "${BUILD_TYPE}" --ci
 cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
+cp build/install/lib/swan_omp_doubleprecision_lib.a artifacts/lib
 
+echo "== Collect artifacts ..."
 ARCHIVE_NAME="swan_${BUILD_TAG}_lnx64"
 zip -r "build/${ARCHIVE_NAME}.zip" artifacts
 zipnote "build/${ARCHIVE_NAME}.zip" \
     | sed "s|^@ artifacts\(.*\)$|@ artifacts\1\n@=${ARCHIVE_NAME}\1|" \
     | zipnote -w "build/${ARCHIVE_NAME}.zip"
 
+echo "== Upload to Nexus ..."
 NEXUS_ARTIFACT_URL="https://internal-artifacts.deltares.nl/repository/swan-dev/${BUILD_TAG}/lnx64/${ARCHIVE_NAME}.zip"
 curl --fail --show-error --silent \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
     --upload-file "build/${ARCHIVE_NAME}.zip" \
     "${NEXUS_ARTIFACT_URL}"
+
+echo "== ... build_all_local finished"

@@ -18,10 +18,14 @@ object WindowsBuild : BuildType({
     allowExternalStatus = true
     artifactRules = """
         #teamcity:symbolicLinks=as-is
-        **/*.log => logging
-        test_results/** => test_logs
         artifacts/** => swan_artifacts_x64_%build.vcs.number%.zip!x64
+        test_results/** => test_logs
     """.trimIndent()
+
+    failureConditions {
+        testFailure = false
+        executionTimeoutMin = 480
+    }
 
     params {
         param("container.tag", "vs2022-intel2024-ltsc2025")
@@ -76,10 +80,6 @@ object WindowsBuild : BuildType({
                                     "SVN_USER_NAME=%svn_username% -e SVN_PASSWORD=%svn_password% " +
                                     "-e UV_INDEX_URL"
         }
-    }
-
-    failureConditions {
-        executionTimeoutMin = 240
     }
 
     requirements {

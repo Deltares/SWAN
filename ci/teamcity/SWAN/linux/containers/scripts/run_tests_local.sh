@@ -14,7 +14,7 @@ if [[ -z "${SVN_USER_NAME:-}" || -z "${SVN_PASSWORD:-}" ]]; then
 	exit 1
 fi
 
-echo "Starting test setup..."
+echo "== Starting test setup ..."
 
 
 TESTBED_FOLDER="$1"
@@ -26,8 +26,16 @@ ORIGINAL_DIR="${PWD}"
 
 cd "${TESTBED_FOLDER}"
 
+echo "== Clean output folders ..."
+rm -f  run_testbench_*.log
+rm -rf analyse_output/*
+rm -rf analyse_timings/*
+rm -rf plot_output/*
+rm -rf stat_output/*
+rm -rf swan_output/*
 
 if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
+    echo "== SVN update ..."
 	svn update \
 		--non-interactive \
 		--no-auth-cache \
@@ -35,6 +43,7 @@ if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
 		--password "${SVN_PASSWORD}" \
 		"${TESTBED_FOLDER}"
 else
+    echo "== SVN checkout ..."
 	svn checkout \
 		--non-interactive \
 		--no-auth-cache \
@@ -45,14 +54,19 @@ else
 fi
 
 if [[ ! -d .venv ]]; then
+    echo "== Create venv ..."
 	uv venv --python 3.12
 fi
 source .venv/bin/activate
-pwd
-ls -la .
+
+echo "== Update venv ..."
 uv pip sync ./pip/lnx-requirements.txt
 
+echo "== Current folder and its contens ..."
+pwd
+ls -la .
 
+echo "== Download test version ${TEST_VERSION} ..."
 EXECUTABLE_DIR="/workspace/executables/swan/${TEST_VERSION}/lnx64"
 ARCHIVE_NAME="swan_${TEST_VERSION}_lnx64.zip"
 EXTRACTION_DIR="/tmp/swan_${TEST_VERSION}_lnx64"
@@ -67,7 +81,7 @@ unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
 cp -a "${EXTRACTION_DIR}/swan_${TEST_VERSION}_lnx64/." "${EXECUTABLE_DIR}/"
 rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
-
+echo "== Download ref  version ${REF_VERSION} ..."
 EXECUTABLE_DIR="/workspace/executables/swan/${REF_VERSION}/lnx64"
 ARCHIVE_NAME="swan_${REF_VERSION}_lnx64.zip"
 EXTRACTION_DIR="/tmp/swan_${REF_VERSION}_lnx64"
@@ -84,30 +98,30 @@ rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
 LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 
+echo "== Run testbench OMP ..."
 export OMP_NUM_THREADS=4
 export NPROCESSES=1
-
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/OMP_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
 
+echo "== Run testbench MPI ..."
 export OMP_NUM_THREADS=1
 export NPROCESSES=4
-
 export PATH="/opt/intel/oneapi/mpi/latest/bin:${PATH}"
-
 export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/opt/intel/oneapi/tbb/2021.13/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib:/opt/intel/oneapi/mpi/2021.13/lib:/opt/intel/oneapi/mkl/2024.2/lib:/opt/intel/oneapi/dpl/2022.6/lib:/opt/intel/oneapi/debugger/2024.2/opt/debugger/lib:/opt/intel/oneapi/compiler/2024.2/opt/compiler/lib:/opt/intel/oneapi/compiler/2024.2/lib"
 export FI_PROVIDER_PATH="/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib/prov:/usr/lib64/libfabric"
 LOG_FILE_MPI="run_testbench_${TEST_VERSION}_lnx64_MPI.log"
-
-
 .venv/bin/python run_testbench.py --prl mpi --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/MPI_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE_MPI}"
-echo "End Tests"
 
-
+echo "== Collect artifacts ..."
 cd "${ORIGINAL_DIR}"
 rm -rf test_results
 mkdir -p test_results
-
 cp -a "${TESTBED_FOLDER}/${LOG_FILE}" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/${LOG_FILE_MPI}" test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/analyse_output" test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/analyse_timings" test_results/ 2>/dev/null || true
+cp -a "${TESTBED_FOLDER}/plot_output" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
-cp -a "${TESTBED_FOLDER}/swan_output" test_results/ 2>/dev/null || true
+cp -a  --parents "${TESTBED_FOLDER}/swan_output/*/*.log" test_results/ 2>/dev/null || true
+
+echo "== ... run_tests_local finished"
