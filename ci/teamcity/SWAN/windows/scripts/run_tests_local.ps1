@@ -42,12 +42,18 @@ if (-not (Test-Path $TestbedFolder)) { New-Item -ItemType Directory -Path $Testb
 Set-Location $TestbedFolder
 
 Write-Host "== Clean output folders ..."
-Join-Path $TestbedFolder "run_testbench_*.log" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
-Join-Path $TestbedFolder "analyse_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
-Join-Path $TestbedFolder "analyse_timings" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
-Join-Path $TestbedFolder "plot_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
-Join-Path $TestbedFolder "stat_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
-Join-Path $TestbedFolder "swan_output" "*" -Resolve | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path $TestbedFolder -Filter "run_testbench_*.log" -File |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $TestbedFolder "analyse_output") -Force -ErrorAction SilentlyContinue |
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $TestbedFolder "analyse_timings") -Force -ErrorAction SilentlyContinue |
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $TestbedFolder "plot_output") -Force -ErrorAction SilentlyContinue |
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $TestbedFolder "stat_output") -Force -ErrorAction SilentlyContinue |
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $TestbedFolder "swan_output") -Force -ErrorAction SilentlyContinue |
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
 
 if (Test-Path ".svn") {
@@ -89,7 +95,9 @@ foreach ($Version in @($TestVersion, $RefVersion)) {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $ExtractionDir
     New-Item -ItemType Directory -Force -Path $ExtractionDir | Out-Null
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractionDir -Force
-    Copy-Item -Path (Join-Path $ExtractionDir "swan_${Version}_${ArchivePlatform}\*") -Destination $ExecutableDir -Recurse -Force
+    $SourceDir = Join-Path $ExtractionDir "swan_${Version}_${ArchivePlatform}"
+    Get-ChildItem -Path $SourceDir -Force -ErrorAction SilentlyContinue |
+        Copy-Item -Destination $ExecutableDir -Recurse -Force
     Remove-Item -Recurse -Force $ArchivePath, $ExtractionDir
 }
 
@@ -110,12 +118,16 @@ foreach ($Item in @(
     (Join-Path $TestbedFolder "analyse_output"),
     (Join-Path $TestbedFolder "analyse_timings"),
     (Join-Path $TestbedFolder "plot_output"),
-    (Join-Path $TestbedFolder "stat_output"),
-    (Join-Path $TestbedFolder "swan_output" "*" "*.log" -Resolve)
+    (Join-Path $TestbedFolder "stat_output")
 )) {
     if (Test-Path $Item) {
         Copy-Item -Path $Item -Destination "test_results" -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
+
+Get-ChildItem -Path (Join-Path $TestbedFolder "swan_output") -Filter "*.log" -File -Recurse -ErrorAction SilentlyContinue |
+    ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination "test_results" -Force -ErrorAction SilentlyContinue
+    }
 
 Write-Host "== ... run_tests_local finished"
