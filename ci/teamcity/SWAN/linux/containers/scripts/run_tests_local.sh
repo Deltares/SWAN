@@ -122,6 +122,6 @@ cp -a "${TESTBED_FOLDER}/analyse_output" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/analyse_timings" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/plot_output" test_results/ 2>/dev/null || true
 cp -a "${TESTBED_FOLDER}/stat_output" test_results/ 2>/dev/null || true
-cp -a  --parents "${TESTBED_FOLDER}/swan_output/*/*.log" test_results/ 2>/dev/null || true
+(cd "${TESTBED_FOLDER}" && find swan_output -type f -name '*.log' -exec cp -a --parents -t "${ORIGINAL_DIR}/test_results" {} +)
 
 echo "== ... run_tests_local finished"
