@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import SWAN.linux.*
 import SWAN.linux.containers.*
 import SWAN.windows.*
+import SWAN.windows.containers.*
 import SWAN.template.*
 
 /*
@@ -60,6 +61,7 @@ project {
         id("Windows")
         name = "Windows"
         buildType(WindowsBuild)
+        buildType(WindowsBuildTools)
     }
 
 

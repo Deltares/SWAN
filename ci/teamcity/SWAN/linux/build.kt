@@ -21,8 +21,14 @@ object LinuxBuild : BuildType({
         #teamcity:symbolicLinks=as-is
         **/*.log => logging
         artifacts/** => swan_artifacts_lnx64_%build.vcs.number%.zip!lnx64
+        test_results/** => test_logs
     """.trimIndent()
-
+    
+    failureConditions {
+        testFailure = false
+        executionTimeoutMin = 240
+    }
+    
     outputParams {
         exposeAllParameters = false
         param("product", "SWAN")
@@ -38,6 +44,11 @@ object LinuxBuild : BuildType({
         param("build_type", "Release")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
+        param("svn_username", DslContext.getParameter("svn_username"))
+        password("svn_password", DslContext.getParameter("svn_password"))
+        password("env.SVN_PASSWORD", DslContext.getParameter("svn_password"))
+        
+        param("env.UV_INDEX_URL", "https://%nexus_conan_username%:%nexus_conan_password%@internal-artifacts.deltares.nl/repository/python-internal/simple/")
     }
 
     vcs {
@@ -57,107 +68,37 @@ object LinuxBuild : BuildType({
             """.trimIndent()
         }
         script {
-            name = "Build OMP"
+            name = "Build ALL"
+            enabled = true
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                set -eo pipefail
-                export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${'$'}PKG_CONFIG_PATH
-                export LD_LIBRARY_PATH=/usr/local/lib:${'$'}LD_LIBRARY_PATH
-                export CMAKE_PREFIX_PATH=/usr/local:${'$'}CMAKE_PREFIX_PATH
-                export CMAKE_INCLUDE_PATH=/usr/local/include:${'$'}CMAKE_INCLUDE_PATH
-                export CMAKE_LIBRARY_PATH=/usr/local/lib:${'$'}CMAKE_LIBRARY_PATH
-                
-                export FC=mpiifx
-                export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
-                export CC=mpiicx
-
-                # Initialize Conan and install pre-built dependencies from Nexus
-                python run_conan.py initialize deltares --ci
-                python build.py --build --build-type %build_type% --ci
-                cp -rf build/install artifacts
+                ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh Release "%teamcity.build.branch%"
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
+            dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+            dockerRunParameters = "--rm --ulimit stack=-1:-1 --mount type=volume,source=swan-conan-cache,target=/conan-cache " +
+                "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
+                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
             dockerPull = true
         }
         script {
-            name = "Build MPI"
+            name = "Test All"
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                set -eo pipefail
-                export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${'$'}PKG_CONFIG_PATH
-                export LD_LIBRARY_PATH=/usr/local/lib:${'$'}LD_LIBRARY_PATH
-                export CMAKE_PREFIX_PATH=/usr/local:${'$'}CMAKE_PREFIX_PATH
-                export CMAKE_INCLUDE_PATH=/usr/local/include:${'$'}CMAKE_INCLUDE_PATH
-                export CMAKE_LIBRARY_PATH=/usr/local/lib:${'$'}CMAKE_LIBRARY_PATH
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
                 
-                export FC=mpiifx
-                export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
-                export CC=mpiicx
-
-                # Initialize Conan and install pre-built dependencies from Nexus
-                python run_conan.py initialize deltares --ci
-                python build.py --mpi --build --build-type %build_type% --ci
-                cp build/install/bin/swan_mpi.exe artifacts/bin
             """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
+            dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-            dockerPull = true
-        }
-        script {
-            name = "Build timing"
-            scriptContent = """
-                #!/usr/bin/env bash
-                source /etc/bashrc
-                set -eo pipefail
-                export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${'$'}PKG_CONFIG_PATH
-                export LD_LIBRARY_PATH=/usr/local/lib:${'$'}LD_LIBRARY_PATH
-                export CMAKE_PREFIX_PATH=/usr/local:${'$'}CMAKE_PREFIX_PATH
-                export CMAKE_INCLUDE_PATH=/usr/local/include:${'$'}CMAKE_INCLUDE_PATH
-                export CMAKE_LIBRARY_PATH=/usr/local/lib:${'$'}CMAKE_LIBRARY_PATH
-                
-                export FC=mpiifx
-                export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
-                export CC=mpiicx
-
-                # Initialize Conan and install pre-built dependencies from Nexus
-                python run_conan.py initialize deltares --ci
-                python build.py --timing --build --build-type %build_type% --ci
-                cp build/install/bin/swan_omp_timing.exe artifacts/bin
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
-            dockerPull = true
-        }
-        script {
-            name = "Build double"
-            scriptContent = """
-                #!/usr/bin/env bash
-                source /etc/bashrc
-                set -eo pipefail
-                export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${'$'}PKG_CONFIG_PATH
-                export LD_LIBRARY_PATH=/usr/local/lib:${'$'}LD_LIBRARY_PATH
-                export CMAKE_PREFIX_PATH=/usr/local:${'$'}CMAKE_PREFIX_PATH
-                export CMAKE_INCLUDE_PATH=/usr/local/include:${'$'}CMAKE_INCLUDE_PATH
-                export CMAKE_LIBRARY_PATH=/usr/local/lib:${'$'}CMAKE_LIBRARY_PATH
-                
-                export FC=mpiifx
-                export CXX=mpicxx # We would like to use mpiicpx, but some tests get different results
-                export CC=mpiicx
-
-                # Initialize Conan and install pre-built dependencies from Nexus
-                python run_conan.py initialize deltares --ci
-                python build.py --double --build --build-type %build_type% --ci
-                cp build/install/bin/swan_omp_doubleprecision.exe artifacts/bin
-            """.trimIndent()
-            dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-linux:%container.tag%"
-            dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "--rm --mount type=volume,source=delft3d-conan-cache,target=/conan-cache -e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% -e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password%"
+            // Intel MPI's shared-memory transport needs more than Docker's default 64m /dev/shm
+            dockerRunParameters = "--rm --ulimit stack=-1:-1 --shm-size=2g --mount type=volume,source=swan-test-cache,target=/workspace " +
+                "-e CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV=%nexus_conan_username% " +
+                "-e CONAN_PASSWORD_DELFT3D_CONAN_DEV=%nexus_conan_password% " +
+                "-e SVN_USER_NAME=%svn_username% " +
+                "-e SVN_PASSWORD " +
+                "-e UV_INDEX_URL"
             dockerPull = true
         }
     }
