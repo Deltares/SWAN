@@ -24,9 +24,6 @@ module HRextensions
    !  are registered trademarks of Stichting Deltares, and remain the property of
    !  Stichting Deltares. All rights reserved.
    !
-   !-------------------------------------------------------------------------------
-   !  $Id: HRextensions.ftn90 899 2024-04-26 14:21:40Z tanis_hb $
-   !  $URL: https://repos.deltares.nl/repos/swan/branches/deltares/deltares41.51.9/HRextensions.ftn90 $
    !!--description-----------------------------------------------------------------
    !! extensions for SWAN for HR (Hydraulic Boundaries / in Dutch: Hydraulische Randvoorwaarden)
     use swn_outnc
@@ -518,8 +515,8 @@ contains
     end subroutine swn_hre_grid_varid
 
 
-    subroutine swn_hre_bcnccf  (FBCNAM, BCTYPE, BSPFIL, LBGP, &
-                                XCGRID, YCGRID, KGRPNT,       &
+    subroutine swn_hre_bcnccf  (FBCNAM, BCTYPE, BSPFIL, &
+                                XCGRID, YCGRID, KGRPNT, &
                                 XYTST,  KGRBND, DONALL)
         use M_BNDSPEC, only : bspcdat
         use SWCOMM3, only : xpc, ypc
@@ -548,7 +545,7 @@ contains
         integer, intent(in   )                 :: KGRPNT(MXC,MYC), KGRBND(*), XYTST(*)
         real,    intent(in   )                 :: XCGRID(MXC,MYC), YCGRID(MXC,MYC)
         character(len=*), intent(in)           :: FBCNAM, BCTYPE
-        logical, intent(in)                    :: DONALL, LBGP
+        logical, intent(in)                    :: DONALL
         type(BSPCDAT), intent(inout)           :: BSPFIL
 
         !local

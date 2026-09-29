@@ -459,6 +459,16 @@
       LOGICAL :: WCAPSET  = .FALSE.                                       40.88
 
       CALL STRACE (IENT, 'SWREAD')
+!                                                                         BJXX
+      INCNUM(1:MXINCL) = 0                                                BJXX
+      INCLEV = 1                                                          BJXX
+      LOBST = .FALSE.                                                     BJXX
+      LOGCOM(1:7) = .FALSE.                                               BJXX
+      IENT = 0       ! number of entries to this subr                     BJXX
+      LWINDR = 0     ! if non-zero, there is wind                         BJXX
+      LWINDM = 5     ! type of wind growth formulation                    BJXX
+      SWELLSET = .FALSE.                                                  BJXX
+      WCAPSET  = .FALSE.                                                  BJXX
 !
 !     ***** read command *****
 !
@@ -1566,7 +1576,7 @@
 !
 !           --- the computational grid is included in output data         40.80
             IF ( nverts.GT.0 ) THEN                                       40.80
-               ALLOCATE(OPSTMP)                                           40.80
+               CALL CONSTRUCTOR(OPSTMP)
                OPSTMP%PSNAME = 'COMPGRID'                                 40.80
                OPSTMP%PSTYPE = 'U'                                        40.80
                OPSTMP%MIP    = nverts                                     40.80
@@ -1833,7 +1843,7 @@
 !
 !       *** the computational grid is included in output data  ***        40.31
         IF ((MXC.GT.0) .AND. (MYC.GT.0) ) THEN                            40.31
-           ALLOCATE(OPSTMP)                                               40.31
+           CALL CONSTRUCTOR(OPSTMP)
            OPSTMP%PSNAME = 'COMPGRID'                                     40.31
            IF (OPTG .EQ. 1) THEN                                          40.31
               OPSTMP%PSTYPE = 'F'                                         40.31
@@ -4087,7 +4097,7 @@
 !
 !     ***** input grid is included in output data                 *****
 !     ***** reference point coincides with origin of output frame *****
-      ALLOCATE(OPSTMP)                                                    40.31
+      CALL CONSTRUCTOR(OPSTMP)
       OPSTMP%PSNAME = SNAMEG                                              40.31
       ALLOCATE(OPSTMP%XP(0))                                              40.31
       ALLOCATE(OPSTMP%YP(0))                                              40.31

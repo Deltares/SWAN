@@ -329,7 +329,7 @@
           GOTO 800                                                        32.02
         ELSE                                                              32.02
 !         ver 30.20: names of input variables changed, order of data changed
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -384,7 +384,7 @@
         ELSE                                                              32.02
 !         mod 970221: GROUP is introduced as a new command instead of
 !         an option SUBG within the Frame command
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -463,7 +463,7 @@
 !
 
       IF (KEYWIS ('CURV')) THEN
-        ALLOCATE(OPSTMP)                                                  40.31
+        CALL CONSTRUCTOR(OPSTMP)
         CALL INCSTR('SNAME',PSNAME,'REQ',' ')
         IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
         OPSTMP%PSNAME = PSNAME                                            40.31
@@ -538,7 +538,7 @@
 !   ------------------------------------------------------------------
 !
       IF (KEYWIS ('POIN')) THEN
-        ALLOCATE(OPSTMP)                                                  40.31
+        CALL CONSTRUCTOR(OPSTMP)
         CALL INCSTR('SNAME',PSNAME,'REQ',' ')
         IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
         OPSTMP%PSNAME = PSNAME                                            40.31
@@ -620,7 +620,7 @@
      &                   ' with 1D-computation')                          32.02
           GOTO 800                                                        32.02
         ELSE                                                              32.02
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)
           CALL INCSTR('RNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'RNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -706,7 +706,7 @@
      &                   ' with 1D-computation')                          32.02
           GOTO 800                                                        32.02
         ELSE                                                              32.02
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)
           CALL INCSTR ('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -808,7 +808,7 @@
           GOTO 800                                                        32.02
         ELSE                                                              32.02
 !         ver 30.20: names changed, order changed
-          ALLOCATE(OPSTMP)                                                40.31
+          CALL CONSTRUCTOR(OPSTMP)
           CALL INCSTR('SNAME',PSNAME,'REQ',' ')
           IF (LENCST.GT.8) CALL MSGERR (2, 'SNAME is too long')
           OPSTMP%PSNAME = PSNAME                                          40.31
@@ -1194,7 +1194,7 @@
 !
 !         output frame exists
 !
-          ALLOCATE(ORQTMP)                                                40.31
+          CALL CONSTRUCTOR(ORQTMP)
           NREOQ = NREOQ + 1                                               40.31
           IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                      40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1590,7 +1590,7 @@
 !
 !       output points exist
 !
-        ALLOCATE(ORQTMP)                                                  40.31
+        CALL CONSTRUCTOR(ORQTMP)
         NREOQ = NREOQ + 1                                                 40.31
         IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                        40.31 40.13
      &    'too many output requests')                                     40.13
@@ -1841,7 +1841,7 @@
 !NCF          ALLOCATE(ORQTMP%FAC(NVAR))
 !NCF          ORQTMP%FAC=1.
 !NCF        ELSE
-        ALLOCATE(ORQTMP%FAC(0))                                           40.31
+          ALLOCATE(ORQTMP%FAC(0))
 !NCF        ENDIF
 
         IF (IVTYPE .EQ. 98) THEN                                          30.00
@@ -1886,7 +1886,7 @@
 !
 !       output points exist
 !
-        ALLOCATE(ORQTMP)                                                  40.31
+        CALL CONSTRUCTOR(ORQTMP)
         NREOQ = NREOQ + 1                                                 40.31
         IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                        40.31 40.13
      &    'too many output requests')                                     40.13
@@ -2016,7 +2016,7 @@
             GOTO 800
           ENDIF
 !         output points exist
-          ALLOCATE(ORQTMP)                                                40.31
+          CALL CONSTRUCTOR(ORQTMP)
           NREOQ = NREOQ + 1                                               40.31
           IF (NREOQ.GT.MAX_OUTP_REQ) CALL MSGERR (2,                      40.31 40.13
      &    'too many output requests')                                     40.13
@@ -2620,10 +2620,8 @@
       INTEGER   NUMP
 
       TYPE(BSPCDAT), POINTER :: BFLTMP                                    40.31
-      TYPE(BSPCDAT), SAVE, POINTER :: CUBFL                               40.31
 
       TYPE(BSDAT), POINTER :: BSTMP                                       40.31
-      TYPE(BSDAT), SAVE, POINTER :: CUBS                                  40.31
 
       TYPE(BGPDAT), POINTER :: BGPTMP                                     40.31
 
@@ -2887,7 +2885,7 @@
         ENDIF                                                             40.80
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
+        CALL CONSTRUCTOR(BFLTMP)
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
         CALL BCWAMN (FILENM, 'NEST', BFLTMP,                              41.78 40.31
      &               XCGRID, YCGRID, KGRPNT, XYTST)                       40.31
@@ -2936,7 +2934,7 @@
         ENDIF                                                             40.80
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
+        CALL CONSTRUCTOR(BFLTMP)
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
         CALL BCWW3N (FILENM, 'NEST', BFLTMP,                              41.78 40.31 40.05
      &               XCGRID, YCGRID, KGRPNT, XYTST, KGRBND)               40.31 40.05
@@ -2978,7 +2976,7 @@
         ENDIF
 !
         NBFILS = NBFILS + 1
-        ALLOCATE(BFLTMP)                                                  40.31
+        CALL CONSTRUCTOR(BFLTMP)
         CALL INCSTR ('FNAME',FILENM,'REQ', ' ')
 
 !       if keyword is OPEN then
@@ -3663,7 +3661,7 @@
             IF (ITEST.GE.80) WRITE (PRTEST,*) ' bound. spectr.',
      &                   NBSPEC, (SPPARM(II), II=1,4)
             NBSPSS = NBSPEC
-            ALLOCATE(BSTMP)                                               40.31
+            CALL CONSTRUCTOR(BSTMP)
             BSTMP%NBS    = NBSPEC                                         40.31
             BSTMP%FSHAPE = FSHAPE                                         40.31
             BSTMP%DSHAPE = DSHAPE                                         40.31
@@ -3682,7 +3680,7 @@
 !           generate new set of file data
             NBFILS = NBFILS + 1
             NBSPSS = NBSPEC
-            ALLOCATE(BFLTMP)                                              40.31
+            CALL CONSTRUCTOR(BFLTMP)
             CALL BCFILE (FILENM, 'PNTS', BFLTMP,                          41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
@@ -3703,7 +3701,7 @@
             IX = CURR%JX                                                  40.31
             IF (OPTG.NE.5) IY = CURR%JY                                   40.80 40.31
             CURR => CURR%NEXTXY                                           40.31
-            ALLOCATE(BGPTMP)                                              40.31
+            CALL CONSTRUCTOR(BGPTMP)
             IF (OPTG.NE.5) THEN                                           40.80
                BGPTMP%BGP(1) = KGRPNT(IX,IY)                              40.31
             ELSE                                                          40.80
@@ -3781,7 +3779,7 @@
                 ENDIF
                 NBSPEC = NBSPEC + 1
                 IBSPC2 = NBSPEC
-                ALLOCATE(BSTMP)                                           40.31
+                CALL CONSTRUCTOR(BSTMP)
                 BSTMP%NBS    = NBSPEC                                     40.31
                 BSTMP%FSHAPE = FSHAPE                                     40.31
                 BSTMP%DSHAPE = DSHAPE                                     40.31
@@ -3806,7 +3804,7 @@
 !                 generate new set of file data
                   NBFILS = NBFILS + 1
                   NBSPSS = NBSPEC
-                  ALLOCATE(BFLTMP)                                        40.31
+                  CALL CONSTRUCTOR(BFLTMP)
                   CALL BCFILE (FILENM, 'PNTS', BFLTMP,                    41.78 40.31
      &                   XCGRID, YCGRID, KGRPNT, XYTST, KGRBND,           40.31
      &                   DONALL)                                          40.05
@@ -3847,7 +3845,7 @@
               XC1 = XC2
               YC1 = YC2
               IF (RDIST.GT.RLEN2) GOTO 340
-              ALLOCATE(BGPTMP)                                            40.31
+              CALL CONSTRUCTOR(BGPTMP)
               IF (OPTG.NE.5) THEN                                         40.80
                  BGPTMP%BGP(1) = KGRPNT(IX,IY)                            40.31
               ELSE                                                        40.80
@@ -4080,7 +4078,7 @@
       CALL STRACE (IENT, 'BCFILE')
 !NCF      IF ( INDEX( FILENM, '.NC' ).NE.0 .OR.
 !NCF     &     INDEX (FILENM, '.nc' ).NE.0) THEN
-!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL, LBGP,
+!NCF         CALL swn_hre_bcnccf (FBCNAM, BCTYPE, BSPFIL,
 !NCF     &                   XCGRID, YCGRID, KGRPNT,
 !NCF     &                   XYTST,  KGRBND, DONALL)
 !NCF         RETURN
@@ -4097,6 +4095,7 @@
 !
 !     --- initialize array BFILED of BSPFIL                               40.31
       BSPFIL%BFILED = 0                                                   40.31
+      DORDER = 0
 !
 !     start reading from the data file
       READ (NDSD, '(A)') HEDLIN
@@ -4353,6 +4352,7 @@
   28    FORMAT (I6, ' quantities')
       ELSE
         CALL MSGERR (3, 'unsupported boundary data file')
+        NBOUNC = 0
       ENDIF
 !
       ALLOCATE(BSPFIL%BSPLOC(NBOUNC))                                     40.31
@@ -4871,7 +4871,7 @@
                           NBGRPT = NBGRPT + 1
                           IIPT1 = IIPT1 + 1                               40.03
                           IIPT2 = IIPT2 + 1                               40.03
-                          ALLOCATE(BGPTMP)                                40.31
+                          CALL CONSTRUCTOR(BGPTMP)
                           BGPTMP%BGP(1) = INDXGR                          40.31
 !                         next item indicates type of boundary condition
                           BGPTMP%BGP(2) = 1                               40.31
@@ -5731,7 +5731,7 @@
 !                    WRITE(PRINTF,'(A,3I6,2(F6.3,I6))') 'BC_SEARCH_3: ',
 !     &              IXP,NBGRPT,IIPT1,1.-W2,IBSP1,W2,IBSP2
 !
-                    ALLOCATE(BGPTMP)                                      40.31
+                    CALL CONSTRUCTOR(BGPTMP)
                     IF (.NOT.PARLL) THEN                                  43.01
                        BGPTMP%BGP(1) = IXP                                40.31
                     ELSE                                                  43.01
@@ -5812,7 +5812,7 @@
 !                    WRITE(PRINTF,'(A,4I6,2(F6.3,I6))') 'BC_SEARCH_3: ',
 !     &              IXP,IYP,NBGRPT,IIPT1,1.-W2,IBSP1,W2,IBSP2
 !
-                    ALLOCATE(BGPTMP)                                      40.31
+                    CALL CONSTRUCTOR(BGPTMP)
                     BGPTMP%BGP(1) = INDXGR                                40.31
 !                   next item indicates type of boundary condition
                     BGPTMP%BGP(2) = 1                                     40.31
@@ -6271,7 +6271,7 @@
 !
 !     generate output point set 'TESTPNTS'
 !
-  60  ALLOCATE(OPSTMP)                                                    40.31
+  60  CALL CONSTRUCTOR(OPSTMP)
       OPSTMP%PSNAME = 'TESTPNTS'                                          40.31
       OPSTMP%PSTYPE = 'P'                                                 40.31
       OPSTMP%MIP    = NPTST                                               40.31

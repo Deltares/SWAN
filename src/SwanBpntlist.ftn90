@@ -398,7 +398,7 @@ subroutine SwanBpntlist
     !
     !  add output curve corresponding to boundary                         41.14
     !
-    ALLOCATE(OPSTMP)
+    CALL CONSTRUCTOR(OPSTMP)
     OPSTMP%PSTYPE = 'C'
     MIP = nbpt(1)
     OPSTMP%MIP = MIP
@@ -474,7 +474,7 @@ subroutine SwanBpntlist
         IARR2 = CSHIFT(IARR2,ISH)
 !TEST        write (prtest, *) 'Shift ', ISH, MIP, IARR2(1)
         !
-        ALLOCATE(OPSTMP)
+        CALL CONSTRUCTOR(OPSTMP)
         OPSTMP%PSTYPE = 'C'
         OPSTMP%MIP = MIP
         ALLOCATE(OPSTMP%XP(MIP))

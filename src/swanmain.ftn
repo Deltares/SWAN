@@ -386,6 +386,11 @@
       ITRACE=0                                                            40.23
       INERR =0                                                            40.31
       ISTAT =0
+      LORQ             =.FALSE.
+      NREOQ            =0
+      SwanBndStruc_done=.FALSE.
+      RUNMADE          =.FALSE.
+      LOPS             =.FALSE.
 
 !TIMG      CALL SWTSTA(2)                                                      40.23
       CALL SWINIT (INERR)                                                 40.31 34.01
@@ -412,9 +417,11 @@
         IF (COMPUT.EQ.'STOP') THEN                                        40.13
           IUNIT  = 0                                                      40.13
           IOSTAT = 0                                                      40.13
-          FILENM = 'norm_end'                                             40.13
-          CALL FOR (IUNIT, FILENM, 'UF', IOSTAT)                          40.13
-          WRITE (IUNIT, *) ' Normal end of run ', PROJNR                  40.13
+          IF (INODE.EQ.MASTER) THEN
+             FILENM = 'norm_end'                                             40.13
+             CALL FOR (IUNIT, FILENM, 'UF', IOSTAT)                          40.13
+             WRITE (IUNIT, *) ' Normal end of run ', PROJNR                  40.13
+          ENDIF
           GOTO 900                                                        40.13
         ENDIF                                                             40.13
 !
@@ -9307,6 +9314,7 @@
       USE M_GENARR
       USE M_PARALL
       USE M_DIFFR
+      USE OUTP_DATA
       USE SwanGriddata
       USE SwanCompdata
       USE SwanIEM                                                         41.85
@@ -9409,6 +9417,31 @@
       IF (ALLOCATED(VEGNSL))   DEALLOCATE(VEGNSL)
       IF (ALLOCATED(VEGDRL))   DEALLOCATE(VEGDRL)
       IF (ALLOCATED(TURBF ))   DEALLOCATE(TURBF )
+      IF (LOPS) THEN
+         NULLIFY(COPS)
+         CALL DESTRUCTOR(FOPS)
+         LOPS = .FALSE.
+      ENDIF
+      IF (LORQ) THEN
+         !NULLIFY(CORQ)
+         CALL DESTRUCTOR(FORQ)
+         LORQ = .FALSE.
+      ENDIF
+      IF (LBFILS) THEN
+         NULLIFY(CUBFL)
+         CALL DESTRUCTOR(FBNDFIL)
+         LBFILS = .FALSE.
+      ENDIF
+      IF (LBS) THEN
+         NULLIFY(CUBS)
+         CALL DESTRUCTOR(FBS)
+         LBS = .FALSE.
+      ENDIF
+      IF (LBGP) THEN
+         NULLIFY(CUBGP)
+         CALL DESTRUCTOR(FBGP)
+         LBGP = .FALSE.
+      ENDIF
       IF (ALLOCATED(HSSF  ))   DEALLOCATE(HSSF  )
       IF (ALLOCATED(TSSF  ))   DEALLOCATE(TSSF  )
       IF (ALLOCATED(DSSF  ))   DEALLOCATE(DSSF  )
