@@ -519,7 +519,7 @@ contains
                                 XCGRID, YCGRID, KGRPNT, &
                                 XYTST,  KGRBND, DONALL)
         use M_BNDSPEC, only : bspcdat
-        use SWCOMM3, only : xpc, ypc
+        use SWCOMM3, only : xpc, ypc, bnaut
 
 !       data concerning boundary files are stored in array BFILED
 !       there is a subarray for each file; it contains:
@@ -567,7 +567,7 @@ contains
             call open_ncfile( FBCNAM, 'read', ncid, recordaxe)
             BSPFIL%BFILED(5) = -1*ncid
 
-            call agnc_get_spcgrid(ncid, spcgrid)
+            call agnc_get_spcgrid(ncid, bnaut, spcgrid)
             call agnc_get_pntgrid(ncid, pntgrid)
 
             NBOUNC        = pntgrid%npoints

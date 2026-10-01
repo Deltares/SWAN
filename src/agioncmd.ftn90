@@ -1156,8 +1156,9 @@
 
         end subroutine agnc_get_pntgrid
 
-        subroutine agnc_get_spcgrid(ncid, spcgrid)
+        subroutine agnc_get_spcgrid(ncid, nautical, spcgrid)
             integer, intent ( in )              :: ncid
+            logical, intent ( in )              :: nautical
             type (spcgrid_type), intent (out)   :: spcgrid
 
             character(len=32) :: unit
@@ -1183,12 +1184,17 @@
                     ierr = nf90_get_att(ncid, spcgrid%dir_varid, "standard_name", stdname)
                     if (ierr == nf90_noerr) then
                         if (eqcstr(trim(stdname), 'sea_surface_wave_from_direction')) then
-                            spcgrid%direction = 1.5d0 * PI - spcgrid%direction
-                            where (spcgrid%direction < 0.0)
-                               spcgrid%direction = spcgrid%direction + 2.0 * PI
-                            else where (spcgrid%direction > 2.0 * PI)
-                               spcgrid%direction = spcgrid%direction - 2.0 * PI
-                            end where
+                            if (.not. nautical) then
+                                ! Input file contains Nautical convention (wave_from)
+                                ! Current computation is non-Nautical(Cartesian)
+                                ! => Conversion needed from Nautical to Cartesian
+                                spcgrid%direction = 1.5d0 * PI - spcgrid%direction
+                                where (spcgrid%direction < 0.0)
+                                   spcgrid%direction = spcgrid%direction + 2.0 * PI
+                                else where (spcgrid%direction > 2.0 * PI)
+                                   spcgrid%direction = spcgrid%direction - 2.0 * PI
+                                end where
+                            end if
                         endif
                     endif
                 end if
