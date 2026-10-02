@@ -59,7 +59,7 @@ Get-ChildItem -Path (Join-Path $TestbedFolder "swan_output") -Force -ErrorAction
 for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
     Write-Host "SVN sync attempt $Attempt of 3"
     if (Test-Path ".svn") {
-        Write-Host "== SVN update ..."
+        Write-Host "== SVN cleanup and update ..."
         svn cleanup .
         svn update --non-interactive --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" .
     } else {

@@ -39,7 +39,8 @@ set +e
 for attempt in 1 2 3; do
     echo "SVN sync attempt ${attempt} of 3"
     if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
-        echo "== SVN update ..."
+        echo "== SVN cleanup and update ..."
+        svn cleanup .
         svn update \
             --non-interactive \
             --no-auth-cache \
