@@ -56,13 +56,17 @@ Get-ChildItem -Path (Join-Path $TestbedFolder "swan_output") -Force -ErrorAction
     Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
 
-if (Test-Path ".svn") {
-    Write-Host "== SVN update ..."
-    svn cleanup .
-    svn update --non-interactive --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" .
-} else {
-    Write-Host "== SVN checkout ..."
-    svn checkout --non-interactive  --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" "$TestbedUrl" .
+for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+    Write-Host "SVN sync attempt $Attempt of 3"
+    if (Test-Path ".svn") {
+        Write-Host "== SVN cleanup and update ..."
+        svn cleanup .
+        svn update --non-interactive --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" .
+    } else {
+        Write-Host "== SVN checkout ..."
+        svn checkout --non-interactive  --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" "$TestbedUrl" .
+    }
+    if ($LASTEXITCODE -eq 0) { break }
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -75,7 +79,11 @@ if (-not (Test-Path -Path ".venv" -PathType Container)) {
 . ".\.venv\Scripts\Activate.ps1"
 
 Write-Host "== Update venv ..."
-uv pip sync ./pip/win-requirements.txt
+for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+    Write-Host "uv pip sync attempt $Attempt of 3"
+    uv pip sync ./pip/win-requirements.txt
+    if ($LASTEXITCODE -eq 0) { break }
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $ArchivePlatform = "x64"
