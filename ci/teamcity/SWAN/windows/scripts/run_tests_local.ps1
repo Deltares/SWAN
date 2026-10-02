@@ -66,6 +66,7 @@ for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
         Write-Host "== SVN checkout ..."
         svn checkout --non-interactive  --no-auth-cache --username "$env:SVN_USER_NAME" --password "$env:SVN_PASSWORD" "$TestbedUrl" .
     }
+    if ($LASTEXITCODE -eq 0) { break }
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -81,6 +82,7 @@ Write-Host "== Update venv ..."
 for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
     Write-Host "uv pip sync attempt $Attempt of 3"
     uv pip sync ./pip/win-requirements.txt
+    if ($LASTEXITCODE -eq 0) { break }
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

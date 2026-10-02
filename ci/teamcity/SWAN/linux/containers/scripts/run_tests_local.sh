@@ -5,13 +5,13 @@ set -euo pipefail
 readonly TESTBED_URL="https://repos.deltares.nl/repos/swan/testbed/trunk/"
 
 if [[ $# -ne 3 ]]; then
-	echo "Usage: $0 <testbed-folder> <test-version> <ref-version>" >&2
-	exit 1
+    echo "Usage: $0 <testbed-folder> <test-version> <ref-version>" >&2
+    exit 1
 fi
 
 if [[ -z "${SVN_USER_NAME:-}" || -z "${SVN_PASSWORD:-}" ]]; then
-	echo "ERROR: SVN_USER_NAME and SVN_PASSWORD must be set." >&2
-	exit 1
+    echo "ERROR: SVN_USER_NAME and SVN_PASSWORD must be set." >&2
+    exit 1
 fi
 
 echo "== Starting test setup ..."
@@ -34,44 +34,58 @@ rm -rf plot_output/*
 rm -rf stat_output/*
 rm -rf swan_output/*
 
+sync_status=1
+set +e
 for attempt in 1 2 3; do
-	echo "SVN sync attempt ${attempt} of 3"
-	if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
+    echo "SVN sync attempt ${attempt} of 3"
+    if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
         echo "== SVN update ..."
-		svn update \
-			--non-interactive \
-			--no-auth-cache \
-			--username "${SVN_USER_NAME}" \
-			--password "${SVN_PASSWORD}" \
-			"${TESTBED_FOLDER}"
-	else
+        svn update \
+            --non-interactive \
+            --no-auth-cache \
+            --username "${SVN_USER_NAME}" \
+            --password "${SVN_PASSWORD}" \
+            "${TESTBED_FOLDER}"
+    else
         echo "== SVN checkout ..."
-		svn checkout \
-			--non-interactive \
-			--no-auth-cache \
-			--username "${SVN_USER_NAME}" \
-			--password "${SVN_PASSWORD}" \
-			"${TESTBED_URL}" \
-			"${TESTBED_FOLDER}"
-	fi
+        svn checkout \
+            --non-interactive \
+            --no-auth-cache \
+            --username "${SVN_USER_NAME}" \
+            --password "${SVN_PASSWORD}" \
+            "${TESTBED_URL}" \
+            "${TESTBED_FOLDER}"
+    fi
+ 	sync_status=$?
+ 	if [[ $sync_status -eq 0 ]]; then
+ 		break
+ 	fi
 done
-if [[ $? -ne 0 ]]; then
-	exit $?
+set -e
+if [[ $sync_status -ne 0 ]]; then
+    exit "$sync_status"
 fi
 
 if [[ ! -d .venv ]]; then
     echo "== Create venv ..."
-	uv venv --python 3.12
+    uv venv --python 3.12
 fi
 source .venv/bin/activate
 
 echo "== Update venv ..."
+sync_status=1
+set +e
 for attempt in 1 2 3; do
-	echo "uv pip sync attempt ${attempt} of 3"
-	uv pip sync ./pip/lnx-requirements.txt
+    echo "uv pip sync attempt ${attempt} of 3"
+    uv pip sync ./pip/lnx-requirements.txt
+ 	sync_status=$?
+ 	if [[ $sync_status -eq 0 ]]; then
+ 		break
+ 	fi
 done
-if [[ $? -ne 0 ]]; then
-	exit $?
+set -e
+if [[ $sync_status -ne 0 ]]; then
+    exit "$sync_status"
 fi
 
 echo "== Current folder and its contens ..."
@@ -85,8 +99,8 @@ EXTRACTION_DIR="/tmp/swan_${TEST_VERSION}_lnx64"
 mkdir -p "${EXECUTABLE_DIR}"
 curl --fail --show-error --silent --location \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
-	"https://internal-artifacts.deltares.nl/repository/swan-dev/${TEST_VERSION}/lnx64/${ARCHIVE_NAME}" \
-	--output "/tmp/${ARCHIVE_NAME}"
+    "https://internal-artifacts.deltares.nl/repository/swan-dev/${TEST_VERSION}/lnx64/${ARCHIVE_NAME}" \
+    --output "/tmp/${ARCHIVE_NAME}"
 rm -rf "${EXTRACTION_DIR}"
 mkdir -p "${EXTRACTION_DIR}"
 unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
@@ -100,8 +114,8 @@ EXTRACTION_DIR="/tmp/swan_${REF_VERSION}_lnx64"
 mkdir -p "${EXECUTABLE_DIR}"
 curl --fail --show-error --silent --location \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
-	"https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}" \
-	--output "/tmp/${ARCHIVE_NAME}"
+    "https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}" \
+    --output "/tmp/${ARCHIVE_NAME}"
 rm -rf "${EXTRACTION_DIR}"
 mkdir -p "${EXTRACTION_DIR}"
 unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
