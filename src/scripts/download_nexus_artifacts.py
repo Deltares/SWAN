@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
-BASE_URI = "https://internal-artifacts.deltares.nl/repository/swan-dev"
+BASE_URI = "https://internal-artifacts.deltares.nl/repository"
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,10 +74,11 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
     return version_folder, platform_folder
 
 
-def build_artifact_uri(version: str, platform: str) -> str:
+def build_artifact_uri(nexus_project: str, version: str, platform: str) -> str:
+    nexus_project_part = quote(nexus_project.strip("/\\"), safe="")
     version_part = quote(version.strip("/\\"), safe="")
     platform_part = quote(platform.strip("/\\"), safe="")
-    return f"{BASE_URI}/{version_part}/{platform_part}/swan_{version_part}_{platform_part}.zip"
+    return f"{BASE_URI}/{nexus_project_part}/{version_part}/{platform_part}/swan_{version_part}_{platform_part}.zip"
 
 
 def download_file(uri: str, token_name: str, token_pass: str, destination_folder: Path) -> Path:
@@ -178,31 +179,55 @@ def main() -> int:
     token_name = prompt_if_missing(args.tokenname, message + "Token name: ")
     token_pass = prompt_if_missing(args.tokenpass, "Token pass: ", secret=True)
 
-    message = "\n  Version example: 41.51.9\n  Check Nexus for available versions\n"
-    version = prompt_if_missing(args.version, message + "Version: ")
+    message = "\n  Version example: swan-dev/41.51.9CONAN\n  Check Nexus for available versions.\n  Just press Enter for the above version.\n"
+    project_version = prompt_if_missing(args.version, message + "Version: ", required=False)
+    if not project_version or not project_version.strip():
+        nexus_project = "swan-dev"
+        version = "41.51.9CONAN"
+    else:
+        parts = project_version.split("/")
+        if not len(parts)==2:
+            print(f"ERROR: Expecting '<project>/<version>' but no '/' found in '{project_version}'")
+            return 1
+        if not parts[0] in ["swan", "swan-dev"]:
+            print(f"ERROR: Expecting '<project>/<version>' with '<project>' either 'swan' or 'swan-dev' but received '{parts[0]}'")
+            return 1
+        nexus_project = parts[0]
+        version = parts[1]
 
-    message = "\n  Platform options: x64(Windows) or lnx64(Linux)\n"
-    platform = prompt_if_missing(args.platform, message + "Platform: ")
 
-    message = "\n  Destination folder example: C:\\artifacts\nJust press Enter to use the current working directory.\n"
+
+    message = "\n  Platform options: x64(Windows), lnx64(Linux) or both\n  Just press Enter for both.\n"
+    platform = prompt_if_missing(args.platform, message + "Platform: ", required=False)
+    if (not platform or not platform.strip()) or platform=="both":
+        platformset = ["x64", "lnx64"]
+    else:
+        if not platform in ["x64", "lnx64"]:
+            print(f"ERROR: Expecting 'x64', 'lnx64' or 'both' but received '{platform}'")
+            return 1
+        platformset = [platform]
+
+
+    message = f"\n  Destination folder, current folder: {str(Path.cwd())}\n  Just press Enter to use the current working directory.\n"
     destination = prompt_if_missing(args.destination, message + "Destination folder: ", required=False)
     if not destination or not destination.strip():
         destination = str(Path.cwd())
 
     try:
-        version_folder, platform_folder = prepare_folders(destination, version, platform)
+        for plt in platformset:
+            version_folder, platform_folder = prepare_folders(destination, version, plt)
 
-        artifact_uri = build_artifact_uri(version, platform)
-        print(f"Downloading from: {artifact_uri}")
+            artifact_uri = build_artifact_uri(nexus_project, version, plt)
+            print(f"Downloading from: {artifact_uri}")
 
-        zip_path = download_file(artifact_uri, token_name, token_pass, version_folder)
-        print(f"Downloaded zip: {zip_path}")
+            zip_path = download_file(artifact_uri, token_name, token_pass, version_folder)
+            print(f"Downloaded zip: {zip_path}")
 
-        unzip_artifact(zip_path, platform_folder)
-        print(f"Extracted to: {platform_folder}")
+            unzip_artifact(zip_path, platform_folder)
+            print(f"Extracted to: {platform_folder}")
 
-        set_executable_permissions(platform_folder)
-        print(f"Executable permissions added to all files in folder: {platform_folder}")
+            set_executable_permissions(platform_folder)
+            print(f"Executable permissions added to all files in folder: {platform_folder}")
 
         return 0
 
