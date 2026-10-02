@@ -34,23 +34,29 @@ rm -rf plot_output/*
 rm -rf stat_output/*
 rm -rf swan_output/*
 
-if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
-    echo "== SVN update ..."
-	svn update \
-		--non-interactive \
-		--no-auth-cache \
-		--username "${SVN_USER_NAME}" \
-		--password "${SVN_PASSWORD}" \
-		"${TESTBED_FOLDER}"
-else
-    echo "== SVN checkout ..."
-	svn checkout \
-		--non-interactive \
-		--no-auth-cache \
-		--username "${SVN_USER_NAME}" \
-		--password "${SVN_PASSWORD}" \
-		"${TESTBED_URL}" \
-		"${TESTBED_FOLDER}"
+for attempt in 1 2 3; do
+	echo "SVN sync attempt ${attempt} of 3"
+	if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
+        echo "== SVN update ..."
+		svn update \
+			--non-interactive \
+			--no-auth-cache \
+			--username "${SVN_USER_NAME}" \
+			--password "${SVN_PASSWORD}" \
+			"${TESTBED_FOLDER}"
+	else
+        echo "== SVN checkout ..."
+		svn checkout \
+			--non-interactive \
+			--no-auth-cache \
+			--username "${SVN_USER_NAME}" \
+			--password "${SVN_PASSWORD}" \
+			"${TESTBED_URL}" \
+			"${TESTBED_FOLDER}"
+	fi
+done
+if [[ $? -ne 0 ]]; then
+	exit $?
 fi
 
 if [[ ! -d .venv ]]; then
@@ -60,7 +66,13 @@ fi
 source .venv/bin/activate
 
 echo "== Update venv ..."
-uv pip sync ./pip/lnx-requirements.txt
+for attempt in 1 2 3; do
+	echo "uv pip sync attempt ${attempt} of 3"
+	uv pip sync ./pip/lnx-requirements.txt
+done
+if [[ $? -ne 0 ]]; then
+	exit $?
+fi
 
 echo "== Current folder and its contens ..."
 pwd
