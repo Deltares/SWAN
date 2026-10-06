@@ -1640,7 +1640,7 @@
       END
 !***********************************************************************
 !                                                                      *
-      CHARACTER *8 FUNCTION SUHEAD (QUNIT)
+      CHARACTER(len=8) FUNCTION SUHEAD (QUNIT)
 !                                                                      *
 !***********************************************************************
 !
@@ -2851,7 +2851,7 @@
 !MatL5!
 !MatL5      INTEGER       MROWS, NCOLS, IDLA, IOUTMA, IREC
 !MatL5      REAL          RDATA(*), DUMVAL
-!MatL5      CHARACTER*(*) MATNAM
+!MatL5      CHARACTER(len=*) MATNAM
 !MatL5!
 !MatL5!  5. Parameter variables
 !MatL5!
@@ -2896,7 +2896,7 @@
 !MatL5      INTEGER I, J, IENT, IOS, M, N, NTOT
 !MatL5      INTEGER NAMLEN, NANVAL
 !MatL5      INTEGER, SAVE :: IRECS
-!MatL5      CHARACTER*80 MSGSTR
+!MatL5      CHARACTER(len=80) MSGSTR
 !MatL5      CHARACTER(LEN=HeaderSize) HEADER
 !MatL5      CHARACTER(LEN=BlockSize) CTMP
 !MatL5
