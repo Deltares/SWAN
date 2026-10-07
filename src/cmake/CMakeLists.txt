@@ -257,6 +257,10 @@ file(GLOB SWAN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn90
 )
 
+file(GLOB SWAN_SCRIPTS
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.*
+)
+
 # generate code using switch.py
 add_custom_command(
     OUTPUT
@@ -416,6 +420,7 @@ endif()
 install(TARGETS ${SWANLIB} ${SWANMOD_TARGETS} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS ${SWANEXE} RUNTIME DESTINATION bin)
 install(FILES $<TARGET_RUNTIME_DLLS:${SWANEXE}> DESTINATION bin)
+install(FILES ${SWAN_SCRIPTS} DESTINATION scripts)
 if(UNIX)
     install(CODE "
         include(\"${CMAKE_CURRENT_SOURCE_DIR}/functions.cmake\")
