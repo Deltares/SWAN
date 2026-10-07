@@ -41,6 +41,7 @@ object LinuxBuild : BuildType({
         param("env.CONAN_HOME", "/conan-cache")
         param("generator", """"Unix Makefiles"""")
         param("build_type", "Release")
+        param("ref_version", "41.51.10alpha")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("svn_username", DslContext.getParameter("svn_username"))
@@ -86,7 +87,7 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "41.51.9CONAN"
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "%ref_version%"
                 
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"

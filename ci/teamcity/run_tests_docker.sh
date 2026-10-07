@@ -2,7 +2,7 @@ set -eo pipefail
 
 
 TEST_VERSION="${1:-}"
-REF_VERSION="${2:-41.51.9CONAN}"
+REF_VERSION="${2:-41.51.10alpha}"
 REPO_ROOT="${3:-$(pwd)}"
 
 CONTAINER_TAG="oneapi-2024"

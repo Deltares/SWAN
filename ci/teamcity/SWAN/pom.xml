@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <project>
   <modelVersion>4.0.0</modelVersion>
-  <name>Swan_Sandbox Config DSL Script</name>
-  <groupId>Swan_Sandbox</groupId>
-  <artifactId>Swan_Sandbox_dsl</artifactId>
+  <name>Swan_Git Config DSL Script</name>
+  <groupId>Swan_Git</groupId>
+  <artifactId>Swan_Git_dsl</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <parent>

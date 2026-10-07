@@ -35,7 +35,7 @@ if not defined TEST_VERSION (
 )
 
 set "REF_VERSION=%~2"
-if not defined REF_VERSION set "REF_VERSION=41.51.9CONAN"
+if not defined REF_VERSION set "REF_VERSION=41.51.10alpha"
 
 set "REPO_ROOT=%~3"
 if not defined REPO_ROOT set "REPO_ROOT=%CD%"

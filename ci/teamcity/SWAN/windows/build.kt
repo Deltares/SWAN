@@ -31,6 +31,7 @@ object WindowsBuild : BuildType({
         param("container.tag", "vs2022-intel2024-ltsc2025")
         param("env.CONAN_HOME", "C:/conan-cache")
         param("build_type", "Release")
+        param("ref_version", "41.51.10alpha")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("svn_username", DslContext.getParameter("svn_username"))
@@ -67,7 +68,7 @@ object WindowsBuild : BuildType({
             scriptContent = """
                 call C:\set-env.cmd
 
-                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace "%teamcity.build.branch%" "41.51.9CONAN"
+                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace "%teamcity.build.branch%" "%ref_version%"
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-windows:%container.tag%"
