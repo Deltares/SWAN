@@ -100,12 +100,12 @@ rm -rf swan_output/*
 
 
 echo "== Download test version ${TEST_VERSION} ..."
-echo "path:"
-echo "https://internal-artifacts.deltares.nl/repository/swan-dev/${TEST_VERSION}/lnx64/${ARCHIVE_NAME}"
 EXECUTABLE_DIR="/workspace/executables/swan/${TEST_VERSION}/lnx64"
 ARCHIVE_NAME="swan_${TEST_VERSION}_lnx64.zip"
 EXTRACTION_DIR="/tmp/swan_${TEST_VERSION}_lnx64"
 mkdir -p "${EXECUTABLE_DIR}"
+echo "path:"
+echo "https://internal-artifacts.deltares.nl/repository/swan-dev/${TEST_VERSION}/lnx64/${ARCHIVE_NAME}"
 curl -vv --fail --show-error --silent --location \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
     "https://internal-artifacts.deltares.nl/repository/swan-dev/${TEST_VERSION}/lnx64/${ARCHIVE_NAME}" \
@@ -119,12 +119,12 @@ rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
 
 echo "== Download ref  version ${REF_VERSION} ..."
-echo "path:"
-echo "https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}"
 EXECUTABLE_DIR="/workspace/executables/swan/${REF_VERSION}/lnx64"
 ARCHIVE_NAME="swan_${REF_VERSION}_lnx64.zip"
 EXTRACTION_DIR="/tmp/swan_${REF_VERSION}_lnx64"
 mkdir -p "${EXECUTABLE_DIR}"
+echo "path:"
+echo "https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}"
 curl -vv --fail --show-error --silent --location \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
     "https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}" \
