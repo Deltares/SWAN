@@ -124,7 +124,7 @@ $ExecutableDir = Join-Path $ExecutableRoot "$RefVersion\$ArchivePlatform"
 $ArchiveName = "swan_${RefVersion}_${ArchivePlatform}.zip"
 $ExtractionDir = Join-Path $env:TEMP "swan_${RefVersion}_${ArchivePlatform}"
 $ArchivePath = Join-Path $env:TEMP $ArchiveName
-$ArchiveUrl = "https://internal-artifacts.deltares.nl/repository/swan/$RefVersion/$ArchivePlatform/$ArchiveName"
+$ArchiveUrl = "https://internal-artifacts.deltares.nl/repository/swan-dev/$RefVersion/$ArchivePlatform/$ArchiveName"
 New-Item -ItemType Directory -Force -Path $ExecutableDir | Out-Null
 curl.exe --fail --show-error --silent --location `
     --user "${env:CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${env:CONAN_PASSWORD_DELFT3D_CONAN_DEV}" `

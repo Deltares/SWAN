@@ -123,7 +123,7 @@ EXTRACTION_DIR="/tmp/swan_${REF_VERSION}_lnx64"
 mkdir -p "${EXECUTABLE_DIR}"
 curl --fail --show-error --silent --location \
     --user "${CONAN_LOGIN_USERNAME_DELFT3D_CONAN_DEV}:${CONAN_PASSWORD_DELFT3D_CONAN_DEV}" \
-    "https://internal-artifacts.deltares.nl/repository/swan/${REF_VERSION}/lnx64/${ARCHIVE_NAME}" \
+    "https://internal-artifacts.deltares.nl/repository/swan-dev/${REF_VERSION}/lnx64/${ARCHIVE_NAME}" \
     --output "/tmp/${ARCHIVE_NAME}"
 rm -rf "${EXTRACTION_DIR}"
 mkdir -p "${EXTRACTION_DIR}"
