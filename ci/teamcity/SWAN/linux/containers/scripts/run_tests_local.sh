@@ -34,63 +34,63 @@ rm -rf stat_output/*
 rm -rf swan_output/*
 
 
-# 
-# sync_status=1
-# set +e
-# for attempt in 1 2 3; do
-#     echo "SVN sync attempt ${attempt} of 3"
-#     if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
-#         echo "== SVN cleanup and update ..."
-#         svn cleanup .
-#         svn update \
-#             --non-interactive \
-#             --no-auth-cache \
-#             --username "${SVN_USER_NAME}" \
-#             --password "${SVN_PASSWORD}" \
-#             "${TESTBED_FOLDER}"
-#     else
-#         echo "== SVN checkout ..."
-#         svn checkout \
-#             --non-interactive \
-#             --no-auth-cache \
-#             --username "${SVN_USER_NAME}" \
-#             --password "${SVN_PASSWORD}" \
-#             "${TESTBED_URL}" \
-#             "${TESTBED_FOLDER}"
-#     fi
-#  	sync_status=$?
-#  	if [[ $sync_status -eq 0 ]]; then
-#  		break
-#  	fi
-# done
-# set -e
-# if [[ $sync_status -ne 0 ]]; then
-#     exit "$sync_status"
-# fi
-# 
-# 
-# 
-# if [[ ! -d .venv ]]; then
-#     echo "== Create venv ..."
-#     uv venv --python 3.12
-# fi
-# source .venv/bin/activate
-# echo "== Update venv ..."
-# sync_status=1
-# set +e
-# for attempt in 1 2 3; do
-#     echo "uv pip sync attempt ${attempt} of 3"
-#     uv pip sync ./pip/lnx-requirements.txt
-#  	sync_status=$?
-#  	if [[ $sync_status -eq 0 ]]; then
-#  		break
-#  	fi
-# done
-# set -e
-# if [[ $sync_status -ne 0 ]]; then
-#     exit "$sync_status"
-# fi
-# 
+
+sync_status=1
+set +e
+for attempt in 1 2 3; do
+    echo "SVN sync attempt ${attempt} of 3"
+    if [[ -d "${TESTBED_FOLDER}/.svn" ]]; then
+        echo "== SVN cleanup and update ..."
+        svn cleanup .
+        svn update \
+            --non-interactive \
+            --no-auth-cache \
+            --username "${SVN_USER_NAME}" \
+            --password "${SVN_PASSWORD}" \
+            "${TESTBED_FOLDER}"
+    else
+        echo "== SVN checkout ..."
+        svn checkout \
+            --non-interactive \
+            --no-auth-cache \
+            --username "${SVN_USER_NAME}" \
+            --password "${SVN_PASSWORD}" \
+            "${TESTBED_URL}" \
+            "${TESTBED_FOLDER}"
+    fi
+ 	sync_status=$?
+ 	if [[ $sync_status -eq 0 ]]; then
+ 		break
+ 	fi
+done
+set -e
+if [[ $sync_status -ne 0 ]]; then
+    exit "$sync_status"
+fi
+
+
+
+if [[ ! -d .venv ]]; then
+    echo "== Create venv ..."
+    uv venv --python 3.12
+fi
+source .venv/bin/activate
+echo "== Update venv ..."
+sync_status=1
+set +e
+for attempt in 1 2 3; do
+    echo "uv pip sync attempt ${attempt} of 3"
+    uv pip sync ./pip/lnx-requirements.txt
+ 	sync_status=$?
+ 	if [[ $sync_status -eq 0 ]]; then
+ 		break
+ 	fi
+done
+set -e
+if [[ $sync_status -ne 0 ]]; then
+    exit "$sync_status"
+fi
+
 
 
 # echo "== Current folder and its contents ..."
@@ -132,12 +132,7 @@ cp -a "${EXTRACTION_DIR}/swan_${REF_VERSION}_lnx64/." "${EXECUTABLE_DIR}/"
 chmod -R a+x "${EXECUTABLE_DIR}"
 rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
-cd /tmp
-ls /workspace/executables/swan/41.51.10alpha
-ls /workspace/executables/swan/41.51.10alpha/lnx64
-ls -l /workspace/executables/swan/41.51.10alpha/lnx64/bin
-/workspace/executables/swan/41.51.10alpha/lnx64/bin/swan_omp.exe
-ls swan*
+
 
 LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 
