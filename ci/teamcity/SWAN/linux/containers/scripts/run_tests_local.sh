@@ -129,6 +129,7 @@ rm -rf "${EXTRACTION_DIR}"
 mkdir -p "${EXTRACTION_DIR}"
 unzip -q "/tmp/${ARCHIVE_NAME}" -d "${EXTRACTION_DIR}"
 cp -a "${EXTRACTION_DIR}/swan_${REF_VERSION}_lnx64/." "${EXECUTABLE_DIR}/"
+chmod -R a+x "${EXECUTABLE_DIR}"
 rm -rf "/tmp/${ARCHIVE_NAME}" "${EXTRACTION_DIR}"
 
 cd /tmp
