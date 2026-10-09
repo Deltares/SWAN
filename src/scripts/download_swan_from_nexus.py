@@ -9,6 +9,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
+
+default_version = "swan/41.51.10"
+
 BASE_URI = "https://internal-artifacts.deltares.nl/repository"
 
 
@@ -24,7 +27,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def prompt_if_missing(value: str | None, prompt_text: str, secret: bool = False, required: bool = True) -> str:
+def prompt_if_missing(
+    value: str | None, prompt_text: str, secret: bool = False, required: bool = True
+) -> str:
     if value and value.strip():
         return value.strip()
 
@@ -44,7 +49,9 @@ def validate_folder_name(name: str, arg_name: str) -> str:
     if not cleaned:
         raise ValueError(f"{arg_name} is required.")
     if Path(cleaned).name != cleaned or any(sep in cleaned for sep in ["/", "\\"]):
-        raise ValueError(f"{arg_name} must be a single folder name (no path separators).")
+        raise ValueError(
+            f"{arg_name} must be a single folder name (no path separators)."
+        )
     return cleaned
 
 
@@ -52,7 +59,9 @@ def prepare_folders(destination: str, version: str, platform: str) -> tuple[Path
     destination_path = Path(destination).expanduser().resolve()
 
     if not destination_path.exists() or not destination_path.is_dir():
-        raise ValueError(f"--destination must be an existing folder: {destination_path}")
+        raise ValueError(
+            f"--destination must be an existing folder: {destination_path}"
+        )
 
     safe_version = validate_folder_name(version, "--version")
     safe_platform = validate_folder_name(platform, "--platform")
@@ -81,7 +90,9 @@ def build_artifact_uri(nexus_project: str, version: str, platform: str) -> str:
     return f"{BASE_URI}/{nexus_project_part}/{version_part}/{platform_part}/swan_{version_part}_{platform_part}.zip"
 
 
-def download_file(uri: str, token_name: str, token_pass: str, destination_folder: Path) -> Path:
+def download_file(
+    uri: str, token_name: str, token_pass: str, destination_folder: Path
+) -> Path:
     credentials = f"{token_name}:{token_pass}".encode("utf-8")
     auth_header = f"Basic {base64.b64encode(credentials).decode('ascii')}"
 
@@ -106,7 +117,6 @@ def download_file(uri: str, token_name: str, token_pass: str, destination_folder
     return zip_path
 
 
-
 def unzip_artifact(zip_path: Path, extract_to: Path) -> None:
     if not zipfile.is_zipfile(zip_path):
         raise ValueError(f"Downloaded file is not a valid zip archive: {zip_path}")
@@ -126,7 +136,10 @@ def unzip_artifact(zip_path: Path, extract_to: Path) -> None:
         strip_prefix = None
         if len(top_levels) == 1:
             candidate = next(iter(top_levels))
-            if all(n == candidate or n.startswith(candidate + "/") for n in normalized_names):
+            if all(
+                n == candidate or n.startswith(candidate + "/")
+                for n in normalized_names
+            ):
                 strip_prefix = candidate + "/"
 
         for info in infos:
@@ -138,7 +151,7 @@ def unzip_artifact(zip_path: Path, extract_to: Path) -> None:
                 if src_name == strip_prefix[:-1]:
                     continue
                 if src_name.startswith(strip_prefix):
-                    src_name = src_name[len(strip_prefix):]
+                    src_name = src_name[len(strip_prefix) :]
 
             if not src_name:
                 continue
@@ -171,45 +184,49 @@ def set_executable_permissions(root: Path) -> None:
             path.chmod(mode | 0o111)
 
 
-
-def main() -> int:
+def download_swan_from_nexus() -> int:
     args = parse_args()
 
     message = "\n  To get your token name/pass:\n  - Go to https://internal-artifacts.deltares.nl\n  - My account (top right corner)\n  - User Token\n  - Access User Token\n"
     token_name = prompt_if_missing(args.tokenname, message + "Token name: ")
     token_pass = prompt_if_missing(args.tokenpass, "Token pass: ", secret=True)
 
-    message = "\n  Version example: swan-dev/41.51.9CONAN\n  Check Nexus for available versions.\n  Just press Enter for the above version.\n"
-    project_version = prompt_if_missing(args.version, message + "Version: ", required=False)
+    message = f"\n  Version example: {default_version}\n  Check Nexus for available versions.\n  Just press Enter for the above version.\n"
+    project_version = prompt_if_missing(
+        args.version, message + "Version: ", required=False
+    )
     if not project_version or not project_version.strip():
-        nexus_project = "swan-dev"
-        version = "41.51.9CONAN"
-    else:
-        parts = project_version.split("/")
-        if not len(parts)==2:
-            print(f"ERROR: Expecting '<project>/<version>' but no '/' found in '{project_version}'")
-            return 1
-        if not parts[0] in ["swan", "swan-dev"]:
-            print(f"ERROR: Expecting '<project>/<version>' with '<project>' either 'swan' or 'swan-dev' but received '{parts[0]}'")
-            return 1
-        nexus_project = parts[0]
-        version = parts[1]
-
-
+        project_version = default_version
+    parts = project_version.split("/")
+    if not len(parts) == 2:
+        print(
+            f"ERROR: Expecting '<project>/<version>' but no '/' found in '{project_version}'"
+        )
+        return 1
+    if not parts[0] in ["swan", "swan-dev"]:
+        print(
+            f"ERROR: Expecting '<project>/<version>' with '<project>' either 'swan' or 'swan-dev' but received '{parts[0]}'"
+        )
+        return 1
+    nexus_project = parts[0]
+    version = parts[1]
 
     message = "\n  Platform options: x64(Windows), lnx64(Linux) or both\n  Just press Enter for both.\n"
     platform = prompt_if_missing(args.platform, message + "Platform: ", required=False)
-    if (not platform or not platform.strip()) or platform=="both":
+    if (not platform or not platform.strip()) or platform == "both":
         platformset = ["x64", "lnx64"]
     else:
         if not platform in ["x64", "lnx64"]:
-            print(f"ERROR: Expecting 'x64', 'lnx64' or 'both' but received '{platform}'")
+            print(
+                f"ERROR: Expecting 'x64', 'lnx64' or 'both' but received '{platform}'"
+            )
             return 1
         platformset = [platform]
 
-
     message = f"\n  Destination folder, current folder: {str(Path.cwd())}\n  Just press Enter to use the current working directory.\n"
-    destination = prompt_if_missing(args.destination, message + "Destination folder: ", required=False)
+    destination = prompt_if_missing(
+        args.destination, message + "Destination folder: ", required=False
+    )
     if not destination or not destination.strip():
         destination = str(Path.cwd())
 
@@ -220,14 +237,18 @@ def main() -> int:
             artifact_uri = build_artifact_uri(nexus_project, version, plt)
             print(f"Downloading from: {artifact_uri}")
 
-            zip_path = download_file(artifact_uri, token_name, token_pass, version_folder)
+            zip_path = download_file(
+                artifact_uri, token_name, token_pass, version_folder
+            )
             print(f"Downloaded zip: {zip_path}")
 
             unzip_artifact(zip_path, platform_folder)
             print(f"Extracted to: {platform_folder}")
 
             set_executable_permissions(platform_folder)
-            print(f"Executable permissions added to all files in folder: {platform_folder}")
+            print(
+                f"Executable permissions added to all files in folder: {platform_folder}"
+            )
 
         return 0
 
@@ -239,6 +260,10 @@ def main() -> int:
         print(f"Failed: {ex}", file=sys.stderr)
 
     return 1
+
+
+def main() -> int:
+    return download_swan_from_nexus()
 
 
 if __name__ == "__main__":
