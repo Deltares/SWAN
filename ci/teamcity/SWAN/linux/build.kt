@@ -41,7 +41,7 @@ object LinuxBuild : BuildType({
         param("env.CONAN_HOME", "/conan-cache")
         param("generator", """"Unix Makefiles"""")
         param("build_type", "Release")
-        param("ref_version", "41.51.10alpha")
+        param("ref_version", "41.51.10")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("svn_username", DslContext.getParameter("svn_username"))

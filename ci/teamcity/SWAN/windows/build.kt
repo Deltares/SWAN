@@ -31,7 +31,7 @@ object WindowsBuild : BuildType({
         param("container.tag", "vs2022-intel2024-ltsc2025")
         param("env.CONAN_HOME", "C:/conan-cache")
         param("build_type", "Release")
-        param("ref_version", "41.51.10alpha")
+        param("ref_version", "41.51.10")
         param("nexus_conan_username", DslContext.getParameter("nexus_conan_username"))
         password("nexus_conan_password", DslContext.getParameter("nexus_conan_password"))
         param("svn_username", DslContext.getParameter("svn_username"))
