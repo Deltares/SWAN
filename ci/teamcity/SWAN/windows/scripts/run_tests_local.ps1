@@ -146,6 +146,7 @@ $LogFile = "run_testbench_${TestVersion}_${ArchivePlatform}_OMP.log"
 
 
 Write-Host "== Run testbench OMP ..."
+$ENV:OMP_NUM_THREADS=8
 & ".\.venv\Scripts\python.exe" run_testbench.py --prl omp --ref $RefVersion --test $TestVersion --cases settings/templates/OMP_DELTARES_swan_cases.inp 2>&1 |
     Tee-Object -FilePath $LogFile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

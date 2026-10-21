@@ -139,7 +139,7 @@ LOG_FILE="run_testbench_${TEST_VERSION}_lnx64_OMP.log"
 
 
 echo "== Run testbench OMP ..."
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=8
 export NPROCESSES=1
 .venv/bin/python run_testbench.py --prl omp --ref "${REF_VERSION}" --test "${TEST_VERSION}" --cases settings/templates/OMP_DELTARES_swan_cases.inp  2>&1 | tee "${LOG_FILE}"
 
@@ -147,7 +147,7 @@ export NPROCESSES=1
 
 echo "== Run testbench MPI ..."
 export OMP_NUM_THREADS=1
-export NPROCESSES=4
+export NPROCESSES=8
 export PATH="/opt/intel/oneapi/mpi/latest/bin:${PATH}"
 export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/usr/local/lib:/opt/rh/gcc-toolset-14/root/usr/lib64:/opt/rh/gcc-toolset-14/root/usr/lib:/opt/intel/oneapi/tbb/2021.13/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib:/opt/intel/oneapi/mpi/2021.13/lib:/opt/intel/oneapi/mkl/2024.2/lib:/opt/intel/oneapi/dpl/2022.6/lib:/opt/intel/oneapi/debugger/2024.2/opt/debugger/lib:/opt/intel/oneapi/compiler/2024.2/opt/compiler/lib:/opt/intel/oneapi/compiler/2024.2/lib"
 export FI_PROVIDER_PATH="/opt/intel/oneapi/mpi/2021.13/opt/mpi/libfabric/lib/prov:/usr/lib64/libfabric"
