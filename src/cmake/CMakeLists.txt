@@ -257,10 +257,15 @@ file(GLOB SWAN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../*.ftn90
 )
 
-file(GLOB SWAN_SCRIPTS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.*
+file(GLOB SWAN_SCRIPTS_LNX
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.sh
 )
 
+file(GLOB SWAN_SCRIPTS_WIN
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.bat
+)
 # generate code using switch.py
 add_custom_command(
     OUTPUT
@@ -420,8 +425,8 @@ endif()
 install(TARGETS ${SWANLIB} ${SWANMOD_TARGETS} ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(TARGETS ${SWANEXE} RUNTIME DESTINATION bin)
 install(FILES $<TARGET_RUNTIME_DLLS:${SWANEXE}> DESTINATION bin)
-install(FILES ${SWAN_SCRIPTS} DESTINATION scripts)
 if(UNIX)
+    install(FILES ${SWAN_SCRIPTS_LNX} DESTINATION scripts)
     install(CODE "
         include(\"${CMAKE_CURRENT_SOURCE_DIR}/functions.cmake\")
         execute_process(
@@ -441,6 +446,7 @@ if(UNIX)
         file(REMOVE \"${CMAKE_INSTALL_PREFIX}/lib/libgcc_s.so.1\")
     ")
 elseif(WIN32)
+    install(FILES ${SWAN_SCRIPTS_WIN} DESTINATION scripts)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
 endif()

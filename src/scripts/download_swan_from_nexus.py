@@ -189,7 +189,8 @@ def download_swan_from_nexus() -> int:
 
     message = "\n  To get your token name/pass:\n  - Go to https://internal-artifacts.deltares.nl\n  - My account (top right corner)\n  - User Token\n  - Access User Token\n"
     token_name = prompt_if_missing(args.tokenname, message + "Token name: ")
-    token_pass = prompt_if_missing(args.tokenpass, "Token pass: ", secret=True)
+    message = "\n  Token pass will not be shown on screen\n"
+    token_pass = prompt_if_missing(args.tokenpass, message + "Token pass: ", secret=True)
 
     message = f"\n  Version example: {default_version}\n  Check Nexus for available versions.\n  Just press Enter for the above version.\n"
     project_version = prompt_if_missing(
