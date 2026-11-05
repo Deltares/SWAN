@@ -1,10 +1,16 @@
 #!/bin/bash
 
 # Usage:
-# - Download SWAN binaries from Nexus, for example by using Python script "download_swan_from_nexus.py"
+# In your working folder, make sure that the file named “INPUT” is present, containing the SWAN input.
+# Execute the swan executable in the working folder. The executable is able to find all needed so-files.
+#
+# Alternative for using binaries from /p/swan/Releases:
+#   Download SWAN binaries from Nexus, for example by using Python script "download_swan_from_nexus.py"
 #   When executing "python download_swan_from_nexus.py", follow the instructions printed to screen
-# - Change settings in this submit file
-# - Login on HAL8 and execute:
+#
+# Copy this script into your working folder
+# Change settings in this submit file
+# Login on HAL8 and execute:
 #   sbatch submit_swan_mpi_HAL8.sh
 
 #SBATCH --job-name=swan_mpi4    # Job name
@@ -16,5 +22,4 @@
 export NPROCESSES=4
 
 module load intelmpi/2021.14.0
-
-mpirun -n $NPROCESSES /path/to/the/downloaded/swan/version/lnx64/bin/swan_mpi.exe
+mpirun -n $NPROCESSES /p/swan/Releases/41.51.10/lnx64/bin/swan_mpi.exe
