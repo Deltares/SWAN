@@ -280,7 +280,10 @@ add_custom_command(
     ${SWAN_SOURCE_FILES}
 )
 
+add_custom_target(swan_sources DEPENDS ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE})
+
 add_library(swanmod_base "")
+add_dependencies(swanmod_base swan_sources)
 target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
 
 add_library(swanmod_core "")

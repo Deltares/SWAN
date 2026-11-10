@@ -9,3 +9,13 @@ endif()
 
 add_test(NAME swan_prep_comp COMMAND swan_prep_comp_test)
 set_tests_properties(swan_prep_comp PROPERTIES TIMEOUT 30)
+
+if(NOT USE_MPI)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME swan_unstructured_obstacles
+        COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/test_unstructured_obstacles.py"
+            $<TARGET_FILE:${SWANEXE}>)
+    set_tests_properties(swan_unstructured_obstacles PROPERTIES
+        TIMEOUT 180 PROCESSORS 2)
+endif()
