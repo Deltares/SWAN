@@ -40,7 +40,7 @@ module HRextensions
     implicit none
     private
     public :: swn_hre_initva, swn_hre_bcnccf, swn_hre_get_bpnt_2d, swn_hre_get_bpnt_1d, &
-              swn_hre_readarray, swn_hre_timf, swn_hre_inpgr
+              swn_hre_readarray, swn_hre_readcoordarray, swn_hre_timf, swn_hre_inpgr
 !
     character(len=*), parameter  ::  scale_dens_name  =  'scale_density'
     logical :: flippedY(NUMGRD) = .false.
@@ -443,6 +443,67 @@ contains
         endif
 
     end subroutine swn_hre_readarray
+
+    ! Read coordinates without rounding absolute positions to default REAL.
+    subroutine swn_hre_readcoordarray(IFLNDF, TARR, MXG, MYG, IFLTIM, IFLFAC, igr, filename)
+        use SWCOMM2, only: EXCFLD
+        integer, intent(in) :: MXG(NUMGRD), MYG(NUMGRD), igr
+        integer, intent(inout) :: IFLNDF(NUMGRD)
+        real(kind=8), intent(in) :: IFLTIM(NUMGRD)
+        real, intent(in) :: IFLFAC(NUMGRD)
+        double precision, intent(out) :: TARR(MXG(igr), MYG(igr))
+        character(len=*), intent(in) :: filename
+        integer :: ncid, varid, ndims, ri, mydatevec(6), xtype
+        integer(kind=8) :: xpctime
+        double precision :: add_offset, scale_factor, fill_value
+        double precision, allocatable :: temp(:, :)
+        logical, allocatable :: missing(:, :)
+        type(recordaxe_type) :: recordaxe
+        logical, external :: STPNOW
+
+        TARR = dble(EXCFLD(igr))
+        ncid = -IFLNDF(igr)
+        call swn_hre_grid_varid(ncid, igr, varid, ndims)
+        if (STPNOW()) then
+            return
+        end if
+        if (ndims == 3) then
+            call DTINTI(IFLTIM(igr), mydatevec)
+            xpctime = seconds_since_epoch(mydatevec)
+            call agnc_get_recordaxe(ncid, recordaxe)
+            call record_index(ncid, recordaxe, xpctime, ri, .true., filename)
+            if (STPNOW()) then
+                return
+            end if
+            call nccheck(nf90_get_var(ncid, varid, TARR, (/1, 1, ri/)))
+            if (flippedY(igr)) then
+                allocate(temp(MXG(igr), MYG(igr)))
+                temp = TARR(:, MYG(igr):1:-1)
+                TARR = temp
+            end if
+        else
+            call nccheck(nf90_get_var(ncid, varid, TARR))
+        end if
+        call get_scalies(ncid, varid, add_offset, scale_factor, fill_value, xtype)
+        allocate(missing(MXG(igr), MYG(igr)))
+        missing = TARR == fill_value
+        where (missing)
+            TARR = dble(EXCFLD(igr))
+        end where
+        if (all(missing)) then
+            call MSGERR(2, 'Only missing coordinates in '//trim(filename))
+            return
+        end if
+        if (xtype == NF90_SHORT .or. xtype == NF90_BYTE .or. xtype == NF90_INT) then
+            where (.not.missing)
+                TARR = TARR * scale_factor + add_offset
+            end where
+        end if
+        where (.not.missing)
+            TARR = TARR * dble(IFLFAC(igr))
+        end where
+    end subroutine swn_hre_readcoordarray
+
 
     subroutine swn_hre_grid_varid(ncid, igr, varid, ndims)
         integer,                   intent(in   ) :: igr, ncid

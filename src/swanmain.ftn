@@ -1159,6 +1159,7 @@
       XOFFS  = 0.
       YOFFS  = 0.
       LXOFFS = .FALSE.
+      LCOORDSHIFT = .FALSE.
       DYNDEP = .FALSE.                                                    40.00
       LWDATE = 0                                                          41.13
       MXOUTAR = 0

@@ -1,0 +1,212 @@
+! Read structured grid coordinates before reducing their precision.
+module SwanCoordinateInput
+    use, intrinsic :: iso_fortran_env, only: iostat_end
+    use ocpcomm4, only: printf
+    use swcomm2, only: XOFFS, YOFFS, LXOFFS, LCOORDSHIFT, EXCFLD
+    implicit none
+    private
+    public :: SwanReadCoordArray, SwanShiftCoordinates
+
+contains
+
+    ! Preserve the existing layouts and default-REAL unformatted format.
+    subroutine SwanReadCoordArray(arr, mxa, mya, ndsl, ndsd, idfm, rform, &
+                                  idla, vfac, nhed, nhedf)
+        integer, intent(in) :: mxa, mya, ndsl, idfm, nhed, nhedf
+        integer, intent(inout) :: ndsd, idla
+        real, intent(in) :: vfac
+        character(len=*), intent(in) :: rform
+        double precision, intent(out) :: arr(mxa, mya)
+        real, allocatable :: binary_values(:, :)
+        double precision, allocatable :: values(:)
+        integer :: attempt, ix, iy, status, open_status
+        character(len=512) :: filename, message
+        logical, external :: STPNOW
+
+        arr = 0.d0
+        if (idla < 1 .or. idla > 6) then
+            call MSGERR(2, 'Coordinate layout must be between 1 and 6')
+            idla = -2
+            return
+        end if
+        if (ndsd <= 0) then
+            call MSGERR(2, 'Coordinate input file is not open')
+            idla = -2
+            return
+        end if
+        if (idfm < 0) then
+            allocate(binary_values(mxa, mya))
+            binary_values = 0.
+            call INAR2D(binary_values, mxa, mya, ndsl, ndsd, idfm, &
+                        rform, idla, 1.0, nhed, nhedf)
+            arr = dble(binary_values) * dble(vfac)
+            return
+        end if
+
+        do attempt = 1, 2
+            call read_headers(nhed, status)
+            if (status == 0) then
+                select case (idla)
+                case (1, 3)
+                    do iy = 1, mya
+                        if (idla == 1) then
+                            call read_values(arr(:, mya + 1 - iy), status)
+                        else
+                            call read_values(arr(:, iy), status)
+                        end if
+                        if (status /= 0) then
+                            exit
+                        end if
+                    end do
+                case (2, 4, 6)
+                    if (.not.allocated(values)) then
+                        allocate(values(mxa * mya))
+                    end if
+                    values = 0.d0
+                    call read_values(values, status)
+                    if (status == 0) then
+                        do iy = 1, mya
+                            do ix = 1, mxa
+                                select case (idla)
+                                case (2)
+                                    arr(ix, mya + 1 - iy) = values(ix + (iy - 1) * mxa)
+                                case (4)
+                                    arr(ix, iy) = values(ix + (iy - 1) * mxa)
+                                case (6)
+                                    arr(ix, iy) = values(iy + (ix - 1) * mya)
+                                end select
+                            end do
+                        end do
+                    end if
+                case (5)
+                    do ix = 1, mxa
+                        call read_values(arr(ix, :), status)
+                        if (status /= 0) then
+                            exit
+                        end if
+                    end do
+                end select
+            end if
+            if (status == 0) then
+                arr = arr * dble(vfac)
+                return
+            end if
+
+            filename = 'UNKNOWN_FILE'
+            inquire(unit=ndsd, name=filename)
+            if (status == iostat_end .and. ndsl > 0 .and. attempt == 1) then
+                close(ndsd)
+                read(ndsl, '(a)', iostat=status) filename
+                if (status /= 0) then
+                    call MSGERR(2, 'Series of coordinate input files ended')
+                    idla = -1
+                    return
+                end if
+                open_status = 0
+                call FOR(ndsd, filename, 'OF', open_status)
+                if (STPNOW() .or. open_status /= 0 .or. ndsd <= 0) then
+                    idla = -2
+                    return
+                end if
+                call read_headers(nhedf, status)
+                if (status == 0) then
+                    cycle
+                end if
+            end if
+            if (status == iostat_end) then
+                message = 'Unexpected end of coordinate file '//trim(filename)
+                idla = -1
+            else
+                write(message, '(a,a,a,i0)') 'Error reading coordinate file ', &
+                                            trim(filename), ', i/o status ', status
+                idla = -2
+            end if
+            call MSGERR(2, trim(message))
+            return
+        end do
+
+    contains
+
+        subroutine read_headers(count, read_status)
+            integer, intent(in) :: count
+            integer, intent(out) :: read_status
+            integer :: header
+            character(len=80) :: line
+            read_status = 0
+            do header = 1, count
+                read(ndsd, '(a)', iostat=read_status) line
+                if (read_status /= 0) then
+                    return
+                end if
+                write(printf, '(a4,a)') ' -> ', line
+            end do
+        end subroutine read_headers
+
+        subroutine read_values(field, read_status)
+            double precision, intent(inout) :: field(:)
+            integer, intent(out) :: read_status
+            if (idfm == 0) then
+                read(ndsd, *, iostat=read_status) field
+            else
+                read(ndsd, rform, iostat=read_status) field
+            end if
+        end subroutine read_values
+
+    end subroutine SwanReadCoordArray
+
+    ! Shift both components and their missing values exactly once.
+    subroutine SwanShiftCoordinates(xcoord, ycoord, xcgrid, ycgrid)
+        double precision, intent(in) :: xcoord(:, :), ycoord(:, :)
+        real, intent(out) :: xcgrid(:, :), ycgrid(:, :)
+        integer :: ix, iy, valid_points
+        logical :: missing_x, missing_y
+        logical, external :: EQREAL
+
+        LCOORDSHIFT = .false.
+        if (any(shape(xcoord) /= shape(ycoord)) .or. &
+            any(shape(xcoord) /= shape(xcgrid)) .or. &
+            any(shape(xcoord) /= shape(ycgrid))) then
+            call MSGERR(2, 'Coordinate array dimensions do not match')
+            return
+        end if
+        xcgrid = EXCFLD(8)
+        ycgrid = EXCFLD(9)
+        valid_points = 0
+        do ix = 1, size(xcoord, 1)
+            do iy = 1, size(xcoord, 2)
+                missing_x = EQREAL(real(xcoord(ix, iy)), EXCFLD(8))
+                missing_y = EQREAL(real(ycoord(ix, iy)), EXCFLD(9))
+                if (missing_x .neqv. missing_y) then
+                    call MSGERR(2, 'Incorrect grid coordinates: unmatched missing X/Y pair')
+                    return
+                end if
+                if (.not.missing_x) then
+                    valid_points = valid_points + 1
+                end if
+            end do
+        end do
+        if (valid_points == 0) then
+            call MSGERR(3, 'No valid grid points found')
+            return
+        end if
+
+        if (.not.LXOFFS) then
+            origin_search: do ix = 1, size(xcoord, 1)
+                do iy = 1, size(xcoord, 2)
+                    if (.not.EQREAL(real(xcoord(ix, iy)), EXCFLD(8))) then
+                        XOFFS = xcoord(ix, iy)
+                        YOFFS = ycoord(ix, iy)
+                        LXOFFS = .true.
+                        exit origin_search
+                    end if
+                end do
+            end do origin_search
+        end if
+        xcgrid = real(xcoord - XOFFS)
+        ycgrid = real(ycoord - YOFFS)
+        EXCFLD(8) = real(dble(EXCFLD(8)) - XOFFS)
+        EXCFLD(9) = real(dble(EXCFLD(9)) - YOFFS)
+        LCOORDSHIFT = .true.
+    end subroutine SwanShiftCoordinates
+
+end module SwanCoordinateInput

@@ -1636,8 +1636,10 @@
       REAL    DYG(NUMGRD), EXCFLD(NUMGRD)
       REAL    SINPG(NUMGRD)
       REAL    SINVC,       SINWC,       STAGX(NUMGRD)
-      REAL    STAGY(NUMGRD),            XOFFS
-      REAL    XPG(NUMGRD), YOFFS,       YPG(NUMGRD)
+      REAL    STAGY(NUMGRD), XPG(NUMGRD), YPG(NUMGRD)
+      DOUBLE PRECISION XOFFS, YOFFS
+!     Structured coordinates have already been localized.
+      LOGICAL :: LCOORDSHIFT = .FALSE.
       LOGICAL CVLEFT,      LXOFFS,      VARFR
       LOGICAL VARWI,       VARWLV,      DYNDEP
       LOGICAL VARAST

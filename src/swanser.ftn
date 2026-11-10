@@ -161,18 +161,18 @@
         CALL INDBLE (NAMY, YTMP, KONT, DBLE(YSTA)+DBLE(YOFFS))
       ENDIF                                                               40.13
       IF (.NOT.LXOFFS) THEN
-        XOFFS = REAL(XTMP)
-        YOFFS = REAL(YTMP)
+        XOFFS = XTMP
+        YOFFS = YTMP
         LXOFFS = .TRUE.
       ENDIF
-      IF (.NOT.EQREAL(XOFFS,REAL(XTMP))) THEN                             40.51
+      IF (.NOT.EQREAL(REAL(XOFFS),REAL(XTMP))) THEN                             40.51
          XX = REAL(XTMP-DBLE(XOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          XX = 1.E-5                                                       40.51
       ELSE                                                                40.51
          XX = 0.                                                          40.51
       END IF                                                              40.51
-      IF (.NOT.EQREAL(YOFFS,REAL(YTMP))) THEN                             40.51
+      IF (.NOT.EQREAL(REAL(YOFFS),REAL(YTMP))) THEN                             40.51
          YY = REAL(YTMP-DBLE(YOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          YY = 1.E-5                                                       40.51
@@ -290,18 +290,18 @@
         ID = LINE(IDSTART:IDEND-1)
       END IF
       IF (.NOT.LXOFFS) THEN
-        XOFFS = REAL(XTMP)
-        YOFFS = REAL(YTMP)
+        XOFFS = XTMP
+        YOFFS = YTMP
         LXOFFS = .TRUE.
       ENDIF
-      IF (.NOT.EQREAL(XOFFS,REAL(XTMP))) THEN                             40.51
+      IF (.NOT.EQREAL(REAL(XOFFS),REAL(XTMP))) THEN                             40.51
          XX = REAL(XTMP-DBLE(XOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          XX = 1.E-5                                                       40.51
       ELSE                                                                40.51
          XX = 0.                                                          40.51
       END IF                                                              40.51
-      IF (.NOT.EQREAL(YOFFS,REAL(YTMP))) THEN                             40.51
+      IF (.NOT.EQREAL(REAL(YOFFS),REAL(YTMP))) THEN                             40.51
          YY = REAL(YTMP-DBLE(YOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          YY = 1.E-5                                                       40.51

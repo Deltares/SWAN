@@ -4,6 +4,8 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
 
 project(SWAN LANGUAGES Fortran)
 
+include(CTest)
+
 enable_language(Fortran C CXX)
 
 include(functions.cmake)
@@ -198,6 +200,7 @@ set(SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPrepComp.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanpre2.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanpre1.for
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanCoordinateInput.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPointinMesh.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanparll.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanout2.for
@@ -279,7 +282,10 @@ add_custom_command(
     ${SWAN_SOURCE_FILES}
 )
 
+add_custom_target(swan_sources DEPENDS ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE})
+
 add_library(swanmod_base "")
+add_dependencies(swanmod_base swan_sources)
 target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
 
 add_library(swanmod_core "")
@@ -329,6 +335,8 @@ endif()
 
 add_library(${SWANLIB} STATIC "")
 target_sources(${SWANLIB} PRIVATE ${SWANF})
+set_target_properties(${SWANLIB} PROPERTIES
+    Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
 target_include_directories(${SWANLIB} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
 
 
@@ -379,6 +387,23 @@ if(USE_MPI)
         target_link_libraries(${SWANEXE} PUBLIC "${mpi_fortran_library}")
     endif(WIN32)
 endif(USE_MPI)
+
+if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(swan_coordinate_test ../tests/test_coordinate_input.f90)
+    target_include_directories(swan_coordinate_test PRIVATE
+        ${SWANMOD_MODULE_DIRECTORY}
+        ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
+    target_link_libraries(swan_coordinate_test PRIVATE ${SWANLIB} swanmod netCDF::netcdff)
+    if(WIN32 AND USE_MPI)
+        target_link_directories(swan_coordinate_test PRIVATE "${mpi_library_path}")
+        target_link_libraries(swan_coordinate_test PRIVATE "${mpi_fortran_library}")
+    endif()
+    add_test(NAME swan_coordinate_input COMMAND swan_coordinate_test)
+    add_test(NAME swan_coordinate_model
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_coordinate_model.py
+            $<TARGET_FILE:${SWANEXE}>)
+endif()
 
 #
 # Install

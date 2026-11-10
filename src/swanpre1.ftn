@@ -4197,9 +4197,11 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
+      USE SwanCoordinateInput
       USE M_GENARR                                                        40.31
       USE SwanGriddata                                                    40.80
-!NCF      USE HRExtensions, only: swn_hre_readarray
+!NCF      USE HRExtensions, only: swn_hre_readarray,
+!NCF     &                          swn_hre_readcoordarray
 !NCF      USE agioncmd, only: open_ncfile
 !ADC      USE Couple2Swan, ONLY: ADCIRC_ETA2 => SWAN_ETA2,                    41.20
 !ADC     &                       ADCIRC_UU2 => SWAN_UU2,                      41.20
@@ -4348,11 +4350,12 @@
 !
 ! 13. Source text
 !
+      DOUBLE PRECISION, ALLOCATABLE :: COORDINATES(:,:,:)
       REAL, ALLOCATABLE :: TARR(:)                                        40.31
       LOGICAL    KEYWIS, VECTOR                                           30.00
       LOGICAL    LOGCOM(7)                                                42.10 30.21
 !NCF      LOGICAL  NCF
-      INTEGER    newsize
+      INTEGER    newsize, IGR
       SAVE  IENT
       DATA  IENT/0/
       CALL STRACE (IENT,'SREDEP')
@@ -4544,6 +4547,43 @@
          LEDS(1)   = 2
          RETURN
       ENDIF
+
+!     Localize coordinates before storing them in the solver arrays.
+      IF (IGR1.EQ.8) THEN
+         LOGCOM(4) = .FALSE.
+         ALLOCATE(COORDINATES(MXC,MYC,2))
+!NCF         NCF = INDEX(FILENM,'.NC').NE.0 .OR.
+!NCF     &         INDEX(FILENM,'.nc').NE.0
+!NCF         IF (NCF) THEN
+!NCF            CALL open_ncfile(FILENM,'read',IFLNDF(8))
+!NCF            IFLNDF(8) = -IFLNDF(8)
+!NCF            IFLNDF(9) = IFLNDF(8)
+!NCF         END IF
+         DO IGR = 8, 9
+!NCF            IF (NCF) THEN
+!NCF               CALL swn_hre_readcoordarray(IFLNDF,
+!NCF     &              COORDINATES(:,:,IGR-7),MXG,MYG,IFLTIM,
+!NCF     &              IFLFAC,IGR,FILENM)
+!NCF            ELSE
+               CALL SwanReadCoordArray(COORDINATES(:,:,IGR-7),
+     &              MXC,MYC,IFLNDF(IGR),IFLNDS(IGR),IFLIFM(IGR),
+     &              IFLFRM(IGR),IFLIDL(IGR),IFLFAC(IGR),
+     &              IFLNHD(IGR),IFLNHF(IGR))
+!NCF            END IF
+            IF (STPNOW().OR.IFLIDL(IGR).LT.0) THEN
+               RETURN
+            END IF
+         END DO
+         CALL SwanShiftCoordinates(COORDINATES(:,:,1),
+     &        COORDINATES(:,:,2),XCGRID,YCGRID)
+         IF (.NOT.LCOORDSHIFT) THEN
+            RETURN
+         END IF
+         LOGCOM(4) = .TRUE.
+         LEDS(8) = 2
+         LEDS(9) = 2
+         RETURN
+      END IF
 
       IF (.NOT.ALLOCATED(TARR)) THEN                                      40.41
          ALLOCATE( TARR(MXG(IGR1)*MYG(IGR1)) )                            40.41
@@ -5238,7 +5278,7 @@
               CALL MSGERR (2, 'incorrect grid coordinates')
               WRITE (PRINTF, 811) XCGRID(IX,IY), YCGRID(IX,IY)            30.72
             ELSE
-              IF (OPTG.EQ.3) THEN                                         30.60
+              IF (OPTG.EQ.3.AND..NOT.LCOORDSHIFT) THEN                                         30.60
                 IF (.NOT. LXOFFS) THEN
                   XOFFS  = XCGRID(IX,IY)                                  30.72
                   YOFFS  = YCGRID(IX,IY)                                  30.72
@@ -5272,8 +5312,10 @@
   61    CONTINUE                                                          30.72
   62  CONTINUE                                                            30.72
 !
-      EXCFLD(8) = REAL(EXCFLD(8) - DBLE(XOFFS))
-      EXCFLD(9) = REAL(EXCFLD(9) - DBLE(YOFFS))
+      IF (.NOT.LCOORDSHIFT) THEN
+         EXCFLD(8) = REAL(DBLE(EXCFLD(8)) - XOFFS)
+         EXCFLD(9) = REAL(DBLE(EXCFLD(9)) - YOFFS)
+      END IF
 !
       IF (MCGRD.LE.1) CALL MSGERR (3, 'No valid grid points found')       30.60
       IF (ITEST.GE.60) WRITE(PRINTF,*)
@@ -6860,16 +6902,19 @@
             DO IY = 1, MYC
                IF ( EQREAL(XCGRID(IX,IY), EXCFLD(8)) .AND.
      &              EQREAL(YCGRID(IX,IY), EXCFLD(9)) ) THEN
-                  WRITE (NREF) EXCFLD(8)+XOFFS, EXCFLD(9)+YOFFS
+                  WRITE (NREF) REAL(EXCFLD(8)+XOFFS),
+     &                         REAL(EXCFLD(9)+YOFFS)
                ELSE
-                  WRITE (NREF) XCGRID(IX,IY)+XOFFS, YCGRID(IX,IY)+YOFFS
+                  WRITE (NREF) REAL(XCGRID(IX,IY)+XOFFS),
+     &                         REAL(YCGRID(IX,IY)+YOFFS)
                ENDIF
             ENDDO
          ENDDO
        ELSE
          WRITE (NREF) nverts
          DO K = 1, nverts
-            WRITE (NREF) xcugrd(K)+XOFFS, ycugrd(K)+YOFFS
+            WRITE (NREF) REAL(xcugrd(K)+XOFFS),
+     &                      REAL(ycugrd(K)+YOFFS)
          ENDDO
        ENDIF
        WRITE (NREF) MSC
