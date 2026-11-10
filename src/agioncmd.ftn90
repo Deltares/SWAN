@@ -1751,7 +1751,7 @@
                             if ( abs(e2d(isp,ip) - AGNC_DUMMY) > epsilon(1.) ) then
                                 density(ith,ik,ip) = nint(e2d(isp,ip) / scale_density(ip))
                             else
-                                density(ith,ik,ip) = AGNC_FILL_SHORT
+                                density(ith,ik,ip) = NF90_FILL_SHORT
                             end if
                         end do
                     end do
@@ -1899,7 +1899,7 @@
                         if ( abs(energy(ik,ip) - AGNC_DUMMY) > epsilon(1.)) then
                         energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
                         else
-                            energy(ik,ip) = AGNC_FILL_SHORT
+                            energy(ik,ip) = NF90_FILL_SHORT
                         end if
                     end do
                 end do
