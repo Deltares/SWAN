@@ -1474,6 +1474,7 @@
       END MODULE SWCOMM1
 
       MODULE SWCOMM2
+      use, intrinsic :: iso_fortran_env, only: real64
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1528,6 +1529,10 @@
 !     ---
 !
       IMPLICIT NONE
+      private :: real64
+!     Match the configured default REAL ABI, including double builds.
+      integer, parameter :: SWAN_REAL_KIND = kind(0.0)
+      integer, parameter :: SWAN_COORD_KIND = real64
 !
 !  5. Argument variables
 !
@@ -1637,9 +1642,9 @@
       REAL    SINPG(NUMGRD)
       REAL    SINVC,       SINWC,       STAGX(NUMGRD)
       REAL    STAGY(NUMGRD), XPG(NUMGRD), YPG(NUMGRD)
-      DOUBLE PRECISION XOFFS, YOFFS
-!     Structured coordinates have already been localized.
-      LOGICAL :: LCOORDSHIFT = .FALSE.
+      real(kind=SWAN_COORD_KIND) :: xoffs !< Shared X origin.
+      real(kind=SWAN_COORD_KIND) :: yoffs !< Shared Y origin.
+      logical, save :: lcoordshift = .false. !< Already localized.
       LOGICAL CVLEFT,      LXOFFS,      VARFR
       LOGICAL VARWI,       VARWLV,      DYNDEP
       LOGICAL VARAST

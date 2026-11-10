@@ -200,7 +200,7 @@ set(SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPrepComp.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanpre2.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanpre1.for
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanCoordinateInput.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/swan_coordinate_input.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPointinMesh.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanparll.for
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swanout2.for

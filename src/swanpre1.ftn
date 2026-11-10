@@ -4197,7 +4197,8 @@
       USE SWCOMM2                                                         40.41
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
-      USE SwanCoordinateInput
+      use m_swan_coordinate_input, only: read_coordinate_array,
+     &                                  shift_coordinates
       USE M_GENARR                                                        40.31
       USE SwanGriddata                                                    40.80
 !NCF      USE HRExtensions, only: swn_hre_readarray,
@@ -4350,12 +4351,13 @@
 !
 ! 13. Source text
 !
-      DOUBLE PRECISION, ALLOCATABLE :: COORDINATES(:,:,:)
+      real(kind=SWAN_COORD_KIND), dimension(:,:,:), allocatable ::
+     &   coordinates
       REAL, ALLOCATABLE :: TARR(:)                                        40.31
       LOGICAL    KEYWIS, VECTOR                                           30.00
       LOGICAL    LOGCOM(7)                                                42.10 30.21
 !NCF      LOGICAL  NCF
-      INTEGER    newsize, IGR
+      integer :: newsize, igr, coordinate_status
       SAVE  IENT
       DATA  IENT/0/
       CALL STRACE (IENT,'SREDEP')
@@ -4549,41 +4551,46 @@
       ENDIF
 
 !     Localize coordinates before storing them in the solver arrays.
-      IF (IGR1.EQ.8) THEN
-         LOGCOM(4) = .FALSE.
-         ALLOCATE(COORDINATES(MXC,MYC,2))
-!NCF         NCF = INDEX(FILENM,'.NC').NE.0 .OR.
-!NCF     &         INDEX(FILENM,'.nc').NE.0
-!NCF         IF (NCF) THEN
-!NCF            CALL open_ncfile(FILENM,'read',IFLNDF(8))
-!NCF            IFLNDF(8) = -IFLNDF(8)
-!NCF            IFLNDF(9) = IFLNDF(8)
-!NCF         END IF
-         DO IGR = 8, 9
-!NCF            IF (NCF) THEN
-!NCF               CALL swn_hre_readcoordarray(IFLNDF,
-!NCF     &              COORDINATES(:,:,IGR-7),MXG,MYG,IFLTIM,
-!NCF     &              IFLFAC,IGR,FILENM)
-!NCF            ELSE
-               CALL SwanReadCoordArray(COORDINATES(:,:,IGR-7),
-     &              MXC,MYC,IFLNDF(IGR),IFLNDS(IGR),IFLIFM(IGR),
-     &              IFLFRM(IGR),IFLIDL(IGR),IFLFAC(IGR),
-     &              IFLNHD(IGR),IFLNHF(IGR))
-!NCF            END IF
-            IF (STPNOW().OR.IFLIDL(IGR).LT.0) THEN
-               RETURN
-            END IF
-         END DO
-         CALL SwanShiftCoordinates(COORDINATES(:,:,1),
-     &        COORDINATES(:,:,2),XCGRID,YCGRID)
-         IF (.NOT.LCOORDSHIFT) THEN
-            RETURN
-         END IF
-         LOGCOM(4) = .TRUE.
-         LEDS(8) = 2
-         LEDS(9) = 2
-         RETURN
-      END IF
+      if (igr1 == 8) then
+         logcom(4) = .false.
+         allocate(coordinates(mxc, myc, 2),
+     &            stat=coordinate_status)
+         if (coordinate_status /= 0) then
+            call msgerr(2, 'Cannot allocate coordinate input arrays')
+            return
+         end if
+!NCF         ncf = index(filenm, '.NC') /= 0  .or.
+!NCF     &         index(filenm, '.nc') /= 0
+!NCF         if (ncf) then
+!NCF            call open_ncfile(filenm, 'read', iflndf(8))
+!NCF            iflndf(8) = -iflndf(8)
+!NCF            iflndf(9) = iflndf(8)
+!NCF         end if
+         do igr = 8, 9
+!NCF            if (ncf) then
+!NCF               call swn_hre_readcoordarray(iflndf,
+!NCF     &              coordinates(:, :, igr-7), mxg, myg, ifltim,
+!NCF     &              iflfac, igr, filenm)
+!NCF            else
+               call read_coordinate_array(coordinates(:, :, igr-7),
+     &              mxc, myc, iflndf(igr), iflnds(igr), iflifm(igr),
+     &              iflfrm(igr), iflidl(igr), iflfac(igr),
+     &              iflnhd(igr), iflnhf(igr))
+!NCF            end if
+            if (stpnow() .or. iflidl(igr) < 0) then
+               return
+            end if
+         end do
+         call shift_coordinates(coordinates(:, :, 1),
+     &        coordinates(:, :, 2), xcgrid, ycgrid)
+         if (.not. lcoordshift) then
+            return
+         end if
+         logcom(4) = .true.
+         leds(8) = 2
+         leds(9) = 2
+         return
+      end if
 
       IF (.NOT.ALLOCATED(TARR)) THEN                                      40.41
          ALLOCATE( TARR(MXG(IGR1)*MYG(IGR1)) )                            40.41
@@ -5278,7 +5285,7 @@
               CALL MSGERR (2, 'incorrect grid coordinates')
               WRITE (PRINTF, 811) XCGRID(IX,IY), YCGRID(IX,IY)            30.72
             ELSE
-              IF (OPTG.EQ.3.AND..NOT.LCOORDSHIFT) THEN                                         30.60
+              if (optg == 3 .and. .not. lcoordshift) then
                 IF (.NOT. LXOFFS) THEN
                   XOFFS  = XCGRID(IX,IY)                                  30.72
                   YOFFS  = YCGRID(IX,IY)                                  30.72
@@ -5312,10 +5319,12 @@
   61    CONTINUE                                                          30.72
   62  CONTINUE                                                            30.72
 !
-      IF (.NOT.LCOORDSHIFT) THEN
-         EXCFLD(8) = REAL(DBLE(EXCFLD(8)) - XOFFS)
-         EXCFLD(9) = REAL(DBLE(EXCFLD(9)) - YOFFS)
-      END IF
+      if (.not. lcoordshift) then
+         excfld(8) = real(real(excfld(8), kind=SWAN_COORD_KIND) -
+     &                    xoffs, kind=SWAN_REAL_KIND)
+         excfld(9) = real(real(excfld(9), kind=SWAN_COORD_KIND) -
+     &                    yoffs, kind=SWAN_REAL_KIND)
+      end if
 !
       IF (MCGRD.LE.1) CALL MSGERR (3, 'No valid grid points found')       30.60
       IF (ITEST.GE.60) WRITE(PRINTF,*)
@@ -6902,19 +6911,22 @@
             DO IY = 1, MYC
                IF ( EQREAL(XCGRID(IX,IY), EXCFLD(8)) .AND.
      &              EQREAL(YCGRID(IX,IY), EXCFLD(9)) ) THEN
-                  WRITE (NREF) REAL(EXCFLD(8)+XOFFS),
-     &                         REAL(EXCFLD(9)+YOFFS)
+                  write(nref)
+     &         real(excfld(8) + xoffs, kind=SWAN_REAL_KIND),
+     &         real(excfld(9) + yoffs, kind=SWAN_REAL_KIND)
                ELSE
-                  WRITE (NREF) REAL(XCGRID(IX,IY)+XOFFS),
-     &                         REAL(YCGRID(IX,IY)+YOFFS)
+                  write(nref)
+     &         real(xcgrid(ix,iy) + xoffs, kind=SWAN_REAL_KIND),
+     &         real(ycgrid(ix,iy) + yoffs, kind=SWAN_REAL_KIND)
                ENDIF
             ENDDO
          ENDDO
        ELSE
          WRITE (NREF) nverts
          DO K = 1, nverts
-            WRITE (NREF) REAL(xcugrd(K)+XOFFS),
-     &                      REAL(ycugrd(K)+YOFFS)
+            write(nref)
+     &         real(xcugrd(k) + xoffs, kind=SWAN_REAL_KIND),
+     &         real(ycugrd(k) + yoffs, kind=SWAN_REAL_KIND)
          ENDDO
        ENDIF
        WRITE (NREF) MSC

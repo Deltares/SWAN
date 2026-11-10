@@ -1,0 +1,329 @@
+!> Read and localize structured coordinates before reducing their precision.
+module m_swan_coordinate_input
+   use, intrinsic :: iso_fortran_env, only: iostat_end
+   use ocpcomm2, only: LENFNM
+   use ocpcomm4, only: printf
+   use swcomm2, only: RK => SWAN_REAL_KIND, DP => SWAN_COORD_KIND, &
+                      xoffs, yoffs, lxoffs, lcoordshift, excfld
+   implicit none
+   private
+   public :: read_coordinate_array, shift_coordinates
+
+   integer, parameter :: READ_ERROR = -2
+   integer, parameter :: INPUT_END = -1
+   integer, parameter :: ERROR_LEVEL = 2
+   integer, parameter :: SEVERE_LEVEL = 3
+   integer, parameter :: MAX_READ_ATTEMPTS = 2
+
+   ! Legacy interfaces retain SWAN's configured default-REAL ABI and units.
+   interface
+      subroutine inar2d(arr, mxa, mya, ndsl, ndsd, idfm, rform, &
+                        idla, vfac, nhed, nhedf)
+         import :: RK
+         integer, intent(in) :: mxa
+         integer, intent(in) :: mya
+         real(kind=RK), dimension(mxa, mya), intent(inout) :: arr
+         integer, intent(in) :: ndsl
+         integer, intent(inout) :: ndsd
+         integer, intent(in) :: idfm
+         character(len=*), intent(in) :: rform
+         integer, intent(inout) :: idla
+         real(kind=RK), intent(in) :: vfac
+         integer, intent(in) :: nhed
+         integer, intent(in) :: nhedf
+      end subroutine inar2d
+
+      subroutine for(iunit, ddname, sf, io_status)
+         import :: LENFNM
+         integer, intent(inout) :: iunit
+         character(len=LENFNM), intent(inout) :: ddname
+         character(len=2), intent(in) :: sf
+         integer, intent(inout) :: io_status
+      end subroutine for
+
+      subroutine msgerr(level, message)
+         integer, intent(in) :: level
+         character(len=*), intent(in) :: message
+      end subroutine msgerr
+
+      function stpnow() result(stop_requested)
+         logical :: stop_requested
+      end function stpnow
+
+      function eqreal(first, second) result(equal)
+         import :: RK
+         real(kind=RK), intent(in) :: first
+         real(kind=RK), intent(in) :: second
+         logical :: equal
+      end function eqreal
+   end interface
+
+contains
+
+   !> Read one coordinate component with the existing six input layouts.
+   !! The caller owns the positive units supplied by SWAN's FOR allocator.
+   !! Binary records retain their default-REAL representation. A SERIES
+   !! rollover replaces the connected data file using the legacy allocator.
+   subroutine read_coordinate_array(arr, mxa, mya, ndsl, ndsd, idfm, &
+                                    rform, idla, vfac, nhed, nhedf)
+      ! Declare specification dependencies before the array they dimension.
+      integer, intent(in) :: mxa  !< Number of columns.
+      integer, intent(in) :: mya  !< Number of rows.
+      real(kind=DP), dimension(mxa, mya), intent(out) :: arr  !< Coordinates.
+      integer, intent(in) :: ndsl  !< File-list unit, or zero for one file.
+      integer, intent(inout) :: ndsd  !< Legacy positive data-file unit.
+      integer, intent(in) :: idfm  !< Free/fixed/binary format code.
+      character(len=*), intent(in) :: rform  !< Fixed input format.
+      integer, intent(inout) :: idla  !< Layout 1:6; negative on failure.
+      real(kind=RK), intent(in) :: vfac  !< Coordinate multiplication factor.
+      integer, intent(in) :: nhed  !< Header lines before this array.
+      integer, intent(in) :: nhedf  !< Header lines in a replacement file.
+
+      real(kind=RK), dimension(:, :), allocatable :: binary_values
+      real(kind=DP), dimension(:), allocatable :: values
+      integer :: attempt, ix, iy, status, open_status, file_status
+      logical :: opened, named
+      character(len=LENFNM) :: filename
+      character(len=512) :: message
+
+      arr = 0.0_DP
+      if (idla < 1 .or. idla > 6) then
+         call msgerr(ERROR_LEVEL, 'Coordinate layout must be between 1 and 6')
+         idla = READ_ERROR
+         return
+      end if
+      ! Negative NEWUNIT handles are valid in general, but not in FOR/INAR2D.
+      if (ndsd <= 0) then
+         call msgerr(ERROR_LEVEL, 'Coordinate input file is not open')
+         idla = READ_ERROR
+         return
+      end if
+      opened = .false.
+      named = .false.
+      inquire(unit=ndsd, opened=opened, named=named, iostat=file_status)
+      if (file_status /= 0 .or. .not. opened) then
+         call msgerr(ERROR_LEVEL, 'Coordinate input file is not connected')
+         idla = READ_ERROR
+         return
+      end if
+      if (idfm < 0) then
+         allocate(binary_values(mxa, mya), source=0.0_RK, stat=status)
+         if (status /= 0) then
+            call msgerr(ERROR_LEVEL, 'Cannot allocate binary coordinate buffer')
+            idla = READ_ERROR
+            return
+         end if
+         call inar2d(binary_values, mxa, mya, ndsl, ndsd, idfm, &
+                     rform, idla, 1.0_RK, nhed, nhedf)
+         arr = real(binary_values, kind=DP) * real(vfac, kind=DP)
+         return
+      end if
+
+      do attempt = 1, MAX_READ_ATTEMPTS
+         call read_headers(nhed, status)
+         if (status == 0) then
+            select case (idla)
+            case (1, 3)
+               do iy = 1, mya
+                  if (idla == 1) then
+                     call read_values(arr(:, mya + 1 - iy), status)
+                  else
+                     call read_values(arr(:, iy), status)
+                  end if
+                  if (status /= 0) then
+                     exit
+                  end if
+               end do
+            case (2, 4, 6)
+               if (.not. allocated(values)) then
+                  allocate(values(mxa * mya), source=0.0_DP, stat=status)
+                  if (status /= 0) then
+                     call msgerr(ERROR_LEVEL, 'Cannot allocate coordinate buffer')
+                     idla = READ_ERROR
+                     return
+                  end if
+               end if
+               values = 0.0_DP
+               call read_values(values, status)
+               if (status == 0) then
+                  do iy = 1, mya
+                     do ix = 1, mxa
+                        select case (idla)
+                        case (2)
+                           arr(ix, mya + 1 - iy) = values(ix + (iy - 1) * mxa)
+                        case (4)
+                           arr(ix, iy) = values(ix + (iy - 1) * mxa)
+                        case (6)
+                           arr(ix, iy) = values(iy + (ix - 1) * mya)
+                        case default
+                           call msgerr(ERROR_LEVEL, 'Invalid coordinate layout')
+                           idla = READ_ERROR
+                           return
+                        end select
+                     end do
+                  end do
+               end if
+            case (5)
+               do ix = 1, mxa
+                  call read_values(arr(ix, :), status)
+                  if (status /= 0) then
+                     exit
+                  end if
+               end do
+            case default
+               call msgerr(ERROR_LEVEL, 'Invalid coordinate layout')
+               idla = READ_ERROR
+               return
+            end select
+         end if
+         if (status == 0) then
+            arr = arr * real(vfac, kind=DP)
+            return
+         end if
+
+         filename = 'UNKNOWN_FILE'
+         if (named) then
+            inquire(unit=ndsd, name=filename, iostat=file_status)
+            if (file_status /= 0) then
+               call msgerr(ERROR_LEVEL, 'Cannot identify coordinate input file')
+               idla = READ_ERROR
+               return
+            end if
+         end if
+         if (status == iostat_end .and. ndsl > 0 .and. attempt == 1) then
+            close(ndsd, iostat=file_status)
+            if (file_status /= 0) then
+               call msgerr(ERROR_LEVEL, 'Cannot close coordinate file '//trim(filename))
+               idla = READ_ERROR
+               return
+            end if
+            read(ndsl, '(a)', iostat=status) filename
+            if (status /= 0) then
+               call msgerr(ERROR_LEVEL, 'Series of coordinate input files ended')
+               idla = INPUT_END
+               return
+            end if
+            open_status = 0
+            call for(ndsd, filename, 'OF', open_status)
+            if (stpnow() .or. open_status /= 0 .or. ndsd <= 0) then
+               idla = READ_ERROR
+               return
+            end if
+            named = .true.
+            call read_headers(nhedf, status)
+            if (status == 0) then
+               cycle
+            end if
+         end if
+         if (status == iostat_end) then
+            message = 'Unexpected end of coordinate file '//trim(filename)
+            idla = INPUT_END
+         else
+            write(message, '(a,a,a,i0)', iostat=file_status) &
+               'Error reading coordinate file ', trim(filename), ', i/o status ', status
+            if (file_status /= 0) then
+               message = 'Error reading coordinate file; cannot format i/o status'
+            end if
+            idla = READ_ERROR
+         end if
+         call msgerr(ERROR_LEVEL, trim(message))
+         return
+      end do
+
+   contains
+
+      !> Skip and log coordinate headers using the parent data connection.
+      subroutine read_headers(count, read_status)
+         integer, intent(in) :: count  !< Number of headers to read.
+         integer, intent(out) :: read_status  !< I/O operation status.
+
+         integer :: header
+         character(len=80) :: line
+
+         read_status = 0
+         do header = 1, count
+            read(ndsd, '(a)', iostat=read_status) line
+            if (read_status /= 0) then
+               return
+            end if
+            write(printf, '(a4,a)', iostat=read_status) ' -> ', line
+            if (read_status /= 0) then
+               return
+            end if
+         end do
+      end subroutine read_headers
+
+      !> Read values using the parent's selected format and data connection.
+      subroutine read_values(field, read_status)
+         real(kind=DP), dimension(:), intent(inout) :: field  !< Input values.
+         integer, intent(out) :: read_status  !< Fortran read status.
+
+         if (idfm == 0) then
+            read(ndsd, *, iostat=read_status) field
+         else
+            read(ndsd, rform, iostat=read_status) field
+         end if
+      end subroutine read_values
+
+   end subroutine read_coordinate_array
+
+   !> Subtract the shared origin before storing default-REAL coordinates.
+   !! Preserve paired missing values and mark successful localization so
+   !! SWDIM does not shift coordinates or exception values a second time.
+   subroutine shift_coordinates(xcoord, ycoord, xcgrid, ycgrid)
+      real(kind=DP), dimension(:, :), intent(in) :: xcoord  !< Absolute X.
+      real(kind=DP), dimension(:, :), intent(in) :: ycoord  !< Absolute Y.
+      real(kind=RK), dimension(:, :), intent(out) :: xcgrid  !< Local X values.
+      real(kind=RK), dimension(:, :), intent(out) :: ycgrid  !< Local Y values.
+
+      integer :: ix, iy, valid_points
+      logical :: missing_x, missing_y
+
+      lcoordshift = .false.
+      if (any(shape(xcoord) /= shape(ycoord)) .or. &
+          any(shape(xcoord) /= shape(xcgrid)) .or. &
+          any(shape(xcoord) /= shape(ycgrid))) then
+         call msgerr(ERROR_LEVEL, 'Coordinate array dimensions do not match')
+         return
+      end if
+      xcgrid = excfld(8)
+      ycgrid = excfld(9)
+      valid_points = 0
+      do ix = 1, size(xcoord, 1)
+         do iy = 1, size(xcoord, 2)
+            missing_x = eqreal(real(xcoord(ix, iy), kind=RK), excfld(8))
+            missing_y = eqreal(real(ycoord(ix, iy), kind=RK), excfld(9))
+            if (missing_x .neqv. missing_y) then
+               call msgerr(ERROR_LEVEL, 'Incorrect grid coordinates: unmatched missing X/Y pair')
+               return
+            end if
+            if (.not. missing_x) then
+               valid_points = valid_points + 1
+            end if
+         end do
+      end do
+      if (valid_points == 0) then
+         call msgerr(SEVERE_LEVEL, 'No valid grid points found')
+         return
+      end if
+
+      if (.not. lxoffs) then
+         origin_search: do ix = 1, size(xcoord, 1)
+            do iy = 1, size(xcoord, 2)
+               if (.not. eqreal(real(xcoord(ix, iy), kind=RK), excfld(8))) then
+                  xoffs = xcoord(ix, iy)
+                  yoffs = ycoord(ix, iy)
+                  lxoffs = .true.
+                  exit origin_search
+               end if
+            end do
+         end do origin_search
+      end if
+      xcgrid = real(xcoord - xoffs, kind=RK)
+      ycgrid = real(ycoord - yoffs, kind=RK)
+      excfld(8) = real(real(excfld(8), kind=DP) - xoffs, kind=RK)
+      excfld(9) = real(real(excfld(9), kind=DP) - yoffs, kind=RK)
+      lcoordshift = .true.
+   end subroutine shift_coordinates
+
+end module m_swan_coordinate_input

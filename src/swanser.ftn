@@ -165,14 +165,16 @@
         YOFFS = YTMP
         LXOFFS = .TRUE.
       ENDIF
-      IF (.NOT.EQREAL(REAL(XOFFS),REAL(XTMP))) THEN                             40.51
+      if (.not. eqreal(real(xoffs, kind=SWAN_REAL_KIND),
+     &                 real(xtmp, kind=SWAN_REAL_KIND))) then
          XX = REAL(XTMP-DBLE(XOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          XX = 1.E-5                                                       40.51
       ELSE                                                                40.51
          XX = 0.                                                          40.51
       END IF                                                              40.51
-      IF (.NOT.EQREAL(REAL(YOFFS),REAL(YTMP))) THEN                             40.51
+      if (.not. eqreal(real(yoffs, kind=SWAN_REAL_KIND),
+     &                 real(ytmp, kind=SWAN_REAL_KIND))) then
          YY = REAL(YTMP-DBLE(YOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          YY = 1.E-5                                                       40.51
@@ -294,14 +296,16 @@
         YOFFS = YTMP
         LXOFFS = .TRUE.
       ENDIF
-      IF (.NOT.EQREAL(REAL(XOFFS),REAL(XTMP))) THEN                             40.51
+      if (.not. eqreal(real(xoffs, kind=SWAN_REAL_KIND),
+     &                 real(xtmp, kind=SWAN_REAL_KIND))) then
          XX = REAL(XTMP-DBLE(XOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          XX = 1.E-5                                                       40.51
       ELSE                                                                40.51
          XX = 0.                                                          40.51
       END IF                                                              40.51
-      IF (.NOT.EQREAL(REAL(YOFFS),REAL(YTMP))) THEN                             40.51
+      if (.not. eqreal(real(yoffs, kind=SWAN_REAL_KIND),
+     &                 real(ytmp, kind=SWAN_REAL_KIND))) then
          YY = REAL(YTMP-DBLE(YOFFS))
       ELSE IF (OPTG.EQ.3) THEN                                            40.51
          YY = 1.E-5                                                       40.51
