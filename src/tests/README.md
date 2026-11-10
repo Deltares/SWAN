@@ -18,8 +18,15 @@ Use the normal SWAN runtime DLL or shared-library search paths when running.
 The reader test covers all six layouts, free/fixed formatting, headers,
 scaling, binary compatibility, NetCDF double metadata and missing values,
 existing origins, invalid file units, missing-coordinate pairs, and resets.
+SERIES coverage includes all layouts and free/fixed/binary input with zero,
+equal, and unequal file and component header counts. File headers (`NHEDF`)
+and per-array headers (`NHED`, derived from `NHEDVEC` for coordinates) are
+distinct: a replacement file contains both, matching the legacy `INAR2D`
+contract. Its file headers are consumed once, then its array headers once.
 The Python integration test runs two small stationary curvilinear models
 through the actual executable and compares translated-coordinate wave heights.
+It also runs the original geometry through a SERIES coordinate input with
+unequal file/component header counts, and compares the resulting wave heights.
 Its input and output files are created in temporary directories and removed
 after the test.
 ## Fortran coding profile and compatibility

@@ -1,8 +1,9 @@
 """Run translated curvilinear models through the actual SWAN input parser.
 
-Pass one SWAN executable path. The test writes two temporary 3x3 models,
+Pass one SWAN executable path. The test writes three temporary 3x3 models,
 runs stationary wave computations, checks their significant wave heights,
-and removes all temporary files. Only the Python standard library is used.
+and removes all temporary files. It covers translated grids and SERIES
+coordinates with distinct file/component headers. Only the standard library is used.
 """
 
 import argparse
@@ -32,7 +33,7 @@ STOP
 """
 
 
-def prepare_model(folder, origin_x, origin_y):
+def prepare_model(folder, origin_x, origin_y, series=False):
     """Write identical relative grid geometry at the requested origin."""
     folder.mkdir()
     xvalues = []
@@ -41,11 +42,25 @@ def prepare_model(folder, origin_x, origin_y):
         for column in range(3):
             xvalues.append(origin_x + 100.125 * column + 0.125 * row)
             yvalues.append(origin_y + 100.250 * row + 0.250 * column)
-    coordinates = " ".join(format(value, ".17g") for value in xvalues)
-    coordinates += "\n" + " ".join(format(value, ".17g") for value in yvalues) + "\n"
-    (folder / "coordinates.dat").write_text(coordinates, encoding="ascii")
+    xrecord = " ".join(format(value, ".17g") for value in xvalues) + "\n"
+    yrecord = " ".join(format(value, ".17g") for value in yvalues) + "\n"
+    model_input = INPUT
+    if series:
+        model_input = model_input.replace(
+            "READ COOR 1.0 'coordinates.dat' 4 0 0 FREE",
+            "READ COOR 1.0 SERIES 'coordinate_files.lst' 4 2 1 FREE",
+        )
+        # Each file has two file headers, followed by one component header.
+        headers = "coordinate file\nfile metadata\ncoordinate component\n"
+        (folder / "coordinates_x.dat").write_text(headers + xrecord, encoding="ascii")
+        (folder / "coordinates_y.dat").write_text(headers + yrecord, encoding="ascii")
+        (folder / "coordinate_files.lst").write_text(
+            "coordinates_x.dat\ncoordinates_y.dat\n", encoding="ascii"
+        )
+    else:
+        (folder / "coordinates.dat").write_text(xrecord + yrecord, encoding="ascii")
     (folder / "depth.dat").write_text(" ".join(["10.0"] * 9) + "\n", encoding="ascii")
-    (folder / "INPUT").write_text(INPUT, encoding="ascii")
+    (folder / "INPUT").write_text(model_input, encoding="ascii")
 
 
 def diagnostics(folder, screen_output):
@@ -96,16 +111,19 @@ def main():
         root = Path(temporary)
         original = root / "original"
         shifted = root / "shifted"
+        series = root / "series"
         prepare_model(original, 100000000.125, 500000000.875)
         prepare_model(shifted, 1000.125, 2000.875)
+        prepare_model(series, 100000000.125, 500000000.875, series=True)
         original_heights = run_model(executable, original)
-        shifted_heights = run_model(executable, shifted)
-        for index, (first, second) in enumerate(zip(original_heights, shifted_heights), 1):
-            if not math.isclose(first, second, rel_tol=1.e-7, abs_tol=1.e-8):
-                raise AssertionError(
-                    f"Translation changed Hs at point {index}: {first} m versus {second} m"
-                )
-    print("PASS SWAN curvilinear coordinate translation through full model input")
+        for variant in (shifted, series):
+            variant_heights = run_model(executable, variant)
+            for index, (first, second) in enumerate(zip(original_heights, variant_heights), 1):
+                if not math.isclose(first, second, rel_tol=1.e-7, abs_tol=1.e-8):
+                    raise AssertionError(
+                        f"{variant.name} changed Hs at point {index}: {first} m versus {second} m"
+                    )
+    print("PASS SWAN coordinate translation and SERIES headers through full model input")
 
 
 if __name__ == "__main__":

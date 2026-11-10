@@ -39,6 +39,7 @@ $(PART_OBJS) \
 $(NCF_OBJS) \
 swan2coh.$(EXTO) \
 swanmain.$(EXTO) \
+swan_coordinate_input.$(EXTO) \
 swanpre1.$(EXTO) \
 swanpre2.$(EXTO) \
 swancom1.$(EXTO) \
@@ -181,6 +182,9 @@ $(SWAN_EXE): $(SWAN_OBJS)
 
 $(SWAN_LIB): $(SWAN_OBJS)
 	$(FOR) -shared $(OUT)$(SWAN_LIB) $(OBJS) $(FFLAGS) $(INCS) $(LIBS)
+
+swan_coordinate_input.$(EXTO): swmod1.$(EXTO)
+swanpre1.$(EXTO): swan_coordinate_input.$(EXTO)
 
 .f.o:
 	$(FOR) $< -c $(FFLAGS) $(INCS)

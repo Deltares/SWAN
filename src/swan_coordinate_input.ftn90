@@ -76,8 +76,8 @@ contains
       character(len=*), intent(in) :: rform  !< Fixed input format.
       integer, intent(inout) :: idla  !< Layout 1:6; negative on failure.
       real(kind=RK), intent(in) :: vfac  !< Coordinate multiplication factor.
-      integer, intent(in) :: nhed  !< Header lines before this array.
-      integer, intent(in) :: nhedf  !< Header lines in a replacement file.
+      integer, intent(in) :: nhed  !< Array headers, also after rollover.
+      integer, intent(in) :: nhedf  !< Separate file headers on rollover.
 
       real(kind=RK), dimension(:, :), allocatable :: binary_values
       real(kind=DP), dimension(:), allocatable :: values
@@ -212,6 +212,7 @@ contains
             named = .true.
             call read_headers(nhedf, status)
             if (status == 0) then
+               ! File headers precede the array headers read next, as in INAR2D.
                cycle
             end if
          end if

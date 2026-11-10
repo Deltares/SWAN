@@ -65,7 +65,16 @@ program test_coordinate_input
    call check_invalid_unit(-1, -1)
    call check_invalid_unit(0, DATA_UNIT)
    call check_invalid_unit(-1, DATA_UNIT)
-   call check_series()
+   do test_format = -1, 1
+      do test_layout = 1, 6
+         call check_series(test_layout, test_format, 0, 0)
+         call check_series(test_layout, test_format, 0, 2)
+         call check_series(test_layout, test_format, 1, 0)
+         call check_series(test_layout, test_format, 1, 1)
+         call check_series(test_layout, test_format, 1, 3)
+         call check_series(test_layout, test_format, 2, 1)
+      end do
+   end do
    call check_netcdf()
    call check_netcdf_missing_and_packed()
    call check_translated_coordinates()
@@ -192,25 +201,33 @@ contains
    end subroutine write_vector
 
    !> Write a coordinate field in one of the six legacy layouts.
-   subroutine write_field(values, layout, format_kind)
+   subroutine write_field(values, layout, format_kind, header_count)
       real(kind=DP), intent(in), dimension(NX,NY) :: values  !<
       !! Coordinate values for the current record or field.
       integer, intent(in) :: layout  !< Coordinate storage layout from one
       !! through six.
       integer, intent(in) :: format_kind  !< Legacy format code; negative
       !! selects binary input.
+      integer, optional, intent(in) :: header_count  !< Number of array
+      !! headers; defaults to one.
 
       integer :: row
       integer :: column
       integer :: io_status
+      integer :: header, headers
 
-      if (format_kind < 0) then
-         write(DATA_UNIT, iostat=io_status) 'coordinate field'
-         call check_io(io_status, 'write in write_field')
-      else
-         write(DATA_UNIT, '(a)', iostat=io_status) 'coordinate field'
-         call check_io(io_status, 'write in write_field')
+      headers = 1
+      if (present(header_count)) then
+         headers = header_count
       end if
+      do header = 1, headers
+         if (format_kind < 0) then
+            write(DATA_UNIT, iostat=io_status) 'coordinate field'
+         else
+            write(DATA_UNIT, '(a)', iostat=io_status) 'coordinate field'
+         end if
+         call check_io(io_status, 'write in write_field')
+      end do
       select case (layout)
       case (1)
          do row = NY, 1, -1
@@ -390,37 +407,60 @@ contains
       call require(read_layout == -2, 'Invalid input unit did not return a failed layout code')
    end subroutine check_invalid_unit
 
-   !> Check file-series rollover and separate header counts.
-   subroutine check_series()
+   !> Check rollover with separate file and array header counts.
+   subroutine check_series(layout, format_kind, array_headers, file_headers)
+      integer, intent(in) :: layout  !< Coordinate storage layout.
+      integer, intent(in) :: format_kind  !< Free/fixed/binary input code.
+      integer, intent(in) :: array_headers  !< Headers before each array.
+      integer, intent(in) :: file_headers  !< Extra replacement-file headers.
+
       character(len=*), parameter :: FIRST_FILE = 'swan_coordinate_series_first.dat'
       character(len=*), parameter :: SECOND_FILE = 'swan_coordinate_series_second.dat'
+      character(len=11) :: file_form
       integer :: data_source
       integer :: read_layout
+      real(kind=DP), dimension(NX,NY) :: xexpected
+      real(kind=DP), dimension(NX,NY) :: yexpected
       real(kind=DP), dimension(NX,NY) :: xread
       real(kind=DP), dimension(NX,NY) :: yread
       real(kind=RK), dimension(NX,NY) :: xlocal
       real(kind=RK), dimension(NX,NY) :: ylocal
-      integer :: io_status
+      integer :: io_status, header
 
       call reset_coordinates()
       iunmin = 0
       iunmax = 99999
-      open(unit=DATA_UNIT, file=FIRST_FILE, status='replace', form='formatted', iostat=io_status)
+      xexpected = X_VALUES
+      yexpected = Y_VALUES
+      file_form = 'formatted'
+      if (format_kind < 0) then
+         file_form = 'unformatted'
+         xexpected = real(EXPECTED_X, kind=DP) + 10.125_DP
+         yexpected = real(EXPECTED_Y, kind=DP) + 20.875_DP
+      end if
+      open(unit=DATA_UNIT, file=FIRST_FILE, status='replace', form=file_form, iostat=io_status)
       call check_io(io_status, 'open in check_series')
       if (io_status /= 0) then
          return
       end if
-      call write_field(X_VALUES, 4, 0)
+      ! REPARM has already consumed file headers before the first array.
+      call write_field(xexpected, layout, format_kind, array_headers)
       close(DATA_UNIT, iostat=io_status)
       call check_io(io_status, 'close in check_series')
-      open(unit=DATA_UNIT, file=SECOND_FILE, status='replace', form='formatted', iostat=io_status)
+      open(unit=DATA_UNIT, file=SECOND_FILE, status='replace', form=file_form, iostat=io_status)
       call check_io(io_status, 'open in check_series')
       if (io_status /= 0) then
          return
       end if
-      write(DATA_UNIT, '(a)', iostat=io_status) 'new coordinate file header'
-      call check_io(io_status, 'write in check_series')
-      call write_field(Y_VALUES, 4, 0)
+      do header = 1, file_headers
+         if (format_kind < 0) then
+            write(DATA_UNIT, iostat=io_status) 'new coordinate file header'
+         else
+            write(DATA_UNIT, '(a)', iostat=io_status) 'new coordinate file header'
+         end if
+         call check_io(io_status, 'write file header in check_series')
+      end do
+      call write_field(yexpected, layout, format_kind, array_headers)
       close(DATA_UNIT, iostat=io_status)
       call check_io(io_status, 'close in check_series')
       open(unit=SERIES_UNIT, status='scratch', form='formatted', iostat=io_status)
@@ -432,30 +472,33 @@ contains
       call check_io(io_status, 'write in check_series')
       rewind(SERIES_UNIT, iostat=io_status)
       call check_io(io_status, 'rewind in check_series')
-      open(unit=DATA_UNIT, file=FIRST_FILE, status='old', form='formatted', iostat=io_status)
+      open(unit=DATA_UNIT, file=FIRST_FILE, status='old', form=file_form, iostat=io_status)
       call check_io(io_status, 'open in check_series')
       if (io_status /= 0) then
          return
       end if
       data_source = DATA_UNIT
-      read_layout = 4
-      call read_coordinate_array(xread, NX, NY, SERIES_UNIT, data_source, 0, '(6f24.8)', read_layout, 1.0_RK, 1, 1)
+      read_layout = layout
+      call read_coordinate_array(xread, NX, NY, SERIES_UNIT, data_source, &
+                                 format_kind, '(6f24.8)', read_layout, 1.0_RK, array_headers, file_headers)
       call require(leverr == 0, 'Reading first coordinate SERIES file reported an error')
-      call read_coordinate_array(yread, NX, NY, SERIES_UNIT, data_source, 0, '(6f24.8)', read_layout, 1.0_RK, 1, 1)
+      call read_coordinate_array(yread, NX, NY, SERIES_UNIT, data_source, &
+                                 format_kind, '(6f24.8)', read_layout, 1.0_RK, array_headers, file_headers)
       call require(leverr == 0, 'Coordinate SERIES rollover reported an error')
+      call require(read_layout == layout, 'Coordinate SERIES changed a successful layout code')
       close(data_source, status='delete', iostat=io_status)
       call check_io(io_status, 'close in check_series')
       close(SERIES_UNIT, iostat=io_status)
       call check_io(io_status, 'close in check_series')
-      open(unit=DATA_UNIT, file=FIRST_FILE, status='old', form='formatted', iostat=io_status)
+      open(unit=DATA_UNIT, file=FIRST_FILE, status='old', form=file_form, iostat=io_status)
       call check_io(io_status, 'open in check_series')
       if (io_status /= 0) then
          return
       end if
       close(DATA_UNIT, status='delete', iostat=io_status)
       call check_io(io_status, 'close in check_series')
-      call require(all(xread == X_VALUES), 'First coordinate SERIES field changed')
-      call require(all(yread == Y_VALUES), 'SERIES headers or rollover changed the second field')
+      call require(all(xread == xexpected), 'First coordinate SERIES field changed')
+      call require(all(yread == yexpected), 'SERIES headers or rollover changed the second field')
       call shift_coordinates(xread, yread, xlocal, ylocal)
       call require(leverr == 0, 'Coordinate SERIES localization reported an error')
       call require(all(xlocal == EXPECTED_X), 'Coordinate SERIES changed X distances')
