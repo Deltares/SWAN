@@ -11,6 +11,7 @@ class SWANRecipe(ConanFile):
         self.requires("hdf5/1.14.2")
         self.requires("netcdf/4.9.2")
         self.requires("netcdf-fortran/4.6.2")
+        self.requires("metis/5.1.1")
 
     def generate(self):
         save(self, "conan.stamp", "Timestamp of this file is used by CMake to detect if conan.lock has changed since last conan install.")
@@ -19,6 +20,8 @@ class SWANRecipe(ConanFile):
         self.folders.generators = "generators"
 
     def configure(self):
+        self.options["metis"].shared = False
+        self.options["metis"].with_64bit_types = False
         self.options["zlib"].shared = True
         self.options["hdf5"].shared = True
         self.options["netcdf"].shared = True

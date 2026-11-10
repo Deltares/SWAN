@@ -4,6 +4,9 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
 
 project(SWAN LANGUAGES Fortran)
 
+include(CTest)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 enable_language(Fortran C CXX)
 
 include(functions.cmake)
@@ -117,6 +120,7 @@ endif(UNIX)
 list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/conan/generators")
 find_package(netCDF CONFIG REQUIRED)
 find_package(netCDF-Fortran CONFIG REQUIRED)
+find_package(metis CONFIG REQUIRED)
 
 # generate directory where we place the generated code
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -142,6 +146,7 @@ set(SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swn_outnc.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
 )
 # The SWANMOD files are split in 5 blocks, dependent on each other, 
 # to be able to compile on Windows (in one go). 
@@ -191,7 +196,6 @@ set(SWANF
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadEasymeshGrid.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanReadADCGrid.f90
-    # Disabled:    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelX.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPropvelS.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanPrintGridInfo.f90
@@ -271,7 +275,7 @@ add_custom_command(
     OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE}
     COMMAND
-    python ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
+    ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
     WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     DEPENDS
@@ -286,6 +290,20 @@ add_library(swanmod_core "")
 target_sources(swanmod_core PRIVATE ${SWANMOD_CORE})
 target_link_libraries(swanmod_core PUBLIC swanmod_base)
 
+# Compile the parallel module before the I/O modules that use it, and keep
+# its object in the solver archive to avoid a module/solver archive cycle.
+add_library(swan_parallel OBJECT ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90)
+set_target_properties(swan_parallel PROPERTIES
+    Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
+target_include_directories(swan_parallel PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+    ${SWANMOD_MODULE_DIRECTORY}
+    ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
+target_link_libraries(swan_parallel PRIVATE swanmod_core)
+if(USE_MPI)
+    target_include_directories(swan_parallel PRIVATE ${mpi_module_path})
+endif()
+
 add_library(swanmod_io "")
 target_sources(swanmod_io PRIVATE ${SWANMOD_IO})
 target_link_libraries(swanmod_io PUBLIC swanmod_core)
@@ -293,6 +311,7 @@ target_link_libraries(swanmod_io PUBLIC swanmod_core)
 add_library(swanmod_xnl "")
 target_sources(swanmod_xnl PRIVATE ${SWANMOD_XNL})
 target_link_libraries(swanmod_xnl PUBLIC swanmod_io)
+add_dependencies(swanmod_xnl swan_parallel)
 
 add_library(swanmod "")
 target_sources(swanmod PRIVATE ${SWANMOD_EXTENSIONS})
@@ -306,7 +325,11 @@ foreach(target ${SWANMOD_TARGETS})
     target_include_directories(${target} PUBLIC
         ${CMAKE_CURRENT_BINARY_DIR}/generated
         ${SWANMOD_MODULE_DIRECTORY}
+        ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>
     )
+    if(USE_MPI)
+        target_include_directories(${target} PRIVATE ${mpi_module_path})
+    endif()
 endforeach()
 
 set(SWANBASE "swan")
@@ -328,8 +351,14 @@ if(UNIX)
 endif()
 
 add_library(${SWANLIB} STATIC "")
-target_sources(${SWANLIB} PRIVATE ${SWANF})
-target_include_directories(${SWANLIB} PRIVATE ${SWANMOD_MODULE_DIRECTORY})
+target_sources(${SWANLIB} PRIVATE ${SWANF} $<TARGET_OBJECTS:swan_parallel>)
+# METIS exports an MSC C macro that must not replace the Fortran MSC variable.
+target_link_libraries(${SWANLIB} PUBLIC $<LINK_ONLY:metis::metis>)
+set_target_properties(${SWANLIB} PROPERTIES
+    Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
+target_include_directories(${SWANLIB} PRIVATE
+    ${SWANMOD_MODULE_DIRECTORY}
+    ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
 
 
 # Add dependencies
@@ -379,6 +408,10 @@ if(USE_MPI)
         target_link_libraries(${SWANEXE} PUBLIC "${mpi_fortran_library}")
     endif(WIN32)
 endif(USE_MPI)
+
+if(BUILD_TESTING AND USE_MPI)
+    add_subdirectory(../tests ${CMAKE_CURRENT_BINARY_DIR}/tests)
+endif()
 
 #
 # Install
