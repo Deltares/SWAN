@@ -51,8 +51,9 @@ subroutine SwanPrepComp ( cross )
 !
 !   Argument variables
 !
-    type(OBSTDAT_PTR), dimension(nfaces), intent(out) :: cross ! contains sequence number of obstacles for each face
-                                                     ! where they crossing or zero if no crossing
+    ! Empty arrays are valid without obstacles; later COMPUTE calls reuse pointers.
+    ! INTENT(OUT) would initialize pointer components before the guards below.
+    type(OBSTDAT_PTR), dimension(*), intent(inout) :: cross ! obstacles crossing computational faces
 !
 !   Local variables
 !

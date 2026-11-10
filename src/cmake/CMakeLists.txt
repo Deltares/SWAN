@@ -7,6 +7,7 @@ project(SWAN LANGUAGES Fortran)
 enable_language(Fortran C CXX)
 
 include(functions.cmake)
+include(CTest)
 
 #
 # Handle command line options
@@ -449,4 +450,8 @@ elseif(WIN32)
     install(FILES ${SWAN_SCRIPTS_WIN} DESTINATION scripts)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(../tests/prep tests/prep)
 endif()
