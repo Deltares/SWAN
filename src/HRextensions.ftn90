@@ -31,9 +31,10 @@ module HRextensions
     use netcdf_tools
     use nctablemd, only : nctable_record, get_nctable_record
     use M_GENARR, only: SPCSIG
-    use M_PARALL, only : IAMMASTER, MXCGL, MYCGL, MCGRDGL, KGRPGL, SWREAL, MXF, MXL, MYF, MYL
+    use M_PARALL, only : IAMMASTER, MXCGL, MYCGL, MCGRDGL, KGRPGL, SWREAL, SWINT, MXF, MXL, MYF, MYL
+    use SwanGriddata, only: ivertg, nverts, nvertsg
     use agioncmd
-    use SWCOMM2, only : NUMGRD, NBGRPT, NBSPEC, XOFFS, YOFFS
+    use SWCOMM2, only : NUMGRD, NBGRPT, NBSPEC, XOFFS, YOFFS, OPTG
     use SWCOMM3, only : MXC, MYC, MDC, MSC, PI, PI2, DNORTH
     use SWCOMM4, only : KSPHER, LENDEG
     use OCPCOMM4, only : ITEST, PRINTF, PRTEST
@@ -46,71 +47,142 @@ module HRextensions
     logical :: flippedY(NUMGRD) = .false.
 
 contains
-    subroutine swn_hre_initva(ncfile, KGRPNT, AC2)
-        character(len=*),          intent( in) :: ncfile
-        integer,                   intent( in) :: KGRPNT(MXC, MYC)
-        real, dimension(:,:,:)                 :: AC2
+   subroutine swn_hre_initva(ncfile, KGRPNT, AC2)
+      character(len=*), intent(in) :: ncfile
+      integer, intent(in) :: KGRPNT(MXC, MYC)
+      real, dimension(:, :, :) :: AC2
 
-        integer                                :: jx, jy, ix, iy, indx, iindx, &
-                                                  ncid, ri, is
-        type(recordaxe_type)                   :: recordaxe
-        type(mapgrid_type)                     :: mapgrid
-        type(pntgrid_type)                     :: pntgrid
-        type(spcgrid_type)                     :: spcgrid
-        real                                   :: edloc(MDC, MSC)
-        real, dimension(:,:,:, :), allocatable :: density
-        logical                                :: spc_as_map, STPNOW
+      integer :: jx, jy, ix, iy, indx, iindx, &
+                 ncid, ri, is
+      integer :: global_ip, local_ip
+      integer :: nglob
 
-        if ( IAMMASTER ) then
-            call open_ncfile( ncfile, 'read', ncid)
+      integer, dimension(:), allocatable :: ig2loc
+      type(recordaxe_type) :: recordaxe
+      type(mapgrid_type) :: mapgrid
+      type(pntgrid_type) :: pntgrid
+      type(spcgrid_type) :: spcgrid
+      real :: edloc(MDC, MSC)
+      real, dimension(:, :, :, :), allocatable :: density
+      logical :: spc_as_map, STPNOW
+      integer :: spc_as_map_i
 
-            call swn_hre_get_grids(ncid, recordaxe, spcgrid, mapgrid, pntgrid, spc_as_map)
-            if ( STPNOW() ) return
-            
-            ! For now, always pick the last field. The problem is that until the COMPUTE
-            ! command is called, we have no idea at what time the computation will start
-            ! and hence what record index to pick
-            ri = recordaxe%ncontent
+      spc_as_map = .false.
+      spc_as_map_i = 0
 
-            if ( spc_as_map ) then
-                allocate(density(MDC, MSC, MXCGL, MYCGL))
-            else
-                allocate(density(MDC, MSC, MCGRDGL-1, 1))
-            end if
-            call swn_hre_read_density(ncid, density, spc_as_map, ri)
-            call close_ncfile(ncid)
-        end if
-        ! assign spectra to all members
-        do jx=1,MXCGL
-            do jy=1,MYCGL
-                if ( IAMMASTER ) then
-                    edloc(:,:) = 0.
-                    iindx = KGRPGL(jx, jy)
-                    if ( iindx /= 1 ) then
-                        if ( spc_as_map ) then
-                            edloc = density(:,:, jx, jy)
-                        else
-                            edloc = density(:,:, iindx - 1, 1)
-                        end if
-                    end if
-                end if
-                call SWBROADC (edloc, MDC*MSC, SWREAL)
-                if ( MXF <= jx .and. MXL >= jx .and. MYF <= jy .and. MYL >= jy ) then
-                    iy   = jy - MYF + 1
-                    ix   = jx - MXF + 1
-                    indx = KGRPNT(ix, iy)
-                    if ( indx /= 1 ) then
-                        do is=1, MSC
-                            ! energy to action density
-                            AC2(:,is, indx) = edloc(:,is) / (2.0 * PI * SPCSIG(is))
-                        end do
-                    end if
-                end if
+      if (IAMMASTER) then
+         call open_ncfile(ncfile, 'read', ncid)
+
+         call swn_hre_get_grids(ncid, recordaxe, spcgrid, mapgrid, pntgrid, spc_as_map)
+         if (STPNOW()) then
+            return
+         end if
+         if (spc_as_map) then
+            spc_as_map_i = 1
+         end if
+      end if
+
+      call SWBROADC(spc_as_map_i, 1, SWINT)
+      spc_as_map = spc_as_map_i /= 0
+
+      if (IAMMASTER) then
+         ! For now, always pick the last field. The problem is that until the COMPUTE
+         ! command is called, we have no idea at what time the computation will start
+         ! and hence what record index to pick
+         ri = recordaxe%ncontent
+
+         if (spc_as_map) then
+            allocate (density(MDC, MSC, MXCGL, MYCGL))
+         else
+            allocate (density(MDC, MSC, pntgrid%npoints, 1))
+         end if
+         call swn_hre_read_density(ncid, density, spc_as_map, ri)
+         call close_ncfile(ncid)
+         spc_as_map_i = merge(1, 0, spc_as_map)
+      end if
+      call SWBROADC(spc_as_map_i, 1, SWINT)
+      spc_as_map = spc_as_map_i /= 0
+      ! assign spectra to all members
+      if (OPTG == 5 .and. .not. spc_as_map) then
+         if (allocated(ivertg)) then
+            nglob = nvertsg
+            allocate (ig2loc(nglob))
+            ig2loc = 0
+            do ix = 1, nverts
+               global_ip = ivertg(ix)
+               if (global_ip >= 1 .and. global_ip <= nglob) then
+                  ig2loc(global_ip) = ix
+               end if
             end do
-        end do
-        if ( IAMMASTER ) deallocate(density)
 
-    end subroutine swn_hre_initva
+            do global_ip = 1, nglob
+               if (IAMMASTER) then
+                  edloc(:, :) = 0.
+                  if (global_ip <= size(density, 3)) then
+                     edloc = density(:, :, global_ip, 1)
+                  end if
+               end if
+               call SWBROADC(edloc, MDC * MSC, SWREAL)
+               local_ip = ig2loc(global_ip)
+               if (local_ip > 0 .and. local_ip <= size(AC2, 3)) then
+                  do is = 1, MSC
+                     ! energy to action density
+                     AC2(:, is, local_ip) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+                  end do
+               end if
+            end do
+            deallocate (ig2loc)
+         else
+            do jx = 1, MXCGL
+               if (IAMMASTER) then
+                  edloc(:, :) = 0.
+                  if (jx <= size(density, 3)) then
+                     edloc = density(:, :, jx, 1)
+                  end if
+               end if
+               call SWBROADC(edloc, MDC * MSC, SWREAL)
+               if (jx >= 1 .and. jx <= size(AC2, 3)) then
+                  do is = 1, MSC
+                     ! energy to action density
+                     AC2(:, is, jx) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+                  end do
+               end if
+            end do
+         end if
+      else
+         do jx = 1, MXCGL
+            do jy = 1, MYCGL
+               if (IAMMASTER) then
+                  edloc(:, :) = 0.
+                  iindx = KGRPGL(jx, jy)
+                  if (iindx /= 1) then
+                     if (spc_as_map) then
+                        edloc = density(:, :, jx, jy)
+                     else
+                        edloc = density(:, :, iindx - 1, 1)
+                     end if
+                  end if
+               end if
+               call SWBROADC(edloc, MDC * MSC, SWREAL)
+               if (MXF <= jx .and. MXL >= jx .and. MYF <= jy .and. MYL >= jy) then
+                  iy = jy - MYF + 1
+                  ix = jx - MXF + 1
+                  indx = KGRPNT(ix, iy)
+                  if (indx /= 1) then
+                     do is = 1, MSC
+                        ! energy to action density
+                        AC2(:, is, indx) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+                     end do
+                  end if
+               end if
+            end do
+         end do
+      end if
+      if (IAMMASTER) then
+         deallocate (density)
+      end if
+
+   end subroutine swn_hre_initva
 
     subroutine swn_hre_get_grids(ncid, recordaxe, spcgrid, mapgrid, pntgrid, spc_as_map)
         integer         ,          intent( in) :: ncid
@@ -233,10 +305,10 @@ contains
                     end do
                 end do
             else
-                allocate(scale_factor(MCGRDGL-1, 1))
+                allocate(scale_factor(size(density, 3), 1))
                 call nccheck( nf90_get_var(ncid, svarid, scale_factor, (/1, ri/) ) )
 
-                do n=1, MCGRDGL - 1
+                do n=1, size(density, 3)
                     ! when density is scaled, it is stored as a int16, so is the _FillValue.
                     do j=1, MDC
                         do i=1, MSC
