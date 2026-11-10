@@ -1,4 +1,5 @@
-subroutine SwanVertlist ( compda )
+!> Order unstructured vertices for each computational sweep.
+subroutine SwanVertlist(compda)
 !
 !   --|-----------------------------------------------------------|--
 !     | Delft University of Technology                            |
@@ -53,20 +54,20 @@ subroutine SwanVertlist ( compda )
 !
 !   Modules used
 !
-    use ocpcomm4
+    use ocpcomm4, only: ltrace, ITEST, PRINTF
     use swcomm2, only: COSWC, SINWC, VARWI, IFLDYN
-    use swcomm3, only: MCMVAR, JWX2, JWY2, JWX3, JWY3
-    use m_genarr
-    use m_parall
-    use SwanGriddata
-    use SwanGridobjects
-    use SwanCompdata
+    use swcomm3, only: MCMVAR, JWX2, JWY2, JWX3, JWY3, NSTATM, PI, PI2
+    use m_genarr, only: WXI, WYI, XCGRID, YCGRID, KGRPNT
+    use m_parall, only: SWINT, SWREAL, SWSUM
+    use SwanGriddata, only: asort, excmark, nsweep, nverts, vmark
+    use SwanGridobjects, only: gridobject, verttype, VERTX, VERTY
+    use SwanCompdata, only: vlist
 !
     implicit none
 !
 !   Argument variables
 !
-    real, dimension(nverts,MCMVAR), intent(in) :: compda ! array containing space-dependent info (e.g. wind)
+    real(kind=kind(asort)), dimension(nverts, MCMVAR), intent(inout) :: compda !< Grid fields, including wind.
 !
 !   Local variables
 !
@@ -83,7 +84,7 @@ subroutine SwanVertlist ( compda )
     real                              :: rtmp       ! temporary stored real for swapping
     real                              :: sdir       ! sweep direction
     real                              :: wdsum      ! total sum of wind direction
-    real                              :: wdsumtot   ! global total sum of wind direction
+    real(kind=kind(asort))             :: wdsumtot   ! global sum of wind directions
     real                              :: wx         ! wind velocity in x-direction
     real                              :: wy         ! wind velocity in y-direction
     !
@@ -141,9 +142,9 @@ subroutine SwanVertlist ( compda )
           call SWREDUCE( ktot, 1, SWINT, SWSUM )
           call SWREDUCE( wdsumtot, 1, SWREAL, SWSUM )
           if ( ktot > 0 ) then
-             asort = wdsumtot / real(ktot)
+             asort = wdsumtot / real(ktot, kind(asort))
           else
-             asort = 0.
+             asort = 0
           end if
        else
 !         final attempt: set sweep direction to zero

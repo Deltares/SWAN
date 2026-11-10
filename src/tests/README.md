@@ -15,6 +15,10 @@ The CTest cases are:
   halo exchanges across a shared boundary.
 - `swan_partition_disconnected`: checks two independent triangular
   components, empty communication lists, and zero-neighbor halo calls.
+- `swan_partition_edge_cases`: checks a partition with one ghost vertex and
+  verifies that a partition without cells is reported as an error.
+- `swan_partition_metis_2` and `swan_partition_metis_4`: call METIS through
+  SWAN's decomposition routine and verify ownership and exchanged halo values.
 - `swan_partition_repeated`: performs 32 warmup setup/cleanup cycles, then
   measures process-memory growth across 512 cycles on a mesh containing
   576 vertices and 1,008 triangles. Each cycle also checks markers and
@@ -41,6 +45,18 @@ instead of selecting another launcher from `PATH`. Ensure `PATH` contains
 the Intel MPI runtime and the NetCDF/Conan dependency DLL directories, as for
 the normal SWAN executables. On Linux, CMake uses the launcher and flags from
 `FindMPI`; supply any host or scheduler options through `MPIEXEC_PREFLAGS`.
+
+## MPI spectral output and restart checks
+
+With `USE_MPI=ON`, the tests run a small structured-grid model at two and four
+ranks. The spectral collection test checks that the merged point-list and map
+NetCDF files each have two hourly records with nonzero spectra. The hotstart
+test reads compatible point-list and scaled map spectra. It then changes the
+number of directions to verify that all ranks terminate with a diagnostic.
+
+```text
+ctest --test-dir <build> -C Release -R "^swan_mpi_" --output-on-failure
+```
 
 ## Optional METIS checks
 

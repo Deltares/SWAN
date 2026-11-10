@@ -2500,7 +2500,7 @@
       USE SwanGriddata                                                    40.80
       USE SwanGridobjects                                                 40.80
       USE SwanCompdata                                                    40.80
-!METIS      USE SwanParallel                                                    43.01
+!METIS      use SwanParallel, only: SwanCollBpntlist
 !
       IMPLICIT NONE                                                       43.01
 !

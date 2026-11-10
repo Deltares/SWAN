@@ -655,7 +655,9 @@
 !
 !     OLDFIL : ??
 !
-      CHARACTER HEDLIN*80, OLDFIL *36, CURNAM*256
+      CHARACTER HEDLIN*80, OLDFIL *36
+      character(len=256) :: curnam
+      integer :: inquire_status
 !                                                                         30.82
 !  8. SUBROUTINE USED
 !
@@ -687,7 +689,18 @@
         CALL INCSTR ('FNAME', FILENM, 'REQ', ' ')                         40.00
       ENDIF
 !
-      IF (FILENM.NE.OLDFIL) THEN
+      bnew = filenm /= oldfil
+      if (.not. bnew) then
+        curnam = ' '
+        inquire(unit=ndsd, opened=lopen, name=curnam,
+     &          iostat=inquire_status)
+        if (inquire_status /= 0) then
+          bnew = .true.
+        else
+          bnew = .not. lopen .or. index(curnam, trim(filenm)) == 0
+        end if
+      end if
+      if (bnew) then
         BNEW = .TRUE.
         NDSD = 0
         IDLA = 1
@@ -695,21 +708,7 @@
         RFORM = ' '
         NHEDF = 0
         OLDFIL = FILENM
-      ELSE
-        BNEW = .FALSE.
-        CURNAM = ' '
-        INQUIRE (UNIT=NDSD, OPENED=LOPEN, NAME=CURNAM)
-        IF (.NOT.LOPEN .OR.
-     &      INDEX(CURNAM, TRIM(FILENM)).EQ.0) THEN
-          BNEW = .TRUE.
-          NDSD = 0
-          IDLA = 1
-          IDFM = 0
-          RFORM = ' '
-          NHEDF = 0
-          OLDFIL = FILENM
-        ENDIF
-      ENDIF
+      end if
 !
       CALL INKEYW ('STA', ' ')
       IF (BNEW) THEN

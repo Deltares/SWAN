@@ -41,7 +41,7 @@
       USE SwanIEM, only: nmax, dfiem, e_trsh, sflog                       41.85
       USE SwanBraggScat, only: mkbx, mkby, dkbx, dkby, botspc             41.80
       USE SwanQCM, only: mkxc, mkyc                                       41.90
-!METIS      USE SwanParallel                                                    42.10
+!METIS      use SwanParallel, only: SwanDecomposition
 !
       IMPLICIT NONE
 !

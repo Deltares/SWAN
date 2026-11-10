@@ -1,3 +1,4 @@
+!> Write SWAN results to NetCDF.
 module swn_outnc
 !
 !   --|-----------------------------------------------------------|--
@@ -48,23 +49,28 @@ module swn_outnc
 !   NETCDF          : Standard netcdf library
 !   AGIONCMD        : Set of utilities for writing (metocean) data to netcdf
 !   NCTABLEMD       : description table for metocean parameters
-    use agioncmd
-    use nctablemd, only : pi
-    use M_PARALL
-    use NETCDF
-    use nctablemd, only: nctable, nctable_record, get_nctable_record
-    use OUTP_DATA, only: ORQDAT, MAX_OUTP_REQ, LCOMPGRD, OUTP_FILES, NREOQ
-    use OCPCOMM2,  only: PROJNR, PROJID, VERTXT
-    use OCPCOMM4
-    use SWCOMM1,   only: CHTIME, OVEXCV
-    use SWCOMM2,   only: XOFFS, YOFFS, OPTG, EXCFLD
-    use SWCOMM3,   only: NSTATC, NSTATM, ALPC, MDC, MSC, MCGRD, MXC, MYC, DNORTH, &
-                         PI2, ICUR, BNAUT
-    use SWCOMM4
-    use TIMECOMM,  only: TFINC, TIMCO, TINIC, DT
+    use, intrinsic :: iso_fortran_env, only: int64, real64
+    use agioncmd, only: recordaxe_type, mapgrid_type, pntgrid_type, spcgrid_type, &
+                       agnc_add_mapdata, agnc_add_pntdata, agnc_add_spcdata, agnc_add_spcdata_density, &
+                       agnc_define_mapvariable, agnc_define_pntvariable, agnc_set_mapgrid, agnc_set_pntgrid, &
+                       agnc_set_recordaxe, agnc_set_spcgrid, close_ncfile, create_ncfile, nccheck, &
+                       open_ncfile, seconds_since_epoch, timeindex
+    use m_parall, only: parll, iammaster, master, inode, nproc, swmax, &
+                        mxcgl, mycgl, mcgrdgl, kgrpgl, xgrdgl, ygrdgl
+    use netcdf, only: nf90_close, nf90_fill_float, nf90_noerr, nf90_strerror, nf90_sync
+    use nctablemd, only: pi, nctable_record, get_nctable_record
+    use outp_data, only: max_outp_req, lcompgrd, outp_files, nreoq
+    use ocpcomm2, only: projnr
+    use ocpcomm4, only: ltrace, hiopen
+    use swcomm1, only: chtime, ovexcv
+    use swcomm2, only: xoffs, yoffs, optg, excfld
+    use swcomm3, only: nstatc, nstatm, alpc, mdc, msc, mcgrd, mxc, myc, dnorth, pi2, icur, bnaut
+    use swcomm4, only: kspher
+    use timecomm, only: tfinc, timco, dt
 !
     implicit none
     private
+    integer, parameter :: SWAN_REAL = kind(0.0)
     public :: swn_outnc_openblockfile, swn_outnc_close_on_end, swn_outnc_colspc, swn_outnc_spec, &
               swn_outnc_appendblock, record_index, stnames, stnames_init, ncoffset
 !
@@ -87,10 +93,10 @@ module swn_outnc
     integer,save                :: nrefcp(MAX_OUTP_REQ) = -1
 
     type spcaux_type
-        real, dimension(:), allocatable          :: hs, depth, ux, uy, wndx, wndy, &
+        real(kind=SWAN_REAL), dimension(:), allocatable :: hs, depth, ux, uy, wndx, wndy, &
                                                     xc, yc, xp, yp, f, theta
         integer, dimension(:), allocatable       :: ips
-        real, dimension(:,:), allocatable        :: E
+        real(kind=SWAN_REAL), dimension(:, :), allocatable :: E
         logical                                  :: is2d = .false., relative = .false.
         integer                                  :: mip = 0, ndir = 0, nfreq = 0
     end type spcaux_type
@@ -245,8 +251,8 @@ contains
 
     end subroutine swn_outnc_spec
 
-    subroutine swn_outnc_colspc ( RTYPE, OQI, OQR, MIP, KGRPGL )
-      use SWCOMM2, only: optg
+    !> Collect the next spectral staging record from all ranks.
+    subroutine swn_outnc_colspc(rtype, oqi, oqr, mip, kgrpgl)
       use SwanGriddata, only: xcugrdgl, ycugrdgl, nverts
 !
 !
@@ -291,256 +297,234 @@ contains
 !
 !     ---
 !
-!  4. Argument variables
-      character (len=*),    intent(   in) :: RTYPE * 4
-      integer,              intent(inout) :: OQI(4)
-      real*8,               intent(   in) :: OQR(2)
-      integer,              intent(   in) :: MIP, KGRPGL(MXCGL,MYCGL)
-!
-! IO..name....type...size.......description
-! i   RTYPE   char   *          type of output request: 'SPEC' for 2-D spectral
-!                                                       'SPE1' for 1-D freq. spectrum
-! i   XP, YP  real   MIP        coordinates of all output points
-! i   MIP    int    1           number of output points
-!
-!  5. Local variables
-!
-      logical                             :: lopen, file_exists, &
-                                             EQREAL, STPNOW
-      integer                             :: ip, ierr, otype, i, tmip, binnr, irq, &
-                                             tip, ips(MIP), iproc, nref, ilpos, nunique
-!METIS      integer                             :: nread
-      integer(kind=8)                     :: xpctime2
+      character(len=*), intent(in) :: rtype !< Spectrum and frequency type.
+      integer, dimension(4), intent(inout) :: oqi !< Output request and unit.
+      real(kind=real64), dimension(2), intent(in) :: oqr !< Output schedule.
+      integer, intent(in) :: mip !< Global number of requested points.
+      ! Preserve the legacy collector interface used by SWCOLSPC.
+      integer, dimension(mxcgl, mycgl), intent(in) :: kgrpgl !< Global point map.
 
-      integer, save                       :: IENT=0
-      character(len=80)                   :: binfile, ncfile, basefile
-      character(len=256)                  :: errmsg
-      type(spcaux_type)                   :: spcaux, lspcaux
-      real                                :: xref, yref
-      logical                             :: seen(MIP)
+      integer :: ip, ierr, tmip, binnr, irq, tip, iproc, ilpos, nunique
+      integer :: first_unit, header_points, ncid, close_status
+!METIS      integer :: nread
+      integer(kind=int64) :: record_time, rank_time
+      integer, dimension(:), allocatable :: ips
+      integer, save :: ient = 0
+      character(len=80) :: binfile, ncfile
+      character(len=256) :: errmsg, io_message
+      type(spcaux_type) :: spcaux
+      real(kind=SWAN_REAL) :: xref, yref
+      logical :: opened, first_record, compgrid
+      logical, dimension(:), allocatable :: seen
+      logical, external :: stpnow
 
-!
-!  9. Subroutines calling
-!
-!     SWCOLOUT
-!
-! 10. Error messages
-!
-!
-! 11. Remarks
-!
-!
-! 12. Structure
-!
-!
-! 13. Source text
-!
-        if (LTRACE) call STRACE (IENT,'swn_outnc_colspc')
-        ierr    = 0
-!
-! a. Prepare spectra/auxilary data struct
-!
-        irq        = OQI(2)
-!METIS        nread      = 0
-        nunique    = 0
-        seen       = .false.
-        spcaux%mip = MIP
-        allocate(spcaux%hs(MIP), spcaux%depth(MIP), spcaux%ux(MIP), spcaux%uy(MIP), &
-                 spcaux%wndx(MIP), spcaux%wndy(MIP), spcaux%xc(MIP), spcaux%yc(MIP))
-        if ( LCOMPGRD .and. optg == 5 ) then
-            allocate(spcaux%xp(nverts), spcaux%yp(nverts))
-        else
-            allocate(spcaux%xp(MIP), spcaux%yp(MIP))
-        end if
+      if (ltrace) then
+         call strace(ient, 'swn_outnc_colspc')
+      end if
 
-        spcaux%hs      = OVEXCV(10)
-        spcaux%depth   = OVEXCV(4)
-        spcaux%ux      = OVEXCV(5)
-        spcaux%uy      = OVEXCV(5)
-        spcaux%wndx    = OVEXCV(26)
-        spcaux%wndy    = OVEXCV(26)
+      irq = oqi(2)
+      first_record = read_header(irq)
+      compgrid = lcompgrd .and. optg == 5
+!METIS      nread = 0
+      nunique = 0
+      allocate (seen(mip), source=.false.)
+      allocate (ips(mip))
+      spcaux%mip = mip
+      allocate (spcaux%hs(mip), source=ovexcv(10))
+      allocate (spcaux%depth(mip), source=ovexcv(4))
+      allocate (spcaux%ux(mip), spcaux%uy(mip), source=ovexcv(5))
+      allocate (spcaux%wndx(mip), spcaux%wndy(mip), source=ovexcv(26))
+      allocate (spcaux%xc(mip), spcaux%xp(mip), source=ovexcv(1))
+      allocate (spcaux%yc(mip), spcaux%yp(mip), source=ovexcv(2))
 
-        if (RTYPE(3:3) .eq. 'R') spcaux%relative = .true.
-        if (RTYPE(4:4) .eq. 'C') then
-            allocate(spcaux%E(MSC * MDC, MIP))
-            spcaux%is2d = .true.
-        else
-            allocate(spcaux%E(3 * MSC, MIP))
-            spcaux%is2d = .false.
-        end if
-        spcaux%E     = 0
-        spcaux%nfreq = MSC
-        spcaux%ndir  = MDC
+      spcaux%relative = rtype(3:3) == 'R'
+      spcaux%is2d = rtype(4:4) == 'C'
+      if (spcaux%is2d) then
+         allocate (spcaux%E(msc * mdc, mip), source=0.0_SWAN_REAL)
+      else
+         allocate (spcaux%E(3 * msc, mip), source=0.0_SWAN_REAL)
+      end if
+      spcaux%nfreq = msc
+      spcaux%ndir = mdc
+      allocate (spcaux%f(msc), spcaux%theta(mdc), source=0.0_SWAN_REAL)
 
-        allocate( spcaux%f(MSC), spcaux%theta(MDC))
-!
-! open and read binary files
-!
-        binfile = OUTP_FILES(irq)
-        ncfile  = OUTP_FILES(irq)
+      ncfile = outp_files(irq)
+      ilpos = index(ncfile, '-0', back=.true.)
+      if (ilpos /= 0) then
+         ncfile = ncfile(:ilpos-1)
+      end if
 
-        ! nref is unitnr set while writing the binary file.
-        nref = HIOPEN + IRQ
-        basefile = outp_files(irq)
-        ilpos  = index(basefile, '-0')
-        if (ilpos.ne.0) basefile = basefile(1:ilpos-1)
-
-        do iproc = 1, NPROC
-            binnr = HIOPEN+NREOQ+(NREF-HIOPEN-1)*NPROC+iproc
-
-              write(binfile, '(A,"-",I3.3)') trim(basefile), iproc
-            inquire(unit=binnr, opened=lopen)
-
-            if ( lopen ) then
-                rewind(unit=binnr, IOSTAT=ierr)
-                if (ierr /= 0) then
-                    write(errmsg, '("Rewinding ",A, " on ",I3, " failed with IOSTAT ",I3)') trim(binfile), binnr, ierr
-                    call MSGERR(4, errmsg)
-                    return
-                end if
+      ! SWCOLOUT closes these units and deletes the staging files.
+      first_unit = hiopen + nreoq + (irq - 1) * nproc + 1
+      do iproc = 1, nproc
+         binnr = first_unit + iproc - 1
+         write(binfile, '(A,"-",I3.3)') trim(ncfile), iproc
+         inquire (unit=binnr, opened=opened, iostat=ierr, iomsg=io_message)
+         if (ierr /= 0) then
+            errmsg = 'Checking spectral staging unit: ' // trim(io_message)
+            go to 900
+         end if
+         if (first_record) then
+            if (opened) then
+               rewind (unit=binnr, iostat=ierr, iomsg=io_message)
             else
-                inquire(file=binfile, exist=file_exists)
-                if ( .not. file_exists ) then
-                    write(errmsg, '("Parallel spectral staging file ",A, " does not exist")') trim(binfile)
-                    call MSGERR(4, errmsg)
-                    return
-                end if
-                open(file=binfile, unit=binnr, form='unformatted', status='old', action='read', IOSTAT=ierr)
-                if (ierr /= 0) then
-                    write(errmsg, '("Opening ",A, " on ",I3, " failed with IOSTAT ",I3)') trim(binfile), binnr, ierr
-                    call MSGERR(4, errmsg)
-                    return
-                end if
+               open (unit=binnr, file=binfile, form='unformatted', status='old', &
+                     action='read', iostat=ierr, iomsg=io_message)
             end if
-            inquire(unit=binnr, opened=lopen)
-            if ( .not. lopen ) then
-                write(errmsg,'("unit ",I3," is NOT open")') binnr
-                call MSGERR(4, errmsg)
-                return
+            if (ierr /= 0) then
+               errmsg = 'Opening or rewinding spectral staging file: ' // trim(io_message)
+               go to 900
             end if
+         else if (.not. opened) then
+            errmsg = 'Spectral staging file closed before collection finished'
+            go to 900
+         end if
 
-            ! In the final collocation the spatial, spectral and directional grids are unknown.
-            ! They are exchanged via the binary file of the master process.
-            if ( read_header(irq) .and. iproc == 1 ) then
-                read_header(irq) = .false.
-                read(binnr, IOSTAT=ierr) spcaux%xp
-                if ( ierr /= 0 ) then
-                  write(errmsg,'("Reading grid data from ", A, " returned IOSTAT ", I3.3)') trim(binfile), ierr
-                  call MSGERR(4, errmsg)
-                  return
-                end if
-                read(binnr) spcaux%yp
-                if ( LCOMPGRD .and. optg == 5 ) then
-                    deallocate(spcaux%xp, spcaux%yp)
-                    allocate(spcaux%xp(MIP), spcaux%yp(MIP))
-                    spcaux%xp = xcugrdgl
-                    spcaux%yp = ycugrdgl
-                end if
-                read(binnr) spcaux%f
-                read(binnr) spcaux%theta
+         if (first_record .and. iproc == master) then
+            ! The master writes its local coordinates before the first record.
+            header_points = mip
+            if (compgrid) then
+               header_points = nverts
             end if
-
-            read(binnr, IOSTAT=ierr) xpctime2, tmip
-            if ( ierr /= 0 ) then
-                write(errmsg,'("Reading time and tmip from ", A, "(",I3,") , time ", A, ", returned IOSTAT ", I3)') &
-                     trim(binfile), binnr, CHTIME, ierr
-                call MSGERR(4, errmsg)
-                return
+            if (header_points < 0 .or. header_points > mip) then
+               errmsg = 'Spectral staging header exceeds the global point count'
+               go to 900
             end if
-            if ( tmip < 0 .or. tmip > MIP ) then
-                write(errmsg,'("Invalid tmip ",I0," while reading ",A," at time ",A)') &
-                     tmip, trim(binfile), CHTIME
-                call MSGERR(4, errmsg)
-                return
+            read(binnr, iostat=ierr, iomsg=io_message) spcaux%xp(:header_points)
+            if (ierr == 0) then
+               read(binnr, iostat=ierr, iomsg=io_message) spcaux%yp(:header_points)
             end if
-            if ( tmip == 0 ) cycle
-!METIS            nread = nread + tmip
-
-            read(binnr, IOSTAT=ierr) ips(1:tmip)
-            if ( ierr /= 0 ) then
-                write(errmsg,'("Reading point indices from ", A, "(",I3,") , time ", A, ", returned IOSTAT ", I3)') &
-                     trim(binfile), binnr, CHTIME, ierr
-                call MSGERR(4, errmsg)
-                return
+            if (ierr == 0) then
+               read(binnr, iostat=ierr, iomsg=io_message) spcaux%f
             end if
-            do tip = 1, tmip
-              ip = ips(tip)
-              if ( ip < 1 .or. ip > MIP ) then
-                write(errmsg,'("Invalid point index ",I0," while reading ",A," at time ",A)') &
-                     ip, trim(binfile), CHTIME
-                call MSGERR(4, errmsg)
-                return
-              end if
-              if ( .not. seen(ip) ) then
-                seen(ip) = .true.
-                nunique  = nunique + 1
-              end if
-              read(binnr, iostat = ierr) xref, yref, spcaux%E(:, ip), spcaux%depth(ip), &
-                          spcaux%ux(ip), spcaux%uy(ip), spcaux%hs(ip), spcaux%wndx(ip), spcaux%wndy(ip)
+            if (ierr == 0) then
+               read(binnr, iostat=ierr, iomsg=io_message) spcaux%theta
+            end if
+            if (ierr /= 0) then
+               errmsg = 'Reading spectral staging header: ' // trim(io_message)
+               go to 900
+            end if
+            if (compgrid) then
+               spcaux%xp = xcugrdgl
+               spcaux%yp = ycugrdgl
+            end if
+         end if
 
-              if ( ierr /= 0 ) then
-                write(errmsg,'("Reading IP ",I3.3, ", TIP ", I3.3, " in ", A, " returned IOSTAT ", I3.3)') &
-                  ip, tip, binfile, ierr
-                call MSGERR(4, errmsg)
-                return
-              end if
-            end do ! points
-        end do !nproc
-        if ( nunique <= 0 ) then
-            write(errmsg,'("No spectra were read while collecting ",A," at time ",A)') &
-                 trim(ncfile), CHTIME
-            call MSGERR(4, errmsg)
-            return
-        end if
-!METIS        if ( LCOMPGRD .and. optg == 5 .and. nunique < MIP ) then
-!METIS            write(errmsg,'("Incomplete parallel spectral hotstart collection for ",A, &
-!METIS                 &": read ",I0," records covering ",I0," of ",I0," points at time ",A)') &
-!METIS                 trim(ncfile), nread, nunique, MIP, CHTIME
-!METIS            call MSGERR(4, errmsg)
-!METIS            return
-!METIS        end if
-        !
-        ! MPI with a cold start shows some interesting initial values
-        ! remove them
-        !
-        where(spcaux%E < epsilon(1.)) spcaux%E = 0.
-!
-! b. netcdf IO
-!
+         read(binnr, iostat=ierr, iomsg=io_message) rank_time, tmip
+         if (ierr /= 0) then
+            errmsg = 'Reading spectral time and point count: ' // trim(io_message)
+            go to 900
+         end if
+         if (iproc == 1) then
+            record_time = rank_time
+         else if (rank_time /= record_time) then
+            errmsg = 'Inconsistent time in spectral staging record'
+            go to 900
+         end if
+         if (tmip < 0 .or. tmip > mip) then
+            write(errmsg, '("Invalid spectral point count ",I0," for ",I0," points")') tmip, mip
+            go to 900
+         end if
+         if (tmip == 0) then
+            cycle
+         end if
+!METIS         nread = nread + tmip
 
-        ncfile = outp_files(irq)
-        ilpos  = index(ncfile, '-0')
-        if (ilpos.ne.0) ncfile = ncfile(1:ilpos-1)
-        if ( ncoffset(irq) == 0 ) then
-            call swn_outnc_openspecfile(ncfile, spcaux, OQI, OQR)
-            if (STPNOW()) return
-        end if
+         read(binnr, iostat=ierr, iomsg=io_message) ips(:tmip)
+         if (ierr /= 0) then
+            errmsg = 'Reading spectral point indices: ' // trim(io_message)
+            go to 900
+         end if
+         do tip = 1, tmip
+            ip = ips(tip)
+            if (ip < 1 .or. ip > mip) then
+               write(errmsg, '("Invalid spectral point index ",I0)') ip
+               go to 900
+            end if
+            if (.not. seen(ip)) then
+               seen(ip) = .true.
+               nunique = nunique + 1
+            end if
+            read(binnr, iostat=ierr, iomsg=io_message) xref, yref, spcaux%E(:, ip), &
+                 spcaux%depth(ip), spcaux%ux(ip), spcaux%uy(ip), spcaux%hs(ip), &
+                 spcaux%wndx(ip), spcaux%wndy(ip)
+            if (ierr /= 0) then
+               errmsg = 'Reading staged spectrum: ' // trim(io_message)
+               go to 900
+            end if
+            if (.not. first_record) then
+               spcaux%xp(ip) = xref
+               spcaux%yp(ip) = yref
+            end if
+         end do
+      end do
+      binfile = ncfile
+      if (nunique <= 0) then
+         errmsg = 'No spectra were read during collection'
+         go to 900
+      end if
+!METIS      if (compgrid .and. nunique < mip) then
+!METIS         write(errmsg, '("Incomplete spectral collection: ",I0," records cover ",I0," of ",I0," points")') &
+!METIS              nread, nunique, mip
+!METIS         go to 900
+!METIS      end if
+      read_header(irq) = .false.
 
-        call swn_outnc_appendspc(OQI, spcaux, xpctime2)
-        if (STPNOW()) return
+      where (spcaux%E < epsilon(1.0_SWAN_REAL)) spcaux%E = 0.0_SWAN_REAL
+      if (ncoffset(irq) == 0) then
+         call swn_outnc_openspecfile(ncfile, spcaux, oqi, oqr)
+         if (stpnow()) then
+            errmsg = 'Opening spectral NetCDF output failed'
+            go to 900
+         end if
+      end if
 
-        call swn_outnc_deallocate_spcaux( spcaux )
+      call swn_outnc_appendspc(oqi, spcaux, record_time)
+      if (stpnow()) then
+         errmsg = 'Appending spectral NetCDF output failed'
+         go to 900
+      end if
 
-        if ( NSTATM == 0 .or. TIMCO >= TFINC ) then
-            ! The end time is reached in each computation block. See
-            ! SWCOLOUT structure.
-            call close_ncfile(OQI(1) + ncoffset(irq) )
+      ncid = oqi(1) + ncoffset(irq)
+      if (nstatm == 0 .or. timco >= tfinc) then
+         ierr = nf90_close(ncid)
+         if (ierr == nf90_noerr) then
             ncoffset(irq) = 0
+         end if
+      else
+         ierr = nf90_sync(ncid)
+      end if
+      if (ierr /= nf90_noerr) then
+         errmsg = 'Finalizing spectral NetCDF record: ' // trim(nf90_strerror(ierr))
+         go to 900
+      end if
+      return
 
-            ! The intermediate binary files are closed and deleted in
-            !    swanparll.ftn -> SWCOLOUT
-
-        else
-            call nccheck( NF90_SYNC( OQI(1) + ncoffset(irq)  ))
-        end if
+900   continue
+      call msgerr(4, trim(errmsg) // ' in ' // trim(binfile) // ' at ' // trim(chtime))
+      do binnr = first_unit, first_unit + nproc - 1
+         opened = .false.
+         inquire (unit=binnr, opened=opened, iostat=close_status)
+         if (close_status == 0 .and. opened) then
+            close (unit=binnr, iostat=close_status)
+         end if
+         if (close_status /= 0) then
+            write(errmsg, '("Closing spectral staging unit ",I0," returned IOSTAT ",I0)') binnr, close_status
+            call msgerr(4, errmsg)
+         end if
+      end do
+      if (ncoffset(irq) /= 0) then
+         close_status = nf90_close(oqi(1) + ncoffset(irq))
+         if (close_status /= nf90_noerr) then
+            call msgerr(4, 'Closing spectral NetCDF output: ' // trim(nf90_strerror(close_status)))
+         end if
+         ncoffset(irq) = 0
+      end if
     end subroutine swn_outnc_colspc
 
-    subroutine swn_outnc_spcaux(RTYPE, OQI, MIP, VOQR, VOQ, AC2, &
-                              SPCSIG, SPCDIR, DEP2, KGRPNT, CROSS, IONOD, &
-                              lspcaux)
-      USE OCPCOMM2
-      USE TIMECOMM, only: TINIC, TFINC, TIMCO
-!METIS      use SwanGriddata, only: ivertg, nvertsg
+    !> Compute spectra and, for MPI output, stage the locally owned points.
+    subroutine swn_outnc_spcaux(rtype, oqi, mip, voqr, voq, ac2, &
+                               spcsig, spcdir, dep2, kgrpnt, cross, ionod, lspcaux)
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -608,265 +592,266 @@ contains
 !                   MCGRD
 ! i   DEP2   real   MCGRD
 !
-      real,                            intent(   in) :: SPCDIR(MDC,6), SPCSIG(MSC)
-      logical,                         intent(   in) :: CROSS(1:4,1:MIP)
-      character (len=*),               intent(   in) :: RTYPE
-      integer,                         intent(   in) :: OQI(4), VOQR(*), &
-                                                        KGRPNT(MXC,MYC), IONOD(*), &
-                                                        MIP
-      real,                            intent(   in) :: VOQ(MIP,*), AC2(MDC,MSC,MCGRD), &
-                                                        DEP2(MCGRD)
-      type(spcaux_type),               intent(  out) :: lspcaux
-!
-!  5. Local variables
-!
-      logical                                        :: EQREAL, lopen, do_open_files, write_header
-!METIS      logical                                    :: direct_compgrid_spectrum, direct_done
-      integer                                        :: ip, ierr, otype, xpctmp(2), &
-                                                        pnr, ri, i, tmip, irq, iproc, &
-                                                        binnr, xi, yi, npnts
-!METIS      integer                                    :: id, is, local_ip
-      integer(kind=8)                                :: xpctime
-      integer, allocatable                           :: ips(:)
-      integer, save                                  :: IENT=0
-      character(len=80)                              :: outfile
-      character(len=256)                             :: errmsg
-      external                                       :: SWSYNC
-!  8. Subroutines used
-!
-!     SWCMSP
-!
-      logical STPNOW
-!
-!  9. Subroutines calling
-!
-!     SWOUTP (SWAN/OUTP)
-!
-! 10. Error messages
-!
-!     ---
-!
-! 11. Remarks
-!
-! 12. Structure.
-!    a. decide wether relative and 2D spectra are required
-!    b. collect depth, current, xc, yc, f, theta
-!    c  if PARLL open unformatted binary
-!    d. set output type (1D or 2D, relative or absolute) and allocate Energy array
-!    e. if PARLL, write time and number of output points in this subgrid to
-!       unformatted binary file
-!    for each point...
-!      f.1. compute relative / absolute 1D or 2D energy
-!      f.2. if PARLL spectra and auxillary data to unformatted binary file
-!
-! 13. Source text
-!
-      iproc = INODE
-      if (LTRACE) call STRACE (IENT,'swn_outnc_spcaux')
-      lspcaux%mip = MIP
-      allocate(lspcaux%hs(MIP), lspcaux%depth(MIP), lspcaux%ux(MIP), lspcaux%uy(MIP), &
-               lspcaux%wndx(MIP), lspcaux%wndy(MIP), lspcaux%xc(MIP), lspcaux%yc(MIP), &
-               lspcaux%xp(MIP), lspcaux%yp(MIP), ips(MIP))
-!
-! a. decide wether relative and 2D spectra are required
-!
-      irq      = OQI(2)
-      ierr     = 0
+      character(len=*), intent(in) :: rtype !< Spectrum and frequency type.
+      integer, dimension(4), intent(inout) :: oqi !< Output request and unit.
+      integer, intent(in) :: mip !< Number of requested points.
+      ! The public entry point uses sequence association for these two arrays.
+      integer, dimension(*), intent(in) :: voqr !< Column map for output values.
+      real(kind=SWAN_REAL), dimension(mip, *), intent(in) :: voq !< Output values.
+      real(kind=SWAN_REAL), dimension(mdc, msc, mcgrd), intent(in) :: ac2 !< Action density.
+      real(kind=SWAN_REAL), dimension(msc), intent(in) :: spcsig !< Angular frequencies.
+      real(kind=SWAN_REAL), dimension(mdc, 6), intent(in) :: spcdir !< Direction terms.
+      real(kind=SWAN_REAL), dimension(mcgrd), intent(in) :: dep2 !< Depth on grid.
+      integer, dimension(mxc, myc), intent(in) :: kgrpnt !< Grid point map.
+      logical, dimension(4, mip), intent(in) :: cross !< Point interpolation mask.
+      integer, dimension(mip), intent(in) :: ionod !< Owning rank for each point.
+      type(spcaux_type), intent(out) :: lspcaux !< Spectra and auxiliary fields.
 
-      if (RTYPE(3:3) .eq. 'R') lspcaux%relative = .true.
-      if (RTYPE(4:4) .eq. 'C') lspcaux%is2d     = .true.
-!METIS      direct_compgrid_spectrum = PARLL .and. OPTG == 5 .and. LCOMPGRD .and. &
-!METIS                                  lspcaux%is2d .and. lspcaux%relative
-!
-! b. collect auxillary data / set default (task e. set hs and wind values)
-!
-      lspcaux%depth = VOQ(:,VOQR(4))
-      lspcaux%hs    = 0
-      lspcaux%wndx  = 0
-      lspcaux%wndy  = 0
-      if (ICUR > 0) then
-          lspcaux%ux = VOQ(:,VOQR(5))
-          lspcaux%uy = VOQ(:,VOQR(5)+1)
+      logical, external :: eqreal
+      logical :: direct_compgrid_spectrum
+      integer :: ip, ierr, otype
+!METIS      integer :: id, is
+      integer, save :: ient = 0
+
+      if (ltrace) then
+         call strace(ient, 'swn_outnc_spcaux')
+      end if
+      lspcaux%mip = mip
+      lspcaux%relative = rtype(3:3) == 'R'
+      lspcaux%is2d = rtype(4:4) == 'C'
+      direct_compgrid_spectrum = .false.
+!METIS      direct_compgrid_spectrum = parll .and. optg == 5 .and. lcompgrd .and. &
+!METIS                                 lspcaux%is2d .and. lspcaux%relative
+
+      allocate (lspcaux%hs(mip), lspcaux%wndx(mip), lspcaux%wndy(mip), source=0.0_SWAN_REAL)
+      allocate (lspcaux%xc(mip), source=ovexcv(1))
+      allocate (lspcaux%yc(mip), source=ovexcv(2))
+      lspcaux%xp = voq(:, 1)
+      lspcaux%yp = voq(:, 2)
+      lspcaux%depth = voq(:, voqr(4))
+      if (icur > 0) then
+         lspcaux%ux = voq(:, voqr(5))
+         lspcaux%uy = voq(:, voqr(5) + 1)
       else
-          lspcaux%ux = 0.
-          lspcaux%uy = 0.
+         allocate (lspcaux%ux(mip), lspcaux%uy(mip), source=0.0_SWAN_REAL)
       end if
 
-      lspcaux%xc = OVEXCV(1)
-      lspcaux%yc = OVEXCV(2)
-      lspcaux%xp = OVEXCV(1)
-      lspcaux%yp = OVEXCV(2)
-
-      do ip = 1, MIP
-        if (OPTG.ne.5) then
-          if (.not.EQREAL(VOQ(ip,VOQR(24)),OVEXCV(1) )) then
-            lspcaux%xc(ip) = VOQ(ip,VOQR(24))
-            lspcaux%yc(ip) = VOQ(ip,VOQR(25))
-          end if
-        else
-          if (.not.EQREAL(VOQ(ip,1),OVEXCV(1))) then
-            lspcaux%xc(ip) = VOQ(ip,1) - XOFFS
-            lspcaux%yc(ip) = VOQ(ip,2) - YOFFS
-          end if
-        end if
-        lspcaux%xp(ip) = VOQ(ip,1)
-        lspcaux%yp(ip) = VOQ(ip,2)
-      end do
-      lspcaux%nfreq = MSC
-      lspcaux%ndir  = MDC
-
-      allocate( lspcaux%f(MSC), lspcaux%theta(MDC))
-      lspcaux%f     = SPCSIG/PI2
-      if ( BNAUT ) then
-        ! meteorological convention
-        lspcaux%theta = PI + DNORTH*PI/180 - SPCDIR(:,1)
-      else
-        lspcaux%theta = SPCDIR(:,1)
-      end if
-!
-! c if PARLL open unformatted binary if not already opened
-!
-      if ( PARLL ) then
-          if ( oqi(1) == 0 ) then
-              call FOR(oqi(1), OUTP_FILES(irq), 'UU', ierr)
-              if ( ierr > 0 ) then
-                  write(errmsg,'("File ", A, " open returned IOSTAT ", I3)') trim(OUTP_FILES(irq)), ierr
-                  call MSGERR(4, errmsg)
-                  return
-              end if
-              write_header = .true.
-              read_header(irq) = .true.
-          else
-              write_header = .false.
-          end if
-
-      end if
-
-! d. set output type (1D or 2D, relative or absolute) and allocate Energy array
-      if ( lspcaux%is2d ) then
-          allocate(lspcaux%E(MSC * MDC, MIP))
-          if ( lspcaux%relative ) then
-              otype = 2
-          else
-              otype = -2
-          end if
-      else
-          allocate(lspcaux%E(3 * MSC, MIP))
-          if ( lspcaux%relative ) then
-              otype = 1
-          else
-              otype = -1
-          end if
-      end if
-      lspcaux%E = 0
-
-! e. write time and number of output points in this subgrid to unformatted binary file
-      if ( PARLL ) then
-        tmip = 0
-        ! if part of this subgrid and an active point
-        do ip = 1, MIP
-            if ( IONOD(ip).eq.IPROC ) then
-                tmip      = tmip + 1
-!METIS                if ( direct_compgrid_spectrum ) then
-!METIS                    if ( .not. allocated(ivertg) ) then
-!METIS                        write(errmsg,'("Missing global vertex map for parallel unstructured hotstart at time ",A)') CHTIME
-!METIS                        call MSGERR(4, errmsg)
-!METIS                        return
-!METIS                    end if
-!METIS                    if ( ip > size(ivertg) .or. ivertg(ip) < 1 .or. ivertg(ip) > nvertsg ) then
-!METIS                        write(errmsg,'("Invalid global vertex index for local point ",I0," at time ",A)') &
-!METIS                             ip, CHTIME
-!METIS                        call MSGERR(4, errmsg)
-!METIS                        return
-!METIS                    end if
-!METIS                    ips(tmip) = ivertg(ip)
-!METIS                else
-                    ips(tmip) = ip
-!METIS                end if
+      do ip = 1, mip
+         if (optg /= 5) then
+            if (.not. eqreal(voq(ip, voqr(24)), ovexcv(1))) then
+               lspcaux%xc(ip) = voq(ip, voqr(24))
+               lspcaux%yc(ip) = voq(ip, voqr(25))
             end if
-        end do
-        if ( NSTATM > 0 ) then
-            READ (chtime, '(I8,1X,I6)') (xpctmp(i), i=1,2)
-            xpctime = seconds_since_epoch(xpctmp(1), xpctmp(2))
-        else
-            xpctime = 0
-        end if
-
-        ! In the final collocation the spatial, spectral and directional grids are unknown.
-        ! They are exchanged via the binary file of the master on the first timestep.
-        !
-        ! note the statement below and its reading counterpart imply that the master is
-        ! always IPROC 1
-        if ( write_header .and. IAMMASTER ) then
-            write(OQI(1)) lspcaux%xp
-            write(OQI(1)) lspcaux%yp
-            write(OQI(1)) lspcaux%f
-            write(OQI(1)) lspcaux%theta
-        end if
-
-        write(OQI(1), IOSTAT=ierr) xpctime, tmip
-        if (ierr /= 0) then
-          write(errmsg, '(A, "-> IOSTAT=", I3, " time=", I20, " TMIP=", I4, " OQI(1)=", I3)') &
-                  trim(outfile), ierr, xpctime, tmip, oqi(1)
-          call MSGERR(4, errmsg)
-          return
-        end if
-        if ( tmip /= 0 ) then
-           write(OQI(1)) ips(1:tmip)
-        end if
-
-      end if
-
-! for each point, compute spectra and collect remaining auxilary
-      do ip = 1, MIP
-        if ( .not.PARLL .or. &
-             IONOD(ip).eq.INODE ) then
-          ! if depth > 0 and not a dummy value
-          if ( lspcaux%depth(ip) > epsilon(1.) .and. abs(lspcaux%depth(ip) - OVEXCV(4)) > epsilon(1.) ) then
-!METIS            direct_done = .false.
-!METIS            if ( direct_compgrid_spectrum ) then
-!METIS                local_ip = ip
-!METIS                if ( local_ip >= 1 .and. local_ip <= size(AC2, 3) ) then
-!METIS                    do is = 1, MSC
-!METIS                        do id = 1, MDC
-!METIS                            ! Leave the 2*pi rad/s-to-Hz conversion to the common NetCDF write path.
-!METIS                            lspcaux%E(id + (is - 1) * MDC, ip) = AC2(id, is, local_ip) * SPCSIG(is)
-!METIS                        end do
-!METIS                    end do
-!METIS                    ierr = 0
-!METIS                    direct_done = .true.
-!METIS                end if
-!METIS            end if
-!METIS            if ( .not. direct_done ) then
-            call SWCMSP (otype, lspcaux%xc(ip), lspcaux%yc(ip), AC2, lspcaux%E(:, ip), SPCSIG, &
-                         lspcaux%depth(ip) , dep2, lspcaux%ux(ip), lspcaux%uy(ip),        &
-                         SPCDIR(1,2), SPCDIR(1,3), 1., KGRPNT,  &
-                         CROSS(1,IP), ierr)
-!METIS            end if
-
-            ! when ierr > 0 then energy == 0. That's fine.
-
-            lspcaux%hs(ip)   = VOQ(ip,VOQR(10))
-            lspcaux%wndx(ip) = VOQ(ip,VOQR(26))
-            lspcaux%wndy(ip) = VOQ(ip,VOQR(26)+1)
-          end if
-
-          if ( PARLL ) then
-            ! write to binary
-            write(OQI(1)) lspcaux%xp(ip), lspcaux%yp(ip), lspcaux%E(:, ip), lspcaux%depth(ip), &
-                          lspcaux%ux(ip), lspcaux%uy(ip), lspcaux%hs(ip), lspcaux%wndx(ip), &
-                          lspcaux%wndy(ip)
-          end if
-        end if
+         else
+            if (.not. eqreal(voq(ip, 1), ovexcv(1))) then
+               lspcaux%xc(ip) = voq(ip, 1) - xoffs
+               lspcaux%yc(ip) = voq(ip, 2) - yoffs
+            end if
+         end if
       end do
-      if ( PARLL ) then
-          flush(OQI(1))
-          call SWSYNC
+      lspcaux%nfreq = msc
+      lspcaux%ndir = mdc
+      lspcaux%f = spcsig / pi2
+      if (bnaut) then
+         ! Convert to nautical directions.
+         lspcaux%theta = pi + dnorth * pi / 180 - spcdir(:, 1)
+      else
+         lspcaux%theta = spcdir(:, 1)
       end if
 
-      deallocate(ips)
+      if (lspcaux%is2d) then
+         allocate (lspcaux%E(msc * mdc, mip), source=0.0_SWAN_REAL)
+         otype = 2
+      else
+         allocate (lspcaux%E(3 * msc, mip), source=0.0_SWAN_REAL)
+         otype = 1
+      end if
+      if (.not. lspcaux%relative) then
+         otype = -otype
+      end if
 
+      do ip = 1, mip
+         if (parll) then
+            if (ionod(ip) /= inode) then
+               cycle
+            end if
+         end if
+         if (.not. (lspcaux%depth(ip) > epsilon(1.0_SWAN_REAL) .and. &
+                    abs(lspcaux%depth(ip) - ovexcv(4)) > epsilon(1.0_SWAN_REAL))) then
+            cycle
+         end if
+!METIS         if (direct_compgrid_spectrum .and. ip <= size(ac2, 3)) then
+!METIS            do is = 1, msc
+!METIS               do id = 1, mdc
+!METIS                  ! The NetCDF writer converts from rad/s to Hz.
+!METIS                  lspcaux%E(id + (is - 1) * mdc, ip) = ac2(id, is, ip) * spcsig(is)
+!METIS               end do
+!METIS            end do
+!METIS         else
+            call swcmsp(otype, lspcaux%xc(ip), lspcaux%yc(ip), ac2, lspcaux%E(:, ip), spcsig, &
+                        lspcaux%depth(ip), dep2, lspcaux%ux(ip), lspcaux%uy(ip), &
+                        spcdir(1, 2), spcdir(1, 3), 1.0_SWAN_REAL, kgrpnt, cross(1, ip), ierr)
+!METIS         end if
+
+         lspcaux%hs(ip) = voq(ip, voqr(10))
+         lspcaux%wndx(ip) = voq(ip, voqr(26))
+         lspcaux%wndy(ip) = voq(ip, voqr(26) + 1)
+      end do
+      if (parll) then
+         call stage_spectra(oqi, lspcaux, ionod, direct_compgrid_spectrum)
+      end if
     end subroutine swn_outnc_spcaux
+
+    !> Stage one record and propagate file errors to all output ranks.
+    subroutine stage_spectra(oqi, spectra, ionod, use_global_indices)
+      integer, dimension(4), intent(inout) :: oqi !< Output request and unit.
+      type(spcaux_type), intent(in) :: spectra !< Spectra and auxiliary fields.
+      integer, dimension(:), intent(in) :: ionod !< Point owners.
+      logical, intent(in) :: use_global_indices !< Use global mesh vertex IDs.
+
+      character(len=256) :: io_message
+      integer :: ierr, close_status
+      integer, dimension(1) :: failed
+      logical :: opened
+      external :: swreduci
+
+      call write_staged_spectra(oqi, spectra, ionod, use_global_indices, ierr, io_message)
+      failed = merge(1, 0, ierr /= 0)
+      ! The reduction also synchronizes the completed staging writes.
+      call swreduci(failed, size(failed), swmax)
+      if (failed(1) == 0) then
+         return
+      end if
+
+      if (ierr /= 0) then
+         call msgerr(4, 'Writing spectral staging file ' // trim(outp_files(oqi(2))) // &
+                     ' at ' // trim(chtime) // ': ' // trim(io_message))
+      else
+         call msgerr(4, 'Another rank failed to write spectral staging output')
+      end if
+      if (oqi(1) /= 0) then
+         opened = .false.
+         inquire (unit=oqi(1), opened=opened, iostat=close_status)
+         if (close_status == 0 .and. opened) then
+            close (unit=oqi(1), iostat=close_status)
+         end if
+         if (close_status /= 0) then
+            write(io_message, '("Closing spectral staging unit returned IOSTAT ",I0)') close_status
+            call msgerr(4, io_message)
+         end if
+         oqi(1) = 0
+      end if
+    end subroutine stage_spectra
+
+    !> Write a local staging record in the format consumed by the master.
+    subroutine write_staged_spectra(oqi, spectra, ionod, use_global_indices, ierr, io_message)
+!METIS      use SwanGriddata, only: ivertg, nvertsg
+
+      integer, dimension(4), intent(inout) :: oqi !< Output request and unit.
+      type(spcaux_type), intent(in) :: spectra !< Spectra and auxiliary fields.
+      integer, dimension(:), intent(in) :: ionod !< Point owners.
+      logical, intent(in) :: use_global_indices !< Use global mesh vertex IDs.
+      integer, intent(out) :: ierr !< Zero on success.
+      character(len=*), intent(out) :: io_message !< Context for an I/O error.
+
+      integer :: ip, i, point_count, irq
+      integer :: date, time
+      integer(kind=int64) :: record_time
+      integer, dimension(:), allocatable :: points
+!METIS      integer, parameter :: INVALID_VERTEX_MAP = 1
+      logical :: write_header
+
+      ierr = 0
+      io_message = ''
+      irq = oqi(2)
+      point_count = count(ionod == inode)
+      allocate (points(point_count))
+      i = 0
+      do ip = 1, size(ionod)
+         if (ionod(ip) == inode) then
+            i = i + 1
+            points(i) = ip
+         end if
+      end do
+
+!METIS      if (use_global_indices .and. point_count > 0) then
+!METIS         if (.not. allocated(ivertg)) then
+!METIS            ierr = INVALID_VERTEX_MAP
+!METIS            io_message = 'Missing global vertex map for unstructured spectral output'
+!METIS            return
+!METIS         end if
+!METIS         if (maxval(points) > size(ivertg)) then
+!METIS            ierr = INVALID_VERTEX_MAP
+!METIS            io_message = 'Local spectral point is outside the global vertex map'
+!METIS            return
+!METIS         end if
+!METIS         if (any(ivertg(points) < 1) .or. any(ivertg(points) > nvertsg)) then
+!METIS            ierr = INVALID_VERTEX_MAP
+!METIS            io_message = 'Global spectral point index is outside the mesh'
+!METIS            return
+!METIS         end if
+!METIS      end if
+
+      record_time = 0_int64
+      if (nstatm > 0) then
+         read(chtime, '(I8,1X,I6)', iostat=ierr, iomsg=io_message) date, time
+         if (ierr /= 0) then
+            return
+         end if
+         record_time = seconds_since_epoch(date, time)
+      end if
+
+      write_header = oqi(1) == 0
+      if (write_header) then
+         ! The reserved SWAN unit is shared with SWMAIN's output cleanup.
+         call for(oqi(1), outp_files(irq), 'UU', ierr)
+         if (ierr /= 0) then
+            write(io_message, '("Opening file returned IOSTAT ",I0)') ierr
+            return
+         end if
+         read_header(irq) = .true.
+      end if
+      if (write_header .and. iammaster) then
+         write(oqi(1), iostat=ierr, iomsg=io_message) spectra%xp
+         if (ierr == 0) then
+            write(oqi(1), iostat=ierr, iomsg=io_message) spectra%yp
+         end if
+         if (ierr == 0) then
+            write(oqi(1), iostat=ierr, iomsg=io_message) spectra%f
+         end if
+         if (ierr == 0) then
+            write(oqi(1), iostat=ierr, iomsg=io_message) spectra%theta
+         end if
+         if (ierr /= 0) then
+            return
+         end if
+      end if
+
+      write(oqi(1), iostat=ierr, iomsg=io_message) record_time, point_count
+      if (ierr /= 0) then
+         return
+      end if
+      if (point_count > 0) then
+!METIS         if (use_global_indices) then
+!METIS            write(oqi(1), iostat=ierr, iomsg=io_message) ivertg(points)
+!METIS         else
+            write(oqi(1), iostat=ierr, iomsg=io_message) points
+!METIS         end if
+         if (ierr /= 0) then
+            return
+         end if
+      end if
+      do i = 1, point_count
+         ip = points(i)
+         write(oqi(1), iostat=ierr, iomsg=io_message) spectra%xp(ip), spectra%yp(ip), &
+              spectra%E(:, ip), spectra%depth(ip), spectra%ux(ip), spectra%uy(ip), &
+              spectra%hs(ip), spectra%wndx(ip), spectra%wndy(ip)
+         if (ierr /= 0) then
+            return
+         end if
+      end do
+      flush(oqi(1), iostat=ierr, iomsg=io_message)
+    end subroutine write_staged_spectra
 
     subroutine swn_outnc_spcaux_on_wetnodes( lkgrpnt, lspcaux, spcaux )
         ! lkgrpnt is KGRPNT when called from shared memory mode or KGRPGL
@@ -956,7 +941,6 @@ contains
     end subroutine swn_outnc_deallocate_spcaux
 
     subroutine swn_outnc_appendspc(oqi, spcaux, xpctime2)
-      USE OCPCOMM2
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -1006,7 +990,7 @@ contains
 !
       integer,                      intent(   in) :: oqi(4)
       type(spcaux_type), target,    intent(inout) :: spcaux
-      integer(kind=8),   optional,  intent(   in) :: xpctime2
+      integer(kind=int64), optional, intent(in) :: xpctime2
 !
 !  5. Local variables
 !

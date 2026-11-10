@@ -4107,14 +4107,14 @@
 
 !              --- compute coordinates of output points                   40.51
 
-               IF ( OPTG.EQ.5 .AND. LCOMPGRD ) THEN
-                  DO IP = 1, MIP
-                     XP(IP) = xcugrdgl(IP)
-                     YP(IP) = ycugrdgl(IP)
-                     XC(IP) = REAL(IP) - 1.
-                     YC(IP) = 0.
-                  ENDDO
-               ELSE
+               if (optg == 5 .and. lcompgrd) then
+                  do ip = 1, mip
+                     xp(ip) = xcugrdgl(ip)
+                     yp(ip) = ycugrdgl(ip)
+                     xc(ip) = real(ip - 1, kind(xc))
+                     yc(ip) = 0
+                  end do
+               else
                   ITMP1  = MXC
                   ITMP2  = MYC
                   ITMP3  = MCGRD

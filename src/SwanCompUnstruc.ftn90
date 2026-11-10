@@ -96,7 +96,7 @@ subroutine SwanCompUnstruc ( ac2, ac1, compda, spcsig, spcdir, xytst, cross, it 
     use m_snl3
     use m_parall
     use m_obsta, only: OBSTDAT_PTR
-!METIS    use SwanParallel
+!METIS    use SwanParallel, only: SwanUvExchgR
 !
     implicit none
 !

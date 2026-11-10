@@ -152,7 +152,7 @@
       USE SwanQCM                                                         41.90
       USE SwanGriddata                                                    40.80
       USE SwanCompdata, ONLY: BNDDONE
-!METIS      USE SwanParallel
+!METIS      use SwanParallel, only: ipown
       USE M_OBSTA
 !
       IMPLICIT NONE
@@ -9329,7 +9329,9 @@
       USE SwanIEM                                                         41.85
       USE SwanBraggScat                                                   41.80
       USE SwanQCM                                                         41.90
-!METIS      USE SwanParallel
+!METIS      use SwanParallel, only: ipown, vres, vsubcm, nvrecv,
+!METIS     &   nvsend, ivrecv, ivsend, rrqst, srqst, irbuf, isbuf,
+!METIS     &   rbuf, sbuf
 !
       IMPLICIT NONE
 !

@@ -135,6 +135,7 @@
         implicit none
         private
         real, parameter                              :: AGIONCMD_VERSION = 1.6
+        integer, parameter :: SWAN_REAL_KIND = kind(0.0)
         real, parameter                              :: AGNC_DUMMY = NF90_FILL_FLOAT
         integer(kind=1), parameter                   :: AGNC_FILL_BYTE = -2**7
         integer(kind=2), parameter                   :: AGNC_FILL_SHORT= -2**15
@@ -1694,155 +1695,120 @@
 
        end subroutine agnc_add_mapdata_double
 
-       subroutine agnc_add_spcdata_density(ncid, ti, e2d, spc_as_map)
-            integer,                          intent(in   ) :: ncid, ti
-            real        ,   dimension(:,:),   intent(inout) :: e2d
-            logical,                          intent(in   ) :: spc_as_map
+        !> Write two-dimensional spectra in bounded NetCDF chunks.
+        subroutine agnc_add_spcdata_density(ncid, ti, e2d, spc_as_map)
+           integer, intent(in) :: ncid !< Open NetCDF file.
+           integer, intent(in) :: ti !< Record index.
+           real(kind=SWAN_REAL_KIND), dimension(:, :), intent(in) :: e2d !< Spectral bins by point.
+           logical, intent(in) :: spc_as_map !< Write a grid instead of a point list.
 
-            real        ,   dimension(:,:,:), allocatable   :: density
-            real        ,   dimension(:,:,:,:), allocatable :: edloc
-            real        ,   dimension(:),     allocatable   :: scale_density
-            integer                                         :: varid_scale_density, &
-                                                               varid_density
-            real                                            :: fv_density
-            integer                                         :: ip, ith, ik, isp, msc, &
-                                                               chunksize, sx, cx, sy, cy, &
-                                                               lxi, lyi
-            type(spcgrid_type)                              :: spcgrid
-            type(pntgrid_type)                              :: pntgrid
-            type(mapgrid_type)                              :: mapgrid
-            type(recordaxe_type)                            :: recordaxe
-            logical                                         :: do_scale
-            chunksize = 64
-            do_scale = .false.
+           integer, parameter :: TILE_WIDTH = 64
+           real(SWAN_REAL_KIND), dimension(:, :, :), allocatable :: density
+           real(SWAN_REAL_KIND), dimension(:, :, :, :), allocatable :: tile
+           real(SWAN_REAL_KIND), dimension(:), allocatable :: scale_density
+           real(SWAN_REAL_KIND) :: fill_density
+           integer :: varid_scale_density, varid_density
+           integer :: point, npoints, x_start, y_start, x_count, y_count, ix, iy, count
+           type(spcgrid_type) :: spcgrid
+           type(pntgrid_type) :: pntgrid
+           type(mapgrid_type) :: mapgrid
+           type(recordaxe_type) :: recordaxe
+           logical :: do_scale
 
-            call agnc_get_griddef(ncid, spcgrid)
-            call agnc_get_recordaxe(ncid, recordaxe)
-            call agnc_collect_spcmeta_2d(ncid, varid_density, varid_scale_density, fv_density)
+           call agnc_get_griddef(ncid, spcgrid)
+           call agnc_get_recordaxe(ncid, recordaxe)
+           call agnc_collect_spcmeta_2d(ncid, varid_density, varid_scale_density, fill_density)
 
-            if ( spc_as_map ) then
-                call agnc_get_griddef(ncid, mapgrid)
-                msc = mapgrid%nx * mapgrid%ny
-            else
-                call agnc_get_griddef(ncid, pntgrid)
-                msc = pntgrid%npoints
-            end if
+           if (spc_as_map) then
+              call agnc_get_griddef(ncid, mapgrid)
+              npoints = mapgrid%nx * mapgrid%ny
+           else
+              call agnc_get_griddef(ncid, pntgrid)
+              npoints = pntgrid%npoints
+           end if
 
-            !
-            ! - scale and/or replace energy dummies with _FillValue
-            ! - if scaling requested, write scale factors to netcdf
-            !
-            if ( varid_scale_density > 0 ) then
-                do_scale = .true.
-                allocate(scale_density(msc))
+           do_scale = varid_scale_density > 0
+           if (do_scale) then
+              scale_density = maxval(e2d, dim=1) / real(2**15 - 1, SWAN_REAL_KIND)
+              where (scale_density < epsilon(1.0_SWAN_REAL_KIND))
+                 scale_density = epsilon(1.0_SWAN_REAL_KIND)
+              end where
+              if (spc_as_map) then
+                 call nccheck(nf90_put_var(ncid, varid_scale_density, &
+                              reshape(scale_density, [mapgrid%nx, mapgrid%ny, 1]), [1, 1, ti]))
+              else
+                 call nccheck(nf90_put_var(ncid, varid_scale_density, scale_density, [1, ti]))
+              end if
+           end if
 
-                ! Note the assumption that AGNC_FILL_SHORT is negative
-                scale_density = maxval(e2d, 1) / (2**15-1)
-
-                do ip=1, msc
-                    if (scale_density(ip) < epsilon(1.) ) then
-                       scale_density(ip) = epsilon(1.)
-                    end if
-                end do
-
-                if ( spc_as_map ) then
-                    call nccheck ( nf90_put_var(ncid, varid_scale_density, &
-                                    reshape(scale_density, (/mapgrid%nx, mapgrid%ny, 1/)), (/1, 1, ti/)) )
-                else
-                    call nccheck ( nf90_put_var(ncid, varid_scale_density, scale_density, (/1, ti/)) )
-                end if
-            end if
-
-            !
-            ! chunked write to netcdf
-            !
-            if ( spc_as_map ) then
-                ! Map output still uses an intermediate copy because it must
-                ! reorder point-major spectra into 2D map chunks.
-                allocate(density(spcgrid%ndir, spcgrid%nfreq, msc))
-                do ip=1, msc
-                    do ik=1, spcgrid%nfreq
-                        do ith=1, spcgrid%ndir
-                            isp = ith + (ik - 1) * spcgrid%ndir
-                            if ( abs(e2d(isp,ip) - AGNC_DUMMY) > epsilon(1.) ) then
-                                if ( do_scale ) then
-                                    density(ith,ik,ip) = nint(e2d(isp,ip) / scale_density(ip))
-                                else
-                                    density(ith,ik,ip) = e2d(isp,ip)
-                                end if
-                            else
-                                if ( do_scale ) then
-                                    density(ith,ik,ip) = NF90_FILL_SHORT
-                                else
-                                    density(ith,ik,ip) = NF90_FILL_FLOAT
-                                end if
-                            end if
-                        end do
+           if (spc_as_map) then
+              allocate (tile(spcgrid%ndir, spcgrid%nfreq, min(TILE_WIDTH, mapgrid%nx), min(TILE_WIDTH, mapgrid%ny)))
+              do y_start = 1, mapgrid%ny, TILE_WIDTH
+                 y_count = min(TILE_WIDTH, mapgrid%ny - y_start + 1)
+                 do x_start = 1, mapgrid%nx, TILE_WIDTH
+                    x_count = min(TILE_WIDTH, mapgrid%nx - x_start + 1)
+                    do iy = 1, y_count
+                       do ix = 1, x_count
+                          point = x_start + ix - 1 + (y_start + iy - 2) * mapgrid%nx
+                          call pack_spectral_point(e2d(:, point), scale_density, point, tile(:, :, ix, iy))
+                       end do
                     end do
-                end do
+                    call nccheck(nf90_put_var(ncid, varid_density, tile(:, :, 1:x_count, 1:y_count), &
+                                 [1, 1, x_start, y_start, ti], [spcgrid%ndir, spcgrid%nfreq, x_count, y_count, 1]))
+                 end do
+              end do
+           else
+              allocate (density(spcgrid%ndir, spcgrid%nfreq, min(TILE_WIDTH**2, npoints)))
+              do point = 1, npoints, TILE_WIDTH**2
+                 count = min(TILE_WIDTH**2, npoints - point + 1)
+                 do ix = 1, count
+                    call pack_spectral_point(e2d(:, point + ix - 1), scale_density, point + ix - 1, &
+                                             density(:, :, ix))
+                 end do
+                 call nccheck(nf90_put_var(ncid, varid_density, density(:, :, 1:count), &
+                              [1, 1, point, ti], [spcgrid%ndir, spcgrid%nfreq, count, 1]))
+              end do
+           end if
 
-                allocate(edloc(spcgrid%ndir, spcgrid%nfreq, chunksize, chunksize))
-
-                do sx=1,mapgrid%nx,chunksize
-                    cx = minval( (/chunksize, mapgrid%nx-sx+1/) )
-
-                    do sy=1,mapgrid%ny,chunksize
-                        cy = minval( (/chunksize, mapgrid%ny-sy+1/) )
-                        edloc = 0.
-                        do lxi=1,cx
-                            do lyi=1,cy
-                                edloc(:,:,lxi,lyi) = density(:,:, (sx + lxi - 1) + (sy + lyi - 2) * mapgrid%nx )
-                            end do
-                        end do
-                        call nccheck ( nf90_put_var(ncid, varid_density, edloc(:,:,1:cx,1:cy), &
-                                                                         (/1,1,sx,sy,ti/),     &
-                                                                         (/spcgrid%ndir, spcgrid%nfreq, cx, cy,1/)) )
-                    end do
-                end do
-                deallocate(edloc)
-                deallocate(density)
-            else
-                do ip=1,msc, chunksize**2
-                    ! abuse sx and cx for size and end index in pointlist
-                    sx = minval( (/chunksize**2, msc-ip+1/) )
-                    cx = ip + sx - 1
-
-                    allocate(density(spcgrid%ndir, spcgrid%nfreq, sx))
-                    do lxi=1,sx
-                        do ik=1, spcgrid%nfreq
-                            do ith=1, spcgrid%ndir
-                                isp = ith + (ik - 1) * spcgrid%ndir
-                                if ( abs(e2d(isp,ip+lxi-1) - AGNC_DUMMY) > epsilon(1.) ) then
-                                    if ( do_scale ) then
-                                        density(ith,ik,lxi) = nint(e2d(isp,ip+lxi-1) / scale_density(ip+lxi-1))
-                                    else
-                                        density(ith,ik,lxi) = e2d(isp,ip+lxi-1)
-                                    end if
-                                else
-                                    if ( do_scale ) then
-                                        density(ith,ik,lxi) = NF90_FILL_SHORT
-                                    else
-                                        density(ith,ik,lxi) = NF90_FILL_FLOAT
-                                    end if
-                                end if
-                            end do
-                        end do
-                    end do
-
-                    call nccheck ( nf90_put_var(ncid, varid_density, density(:,:,1:sx), &
-                                                                      (/1,1,ip,ti/),      &
-                                                                      (/spcgrid%ndir, spcgrid%nfreq, sx, 1/) ) )
-                    deallocate(density)
-                end do
-            end if
-
-            if (do_scale) then
-               deallocate(scale_density)
-            end if
-
-            call update_date(ncid, 'date_modified')
-
+           call update_date(ncid, 'date_modified')
         end subroutine agnc_add_spcdata_density
+
+        !> Pack one point's energy into direction and frequency bins.
+        subroutine pack_spectral_point(energy, scale_density, point, density)
+           real(kind=SWAN_REAL_KIND), dimension(:), intent(in) :: energy !< Flat spectrum, direction varying fastest.
+           real(kind=SWAN_REAL_KIND), dimension(:), allocatable, intent(in) :: scale_density !< Divisors when packing.
+           integer, intent(in) :: point !< Index of the point being written.
+           real(kind=SWAN_REAL_KIND), dimension(:, :), intent(out) :: density !< Spectrum in the file layout.
+
+           integer :: direction, frequency, bin
+           real(SWAN_REAL_KIND) :: scale_factor, fill_value
+           logical :: do_scale
+
+           do_scale = allocated(scale_density)
+           if (do_scale) then
+              scale_factor = scale_density(point)
+              fill_value = real(NF90_FILL_SHORT, SWAN_REAL_KIND)
+           else
+              scale_factor = 1.0_SWAN_REAL_KIND
+              fill_value = real(NF90_FILL_FLOAT, SWAN_REAL_KIND)
+           end if
+
+           bin = 0
+           do frequency = 1, size(density, 2)
+              do direction = 1, size(density, 1)
+                 bin = bin + 1
+                 if (abs(energy(bin) - AGNC_DUMMY) > epsilon(1.0_SWAN_REAL_KIND)) then
+                    if (do_scale) then
+                       density(direction, frequency) = real(nint(energy(bin) / scale_factor), SWAN_REAL_KIND)
+                    else
+                       density(direction, frequency) = energy(bin)
+                    end if
+                 else
+                    density(direction, frequency) = fill_value
+                 end if
+              end do
+           end do
+        end subroutine pack_spectral_point
 
         subroutine agnc_add_spcdata_3d(ncid, ti_start, energy, theta, spr, spc_as_map)
             integer,                           intent(in   )    :: ncid, ti_start
@@ -2264,36 +2230,54 @@
 !       axe_is_regular(x, nx, dx)                       done
 !       compute_1d_spectra(energy, e1, th1, sp1, undef) done
 
-        subroutine agnc_get_varid_by_name(ncid, searchfor, varid)
-            ! search for name in:
-            !  1) name of the variable
-            !  2) standard_name of the variable
-            !  3) short_name of the variable
-            integer,            intent(in)          :: ncid
-            character(len=*),   intent(in)          :: searchfor
-            integer,            intent(out)         :: varid
-            integer                                 :: ndims,nvars
-            character(len=NF90_MAX_NAME)            :: name
+        !> Find a variable by its name or one of its name attributes.
+        subroutine agnc_get_varid_by_name(ncid, searchfor, varid, status)
+           integer, intent(in) :: ncid !< Open NetCDF file.
+           character(len=*), intent(in) :: searchfor !< Name to match.
+           integer, intent(out) :: varid !< Variable identifier or -1 if unavailable.
+           integer, optional, intent(out) :: status !< NetCDF metadata status, if requested.
 
-            call nccheck ( nf90_inquire(ncid, ndims, nvars) );
-            do varid=1,nvars
-                call nccheck (nf90_inquire_variable(ncid, varid, name) )
-                if ( trim(name) == trim(searchfor) ) return
+           character(len=*), parameter, dimension(3) :: NAME_ATTRIBUTES = &
+              ['standard_name', 'short_name   ', 'long_name    ']
+           character(len=NF90_MAX_NAME) :: name
+           integer :: nvars, candidate, attribute, ierr
 
-                if ( nf90_get_att(ncid, varid, "standard_name", name) == NF90_NOERR ) then
-                    if ( trim(name) == trim(searchfor) ) return
-                end if
+           varid = -1
+           ierr = nf90_inquire(ncid, nVariables=nvars)
+           if (present(status)) then
+              status = ierr
+           else
+              call nccheck(ierr)
+           end if
+           if (ierr /= nf90_noerr) then
+              return
+           end if
 
-                if (nf90_get_att(ncid, varid, "short_name", name) == NF90_NOERR ) then
-                    if ( trim(name) == trim(searchfor) ) return
-                end if
-                if (nf90_get_att(ncid, varid, "long_name", name) == NF90_NOERR ) then
-                    if ( trim(name) == trim(searchfor) ) return
-                end if
-            end do
-            if ( varid > nvars ) then
-                varid = -1;
-            end if
+           do candidate = 1, nvars
+              ierr = nf90_inquire_variable(ncid, candidate, name)
+              if (present(status)) then
+                 status = ierr
+              else
+                 call nccheck(ierr)
+              end if
+              if (ierr /= nf90_noerr) then
+                 return
+              end if
+              if (trim(name) == trim(searchfor)) then
+                 varid = candidate
+                 return
+              end if
+
+              do attribute = 1, size(NAME_ATTRIBUTES)
+                 ierr = nf90_get_att(ncid, candidate, trim(NAME_ATTRIBUTES(attribute)), name)
+                 if (ierr == nf90_noerr) then
+                    if (trim(name) == trim(searchfor)) then
+                       varid = candidate
+                       return
+                    end if
+                 end if
+              end do
+           end do
         end subroutine agnc_get_varid_by_name
 
         subroutine close_ncfile(ncid)

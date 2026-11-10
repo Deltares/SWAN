@@ -26,14 +26,21 @@ module HRextensions
    !
    !!--description-----------------------------------------------------------------
    !! extensions for SWAN for HR (Hydraulic Boundaries / in Dutch: Hydraulische Randvoorwaarden)
-    use swn_outnc
-    use netcdf
-    use netcdf_tools
+    use swn_outnc, only: record_index
+    use netcdf, only: nf90_byte, nf90_close, nf90_enotvar, nf90_get_att, &
+                      nf90_get_var, nf90_global, nf90_inq_dimid, nf90_inq_varid, &
+                      nf90_inquire_dimension, nf90_inquire_variable, nf90_int, &
+                      nf90_noerr, nf90_nowrite, nf90_open, nf90_short, nf90_strerror
+    use netcdf_tools, only: names_afreq, names_ndir, nccheck, &
+                            nf90_inquire_dimension_list, nf90_inquire_variable_list
     use nctablemd, only : nctable_record, get_nctable_record
     use M_GENARR, only: SPCSIG
     use M_PARALL, only : IAMMASTER, MXCGL, MYCGL, MCGRDGL, KGRPGL, SWREAL, SWINT, MXF, MXL, MYF, MYL
 !METIS    use SwanGriddata, only: ivertg, nverts, nvertsg
-    use agioncmd
+    use agioncmd, only: agnc_collect_spcmeta, agnc_get_mapgrid, agnc_get_pntgrid, &
+                        agnc_get_recordaxe, agnc_get_spcgrid, agnc_get_varid_by_name, &
+                        close_ncfile, datevec, get_scalies, mapgrid_type, open_ncfile, &
+                        pntgrid_type, recordaxe_type, seconds_since_epoch, spcgrid_type
     use SWCOMM2, only : NUMGRD, NBGRPT, NBSPEC, XOFFS, YOFFS, OPTG
     use SWCOMM3, only : MXC, MYC, MDC, MSC, PI, PI2, DNORTH
     use SWCOMM4, only : KSPHER, LENDEG
@@ -43,71 +50,47 @@ module HRextensions
     public :: swn_hre_initva, swn_hre_bcnccf, swn_hre_get_bpnt_2d, swn_hre_get_bpnt_1d, &
               swn_hre_readarray, swn_hre_timf, swn_hre_inpgr
 !
-    character(len=*), parameter  ::  scale_dens_name  =  'scale_density'
+    ! Match SWAN's configured default real kind and SWREAL MPI datatype.
+    integer, parameter :: SWAN_REAL_KIND = kind(0.0)
+    integer, parameter :: INVALID_HOTSTART = -1
+    integer, parameter :: POINT_HOTSTART = 0
+    integer, parameter :: MAP_HOTSTART = 1
+    character(len=*), parameter :: scale_dens_name = 'scale_density'
     logical :: flippedY(NUMGRD) = .false.
 
 contains
-   subroutine swn_hre_initva(ncfile, KGRPNT, AC2)
-      character(len=*), intent(in) :: ncfile
-      integer, intent(in) :: KGRPNT(MXC, MYC)
-      real, dimension(:, :, :) :: AC2
+   !> Initialize local action density from the last spectrum in a hotstart.
+   !! All ranks must call this procedure on the same SWAN communicator.
+   subroutine swn_hre_initva(ncfile, kgrpnt, ac2)
+      character(len=*), intent(in) :: ncfile !< Spectral hotstart filename.
+      integer, dimension(MXC, MYC), intent(in) :: kgrpnt !< Local structured grid indices.
+      real(kind=SWAN_REAL_KIND), dimension(:, :, :), intent(inout) :: ac2 !< Local action density.
 
-      integer :: jx, jy, ix, iy, indx, iindx, &
-                 ncid, ri, is
-!METIS      integer :: global_ip, local_ip
-!METIS      integer :: nglob
-
+      integer :: jx, jy, ix, iy, indx, iindx, is, layout
+!METIS      integer :: global_ip, local_ip, nglob
 !METIS      integer, dimension(:), allocatable :: ig2loc
-      type(recordaxe_type) :: recordaxe
-      type(mapgrid_type) :: mapgrid
-      type(pntgrid_type) :: pntgrid
-      type(spcgrid_type) :: spcgrid
-      real :: edloc(MDC, MSC)
-      real, dimension(:, :, :, :), allocatable :: density
-      logical :: spc_as_map, STPNOW
-      integer :: spc_as_map_i
+      real(kind=SWAN_REAL_KIND), dimension(MDC, MSC) :: edloc
+      real(kind=SWAN_REAL_KIND), dimension(:, :, :, :), allocatable :: density
+      logical :: spc_as_map
 
-      spc_as_map = .false.
-      spc_as_map_i = 0
-
-      if (IAMMASTER) then
-         call open_ncfile(ncfile, 'read', ncid)
-
-         call swn_hre_get_grids(ncid, recordaxe, spcgrid, mapgrid, pntgrid, spc_as_map)
-         if (STPNOW()) then
-            return
+      layout = INVALID_HOTSTART
+      if (iammaster) then
+         call load_spectral_hotstart(ncfile, density, layout)
+      end if
+      call swbroadc(layout, 1, SWINT)
+      if (layout == INVALID_HOTSTART) then
+         if (.not. iammaster) then
+            call msgerr(4, 'Master rank could not read spectral hotstart ' // trim(ncfile))
          end if
-         if (spc_as_map) then
-            spc_as_map_i = 1
-         end if
+         return
       end if
 
-      call SWBROADC(spc_as_map_i, 1, SWINT)
-      spc_as_map = spc_as_map_i /= 0
-
-      if (IAMMASTER) then
-         ! For now, always pick the last field. The problem is that until the COMPUTE
-         ! command is called, we have no idea at what time the computation will start
-         ! and hence what record index to pick
-         ri = recordaxe%ncontent
-
-         if (spc_as_map) then
-            allocate (density(MDC, MSC, MXCGL, MYCGL))
-         else
-            allocate (density(MDC, MSC, pntgrid%npoints, 1))
-         end if
-         call swn_hre_read_density(ncid, density, spc_as_map, ri)
-         call close_ncfile(ncid)
-         spc_as_map_i = merge(1, 0, spc_as_map)
-      end if
-      call SWBROADC(spc_as_map_i, 1, SWINT)
-      spc_as_map = spc_as_map_i /= 0
-      ! assign spectra to all members
-      if (OPTG == 5 .and. .not. spc_as_map) then
+      spc_as_map = layout == MAP_HOTSTART
+      ! Distribute spectra from the master to all ranks.
+      if (optg == 5 .and. .not. spc_as_map) then
 !METIS         if (allocated(ivertg)) then
 !METIS            nglob = nvertsg
-!METIS            allocate (ig2loc(nglob))
-!METIS            ig2loc = 0
+!METIS            allocate (ig2loc(nglob), source=0)
 !METIS            do ix = 1, nverts
 !METIS               global_ip = ivertg(ix)
 !METIS               if (global_ip >= 1 .and. global_ip <= nglob) then
@@ -116,35 +99,34 @@ contains
 !METIS            end do
 
 !METIS            do global_ip = 1, nglob
-!METIS               if (IAMMASTER) then
-!METIS                  edloc(:, :) = 0.
+!METIS               if (iammaster) then
+!METIS                  edloc = 0.0_SWAN_REAL_KIND
 !METIS                  if (global_ip <= size(density, 3)) then
 !METIS                     edloc = density(:, :, global_ip, 1)
 !METIS                  end if
 !METIS               end if
-!METIS               call SWBROADC(edloc, MDC * MSC, SWREAL)
+!METIS               call swbroadc(edloc, MDC * MSC, SWREAL)
 !METIS               local_ip = ig2loc(global_ip)
-!METIS               if (local_ip > 0 .and. local_ip <= size(AC2, 3)) then
+!METIS               if (local_ip > 0 .and. local_ip <= size(ac2, 3)) then
 !METIS                  do is = 1, MSC
-!METIS                     ! energy to action density
-!METIS                     AC2(:, is, local_ip) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+!METIS                     ! Convert energy to action density.
+!METIS                     ac2(:, is, local_ip) = edloc(:, is) / (2.0_SWAN_REAL_KIND * PI * SPCSIG(is))
 !METIS                  end do
 !METIS               end if
 !METIS            end do
-!METIS            deallocate (ig2loc)
 !METIS         else
             do jx = 1, MXCGL
-               if (IAMMASTER) then
-                  edloc(:, :) = 0.
+               if (iammaster) then
+                  edloc = 0.0_SWAN_REAL_KIND
                   if (jx <= size(density, 3)) then
                      edloc = density(:, :, jx, 1)
                   end if
                end if
-               call SWBROADC(edloc, MDC * MSC, SWREAL)
-               if (jx >= 1 .and. jx <= size(AC2, 3)) then
+               call swbroadc(edloc, MDC * MSC, SWREAL)
+               if (jx <= size(ac2, 3)) then
                   do is = 1, MSC
-                     ! energy to action density
-                     AC2(:, is, jx) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+                     ! Convert energy to action density.
+                     ac2(:, is, jx) = edloc(:, is) / (2.0_SWAN_REAL_KIND * PI * SPCSIG(is))
                   end do
                end if
             end do
@@ -152,8 +134,8 @@ contains
       else
          do jx = 1, MXCGL
             do jy = 1, MYCGL
-               if (IAMMASTER) then
-                  edloc(:, :) = 0.
+               if (iammaster) then
+                  edloc = 0.0_SWAN_REAL_KIND
                   iindx = KGRPGL(jx, jy)
                   if (iindx /= 1) then
                      if (spc_as_map) then
@@ -163,169 +145,264 @@ contains
                      end if
                   end if
                end if
-               call SWBROADC(edloc, MDC * MSC, SWREAL)
+               call swbroadc(edloc, MDC * MSC, SWREAL)
                if (MXF <= jx .and. MXL >= jx .and. MYF <= jy .and. MYL >= jy) then
                   iy = jy - MYF + 1
                   ix = jx - MXF + 1
-                  indx = KGRPNT(ix, iy)
+                  indx = kgrpnt(ix, iy)
                   if (indx /= 1) then
                      do is = 1, MSC
-                        ! energy to action density
-                        AC2(:, is, indx) = edloc(:, is) / (2.0 * PI * SPCSIG(is))
+                        ! Convert energy to action density.
+                        ac2(:, is, indx) = edloc(:, is) / (2.0_SWAN_REAL_KIND * PI * SPCSIG(is))
                      end do
                   end if
                end if
             end do
          end do
       end if
-      if (IAMMASTER) then
-         deallocate (density)
-      end if
 
    end subroutine swn_hre_initva
 
-    subroutine swn_hre_get_grids(ncid, recordaxe, spcgrid, mapgrid, pntgrid, spc_as_map)
-        integer         ,          intent( in) :: ncid
-        type(recordaxe_type),      intent(out) :: recordaxe
-        type(mapgrid_type),        intent(out) :: mapgrid
-        type(pntgrid_type),        intent(out) :: pntgrid
-        type(spcgrid_type),        intent(out) :: spcgrid
-        logical,                   intent(out) :: spc_as_map
+   !> Load spectral data on the master and close the file before broadcasting.
+   subroutine load_spectral_hotstart(ncfile, density, layout)
+      character(len=*), intent(in) :: ncfile !< Spectral hotstart filename.
+      real(kind=SWAN_REAL_KIND), dimension(:, :, :, :), allocatable, intent(out) :: density !< Spectral data.
+      integer, intent(out) :: layout !< Spectral layout or INVALID_HOTSTART on failure.
 
-        integer                     :: pvarid
-        character(len=128)          :: errmsg
-        character(len=*), parameter :: fmt1 = '("Number of ", a," in file does not match spectral grid: ", i0, x, i0)'
-        character(len=*), parameter :: fmt2 = '("Number of elements in ", a1, " direction in file does not match spatial grid: ", i0, x, i0)'
+      integer :: ncid, status
+      character(len=:), allocatable :: error_message
 
-        !
-        ! Spectral grid
-        !
-        call agnc_get_griddef(ncid, spcgrid)
-        if ( spcgrid%ndir /= MDC ) then
-            write(errmsg,fmt1) "directions", spcgrid%ndir, MDC
-            call MSGERR(4, errmsg)
+      layout = INVALID_HOTSTART
+      status = nf90_open(ncfile, nf90_nowrite, ncid)
+      if (status /= nf90_noerr) then
+         call msgerr(4, 'Opening spectral hotstart ' // trim(ncfile) // ': ' // trim(nf90_strerror(status)))
+         return
+      end if
+
+      call read_spectral_hotstart(ncid, density, layout, error_message)
+      status = nf90_close(ncid)
+      if (allocated(error_message)) then
+         call msgerr(4, trim(ncfile) // ': ' // error_message)
+         layout = INVALID_HOTSTART
+      end if
+      if (status /= nf90_noerr) then
+         call msgerr(4, 'Closing spectral hotstart ' // trim(ncfile) // ': ' // trim(nf90_strerror(status)))
+         layout = INVALID_HOTSTART
+      end if
+   end subroutine load_spectral_hotstart
+
+   !> Validate dimensions and read the last density record from an open file.
+   subroutine read_spectral_hotstart(ncid, density, layout, error_message)
+      integer, intent(in) :: ncid !< Open NetCDF file.
+      real(kind=SWAN_REAL_KIND), dimension(:, :, :, :), allocatable, intent(out) :: density !< Spectral data.
+      integer, intent(out) :: layout !< Point or map layout.
+      character(len=:), allocatable, intent(out) :: error_message !< Allocated on failure.
+
+      integer, parameter :: POINT_RANK = 4, MAP_RANK = 5
+      integer, dimension(MAP_RANK) :: dim_ids, dim_sizes
+      integer :: density_id, dim, dim_count, last_record, status, nx, ny
+      character(len=128) :: message
+      character(len=*), parameter :: SPECTRAL_MISMATCH = &
+         '("Number of ", a, " in file does not match spectral grid: ", i0, 1x, i0)'
+
+      status = nf90_inq_varid(ncid, 'density', density_id)
+      if (status /= nf90_noerr) then
+         error_message = 'Finding spectral density: ' // trim(nf90_strerror(status))
+         return
+      end if
+      status = nf90_inquire_variable(ncid, density_id, ndims=dim_count)
+      if (status /= nf90_noerr) then
+         error_message = 'Finding spectral density rank: ' // trim(nf90_strerror(status))
+         return
+      end if
+      if (dim_count /= POINT_RANK .and. dim_count /= MAP_RANK) then
+         error_message = 'Spectral density requires direction, frequency, point or X/Y, and record dimensions'
+         return
+      end if
+      status = nf90_inquire_variable(ncid, density_id, dimids=dim_ids(:dim_count))
+      if (status /= nf90_noerr) then
+         error_message = 'Finding spectral density dimensions: ' // trim(nf90_strerror(status))
+         return
+      end if
+      do dim = 1, dim_count
+         status = nf90_inquire_dimension(ncid, dim_ids(dim), len=dim_sizes(dim))
+         if (status /= nf90_noerr) then
+            error_message = 'Reading spectral density dimension size: ' // trim(nf90_strerror(status))
             return
-        end if
-        if ( spcgrid%nfreq /= MSC ) then
-            write(errmsg,fmt1) "frequencies", spcgrid%nfreq, MSC
-            call MSGERR(4, errmsg)
+         end if
+      end do
+
+      if (dim_sizes(1) /= MDC) then
+         write (message, SPECTRAL_MISMATCH) 'directions', dim_sizes(1), MDC
+         error_message = trim(message)
+         return
+      end if
+      if (dim_sizes(2) /= MSC) then
+         write (message, SPECTRAL_MISMATCH) 'frequencies', dim_sizes(2), MSC
+         error_message = trim(message)
+         return
+      end if
+
+      ! COMPUTE has not yet supplied the start time, so use the last record.
+      last_record = dim_sizes(dim_count)
+      if (last_record < 1) then
+         error_message = 'Spectral hotstart contains no density records'
+         return
+      end if
+
+      nx = dim_sizes(3)
+      ny = 1
+      if (dim_count == MAP_RANK) then
+         layout = MAP_HOTSTART
+         ny = dim_sizes(4)
+         if (nx /= MXCGL .or. ny /= MYCGL) then
+            error_message = 'Spectral hotstart X/Y dimensions do not match the computational grid'
             return
-        end if
-
-        !
-        ! Use the presence of the points dimension as selector for mapgrid (2D) or pntgrid (1D)
-        !
-        if ( nf90_inq_dimid(ncid, 'points', pvarid) == nf90_noerr) then
-            !
-            ! pntgrid (unstructured or 1D)
-            !
-            call agnc_get_pntgrid(ncid, pntgrid)
-            spc_as_map = .false.
-            if ( allocated(pntgrid%ips) ) then
-                ! this is NOT a unstructured mesh, ips would always be 1:numnodes
-                if ( pntgrid%xdimlen /= MXCGL ) then
-                    write(errmsg,fmt2) "X", pntgrid%xdimlen, MXCGL
-                    call MSGERR(4, errmsg)
-                    return
-                end if
-                if ( pntgrid%ydimlen /= MYCGL ) then
-                    write(errmsg,fmt2) "Y", pntgrid%ydimlen, MYCGL
-                    call MSGERR(4, errmsg)
-                    return
-                end if
-            end if
-        else
-            !
-            ! mapgrid
-            !
-            call agnc_get_mapgrid(ncid, mapgrid)
-            spc_as_map = .true.
-            if ( mapgrid%nx /= MXCGL ) then
-                write(errmsg,fmt2) "X", mapgrid%nx, MXCGL
-                call MSGERR(4, errmsg)
-                return
-            end if
-            if ( mapgrid%ny /= MYCGL ) then
-                write(errmsg,fmt2) "Y", mapgrid%ny, MYCGL
-                call MSGERR(4, errmsg)
-                return
-            end if
-        end if
-        !
-        ! record axe
-        !
-        call agnc_get_recordaxe(ncid, recordaxe)
-
-    end subroutine swn_hre_get_grids
-
-    subroutine swn_hre_read_density(ncid, density, spc_as_map, ri)
-        integer,                    intent(in   ) :: ncid, ri
-        real, dimension(:,:,:,:),   intent(inout) :: density
-        logical,                    intent(in   ) :: spc_as_map
-
-        ! local
-        real, dimension(:,:), allocatable         :: scale_factor
-        integer                                   :: evarid, svarid, n, m, j, i, fill_value
-        character(len=14)                         :: ename
-
-        ename = 'density'
-
-        ! should I search for the standard name? At the moment not usefull as agnc_get_griddef uses fixed names too
-        call nccheck( nf90_inq_varid(ncid, ename, evarid) )
-        if ( evarid == -1  ) then
-            call MSGERR(4, "spectral file does not appear to have a variable " // trim(ename))
+         end if
+      else
+         layout = POINT_HOTSTART
+         call validate_hotstart_points(ncid, nx, error_message)
+         if (allocated(error_message)) then
             return
-        end if
+         end if
+      end if
 
-        if ( spc_as_map ) then
-            call nccheck( nf90_get_var(ncid, evarid, density, (/1, 1, 1, 1, ri/) ) )
-        else
-            call nccheck( nf90_get_var(ncid, evarid, density, (/1, 1, 1, ri/) ) )
-        end if
+      allocate (density(MDC, MSC, nx, ny), stat=status)
+      if (status /= 0) then
+         error_message = 'Allocating spectral hotstart density'
+         return
+      end if
+      call read_spectral_density(ncid, density_id, last_record, layout, density, error_message)
+   end subroutine read_spectral_hotstart
 
-        if ( nf90_inq_varid(ncid, scale_dens_name, svarid)  == nf90_noerr ) then
+   !> Check point-list size and the original grid dimensions of a wet-point list.
+   subroutine validate_hotstart_points(ncid, point_count, error_message)
+      integer, intent(in) :: ncid !< Open NetCDF file.
+      integer, intent(in) :: point_count !< Number of spectra in a record.
+      character(len=:), allocatable, intent(out) :: error_message !< Allocated on failure.
 
-            call nccheck ( nf90_get_att(ncid, evarid, "_FillValue", fill_value), "_FillValue" )
-            if ( spc_as_map ) then
-                allocate(scale_factor(MXCGL, MYCGL))
-                call nccheck( nf90_get_var(ncid, svarid, scale_factor, (/1, 1, ri/) ) )
+      character(len=*), parameter, dimension(3) :: X_NAMES = ['x        ', 'lon      ', 'longitude']
+      character(len=*), parameter, dimension(3) :: Y_NAMES = ['y       ', 'lat     ', 'latitude']
+      integer :: status, ips_id, nx, ny
 
-                do n=1, MXCGL
-                    do m=1, MYCGL
-                    ! when density is scaled, it is stored as a int16, so is the _FillValue.
-                        do j=1, MDC
-                            do i=1, MSC
-                                if ( nint(density(j, i, n, m)) /= fill_value ) then
-                                    density(j, i, n, m) = density(j, i, n, m) * scale_factor(n, m)
-                                else
-                                    density(j, i, n, m) = 0.
-                                end if
-                            end do
-                        end do
-                    end do
-                end do
-            else
-                allocate(scale_factor(size(density, 3), 1))
-                call nccheck( nf90_get_var(ncid, svarid, scale_factor, (/1, ri/) ) )
+      status = nf90_inq_varid(ncid, 'ips', ips_id)
+      if (status == nf90_noerr) then
+         call read_hotstart_axis_size(ncid, X_NAMES, nx, error_message)
+         if (allocated(error_message)) then
+            return
+         end if
+         call read_hotstart_axis_size(ncid, Y_NAMES, ny, error_message)
+         if (allocated(error_message)) then
+            return
+         end if
+         if (nx /= MXCGL .or. ny /= MYCGL) then
+            error_message = 'Spectral hotstart X/Y dimensions do not match the computational grid'
+            return
+         end if
+      else if (status /= nf90_enotvar) then
+         error_message = 'Finding spectral point indices: ' // trim(nf90_strerror(status))
+         return
+      end if
 
-                do n=1, size(density, 3)
-                    ! when density is scaled, it is stored as a int16, so is the _FillValue.
-                    do j=1, MDC
-                        do i=1, MSC
-                            if ( nint(density(j, i, n, 1)) /= fill_value ) then
-                                density(j, i, n, 1) = density(j, i, n, 1) * scale_factor(n, 1)
-                            else
-                                density(j, i, n, 1) = 0.
-                            end if
-                        end do
-                    end do
-                end do
-            end if
+      if (OPTG /= 5 .and. point_count < MCGRDGL - 1) then
+         error_message = 'Spectral hotstart has fewer spectra than active structured grid points'
+      end if
+   end subroutine validate_hotstart_points
 
-            deallocate(scale_factor)
-        end if
+   !> Read the original dimension size stored on a wet-point coordinate axis.
+   subroutine read_hotstart_axis_size(ncid, axis_names, axis_size, error_message)
+      integer, intent(in) :: ncid !< Open NetCDF file.
+      character(len=*), dimension(:), intent(in) :: axis_names !< Legacy coordinate names.
+      integer, intent(out) :: axis_size !< Original grid dimension.
+      character(len=:), allocatable, intent(out) :: error_message !< Allocated on failure.
 
-    end subroutine swn_hre_read_density
+      integer :: i, axis_id, status
+
+      axis_id = -1
+      do i = 1, size(axis_names)
+         call agnc_get_varid_by_name(ncid, trim(axis_names(i)), axis_id, status)
+         if (status /= nf90_noerr) then
+            error_message = 'Finding spectral coordinate axis: ' // trim(nf90_strerror(status))
+            return
+         end if
+         if (axis_id >= 0) then
+            exit
+         end if
+      end do
+      if (axis_id < 0) then
+         error_message = 'Finding spectral coordinate axis ' // trim(axis_names(1))
+         return
+      end if
+      status = nf90_get_att(ncid, axis_id, 'dimlen', axis_size)
+      if (status /= nf90_noerr) then
+         error_message = 'Reading spectral coordinate dimlen: ' // trim(nf90_strerror(status))
+      end if
+   end subroutine read_hotstart_axis_size
+
+   !> Read a single spectrum record and unpack scaled spectral bins.
+   subroutine read_spectral_density(ncid, density_id, record, layout, density, error_message)
+      integer, intent(in) :: ncid !< Open NetCDF file.
+      integer, intent(in) :: density_id !< NetCDF density variable identifier.
+      integer, intent(in) :: record !< Record to read.
+      integer, intent(in) :: layout !< Point or map layout.
+      real(kind=SWAN_REAL_KIND), dimension(:, :, :, :), intent(out) :: density !< Spectral data.
+      character(len=:), allocatable, intent(out) :: error_message !< Allocated on failure.
+
+      real(kind=SWAN_REAL_KIND), dimension(:, :), allocatable :: scale_factor
+      integer :: scale_id, fill_value, status, x, y, direction, frequency
+
+      if (layout == MAP_HOTSTART) then
+         status = nf90_get_var(ncid, density_id, density, start=[1, 1, 1, 1, record])
+      else
+         status = nf90_get_var(ncid, density_id, density, start=[1, 1, 1, record])
+      end if
+      if (status /= nf90_noerr) then
+         error_message = 'Reading spectral density: ' // trim(nf90_strerror(status))
+         return
+      end if
+
+      status = nf90_inq_varid(ncid, scale_dens_name, scale_id)
+      if (status == nf90_enotvar) then
+         return
+      end if
+      if (status /= nf90_noerr) then
+         error_message = 'Finding spectral scale factors: ' // trim(nf90_strerror(status))
+         return
+      end if
+      status = nf90_get_att(ncid, density_id, '_FillValue', fill_value)
+      if (status /= nf90_noerr) then
+         error_message = 'Reading spectral fill value: ' // trim(nf90_strerror(status))
+         return
+      end if
+      allocate (scale_factor(size(density, 3), size(density, 4)), stat=status)
+      if (status /= 0) then
+         error_message = 'Allocating spectral hotstart scale factors'
+         return
+      end if
+      if (layout == MAP_HOTSTART) then
+         status = nf90_get_var(ncid, scale_id, scale_factor, start=[1, 1, record])
+      else
+         status = nf90_get_var(ncid, scale_id, scale_factor, start=[1, record])
+      end if
+      if (status /= nf90_noerr) then
+         error_message = 'Reading spectral scale factors: ' // trim(nf90_strerror(status))
+         return
+      end if
+
+      do y = 1, size(density, 4)
+         do x = 1, size(density, 3)
+            do frequency = 1, size(density, 2)
+               do direction = 1, size(density, 1)
+                  if (nint(density(direction, frequency, x, y)) == fill_value) then
+                     density(direction, frequency, x, y) = 0.0_SWAN_REAL_KIND
+                  else
+                     density(direction, frequency, x, y) = density(direction, frequency, x, y) * scale_factor(x, y)
+                  end if
+               end do
+            end do
+         end do
+      end do
+   end subroutine read_spectral_density
 
     subroutine swn_hre_inpgr(IGR1, IGR2, ncfile, isCurvi)
         use SWCOMM2, only: XPG, YPG, ALPG, COSPG, SINPG, MXG, MYG, DXG, DYG, &

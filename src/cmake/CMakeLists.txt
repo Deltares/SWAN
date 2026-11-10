@@ -442,7 +442,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_switch.py)
     add_test(NAME swan_build_options
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_build_options.py)
-    if(USE_MPI AND USE_METIS)
+    if(USE_MPI)
         add_subdirectory(../tests ${CMAKE_CURRENT_BINARY_DIR}/tests)
     endif()
 endif()

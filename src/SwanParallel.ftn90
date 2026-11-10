@@ -1,7 +1,4 @@
-! This file contains data and routines for high performance computing based on parallel distributed-memory paradigm
-!
-! --- supplementary to swanparll.f ---
-!
+!> Partition unstructured meshes and exchange halo and boundary data.
 module SwanParallel
 !
 !   --|-----------------------------------------------------------|--
@@ -51,27 +48,51 @@ module SwanParallel
 !
 !   none
 !
+   use, intrinsic :: iso_c_binding, only: c_float, c_int, c_int32_t
    implicit none
-!
-!   Module variables
-!
-   ! size of integers and reals (must match those of metis.h)
-   !
-   integer, parameter :: kint = 4 ! size of integer
-   integer, parameter :: krea = 4 ! size of real
+   private
+
+   public :: SwanParallelComm, SwanDecomposition, SwanCommAdmin
+   public :: SwanUvExchgI, SwanUvExchgR, SwanCollBpntlist
+   public :: ipown, vres, nvcomm, vsubcm, ivrecv, ivsend, nvrecv, nvsend
+   public :: irbuf, isbuf, rrqst, srqst, rbuf, sbuf
+
+   ! The METIS package uses 32-bit indices and weights. SWAN fields follow
+   ! the solver's selected default real kind, independently of METIS.
+   integer, parameter :: METIS_INDEX_KIND = c_int32_t
+   integer, parameter :: METIS_REAL_KIND = c_float
+   integer, parameter :: SWAN_REAL_KIND = kind(0.0)
+   integer, parameter :: HALO_TAG = 2
+
+   ! Legacy SWAN diagnostics use external procedures.
+   interface
+      subroutine msgerr(level, message)
+         integer, intent(in) :: level !< SWAN severity level.
+         character(len=*), intent(in) :: message !< Diagnostic to record.
+      end subroutine msgerr
+
+      subroutine strace(entries, routine_name)
+         integer, intent(inout) :: entries !< Counter of procedure entries.
+         character(len=*), intent(in) :: routine_name !< Procedure name.
+      end subroutine strace
+
+      function stpnow() result(stopping)
+         logical :: stopping !< Whether the current run must stop.
+      end function stpnow
+   end interface
    !
    ! relevant constants taken from metis.h
    !
-   integer(kind=kint), parameter :: METIS_NOPTIONS = 40 ! number of options used in Metis
+   integer(kind=METIS_INDEX_KIND), parameter :: METIS_NOPTIONS = 40 ! number of options used in Metis
    !
-   integer(kind=kint), parameter :: METIS_OK = 1 ! returned normally
-   integer(kind=kint), parameter :: METIS_ERROR_INPUT = -2 ! returned due to erroneous inputs and/or options
-   integer(kind=kint), parameter :: METIS_ERROR_MEMORY = -3 ! returned due to insufficient memory
-   integer(kind=kint), parameter :: METIS_ERROR = -4 ! some other errors
+   integer(kind=METIS_INDEX_KIND), parameter :: METIS_OK = 1 ! returned normally
+   integer(kind=METIS_INDEX_KIND), parameter :: METIS_ERROR_INPUT = -2 ! returned due to erroneous inputs and/or options
+   integer(kind=METIS_INDEX_KIND), parameter :: METIS_ERROR_MEMORY = -3 ! returned due to insufficient memory
+   integer(kind=METIS_INDEX_KIND), parameter :: METIS_ERROR = -4 ! some other errors
    !
    ! data structures to be used for Metis
    !
-   integer(kind=kint), dimension(:), save, allocatable :: ipown ! array giving the subdomain number assigned to each grid vertex
+   integer(kind=METIS_INDEX_KIND), dimension(:), save, allocatable :: ipown ! Owner of each vertex.
    !
    ! data structures belonging to own sudomain
    !
@@ -79,18 +100,14 @@ module SwanParallel
    ! = .true. ; resident vertex
    ! = .false.; ghost vertex
    !
-   ! data structures to be used for MPI communication
-   !
-
-   integer :: maxrvg ! maximum number of ghost vertices to receive of any communicating subdomains
-   integer :: maxsvg ! maximum number of ghost vertices to send of any communicating subdomains
-   !
+   ! Data structures for MPI communication.
    integer :: nvcomm ! number of subdomains communicating with current subdomain
    !
    integer, dimension(:), save, allocatable :: vsubcm ! vertex-based list of communicating subdomains
    !
    integer, dimension(:, :), save, allocatable :: ivrecv ! vertex-based receive list
-   ! = (i,j);  local index of i-th ghost vertex to receive from neighbour subdomain j
+   ! = (i,j);  local index of i-th ghost vertex to receive from neighbour
+   ! subdomain j
    integer, dimension(:, :), save, allocatable :: ivsend ! vertex-based send list
    ! = (i,j);  local index of i-th ghost vertex to send to neighbour subdomain j
    integer, dimension(:), save, allocatable :: nvrecv ! number of ghost vertices to receive in each communicating subdomain
@@ -101,24 +118,23 @@ module SwanParallel
    integer, dimension(:), save, allocatable :: rrqst ! request handles for the MPI_IRECV command
    integer, dimension(:), save, allocatable :: srqst ! request handles for the MPI_ISEND command
    !
-   real, dimension(:, :), save, allocatable :: rbuf ! buffer to store reals to receive temporarily
-   real, dimension(:, :), save, allocatable :: sbuf ! buffer to store reals to send temporarily
+   real(kind=SWAN_REAL_KIND), dimension(:, :), save, allocatable :: rbuf ! buffer to store reals to receive temporarily
+   real(kind=SWAN_REAL_KIND), dimension(:, :), save, allocatable :: sbuf ! buffer to store reals to send temporarily
 !
 !   Source text
 !
 contains
 !
-   integer function SwanParallelComm()
-!
-!   SWAN_LIB receives the communicator from its caller in MPI builds.
-!
-      use m_parall, only: COMM
-      implicit none
-!
-      SwanParallelComm = COMM
-!
+   !> Return the communicator supplied to SWAN_LIB by its MPI caller.
+   function SwanParallelComm() result(communicator)
+      use m_parall, only: comm
+
+      integer :: communicator !< MPI communicator used by SWAN.
+
+      communicator = comm
    end function SwanParallelComm
 !
+   !> Partition the global mesh and prepare halo communication.
    subroutine SwanDecomposition(logcom)
 !
 !   --|-----------------------------------------------------------|--
@@ -162,20 +178,19 @@ contains
 !
 !   Method
 !
-!   Carry out the partitioning of the unstructured mesh first and then do the administration for MPI communication
+!   Carry out the partitioning of the unstructured mesh first and then do the
+!   administration for MPI communication
 !
 !   Modules used
 !
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-!
-      implicit none
+      use ocpcomm4, only: ltrace
+      use m_parall, only: parll
+      use SwanGriddata, only: ncells, ncellsg, nverts, nvertsg
 !
 !   Argument variables
 !
-      logical, dimension(7), intent(inout) :: logcom ! indicates which commands have been given to know if all the
-      ! information for a certain command is available. Meaning:
+      logical, dimension(7), intent(inout) :: logcom !< Completed setup steps.
+      ! Flags used by SWAN's command parser:
       ! (1) no meaning
       ! (2) command CGRID has been carried out
       ! (3) command READINP BOTTOM has been carried out
@@ -187,7 +202,6 @@ contains
 !   Local variables
 !
       integer, save :: ient = 0 ! number of entries in this subroutine
-      logical :: STPNOW ! indicates that program must stop
 !
 !   Structure
 !
@@ -231,6 +245,7 @@ contains
       !
    end subroutine SwanDecomposition
 !
+   !> Build the vertex graph and partition it with METIS.
    subroutine SwanMeshPartition
 !
 !   --|-----------------------------------------------------------|--
@@ -274,67 +289,95 @@ contains
 !
 !   Method
 !
-!   the Metis graph partitioning library is used to partition the given mesh among the subdomains
-!   using multilevel k-way partitioning and places the subdomain numbers into the ipown array
+!   the Metis graph partitioning library is used to partition the given mesh
+!   among the subdomains
+!   using multilevel k-way partitioning and places the subdomain numbers into
+!   the ipown array
 !
-!   Note: to compute adjacency lists efficient, the algorithm of metis.F taken from the ADCIRC suite is employed
+!   Note: to compute adjacency lists efficient, the algorithm of metis.F taken
+!   from the ADCIRC suite is employed
 !
 !   Modules used
 !
-      use ocpcomm2
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-!
-      implicit none
+      use ocpcomm4, only: itest, ltrace, printf, prtest
+      use m_parall, only: iammaster, nproc
+      use SwanGriddata, only: kvertc, ncellsg, nvertsg
 !
 !   Parameter variables
 !
-      integer, parameter :: nov = 3 ! number of vertices in cell (triangles only)
-      integer(kind=kint), parameter :: ncon = 1 ! number of balancing constraints
-      real(kind=krea), dimension(ncon), parameter :: ubvec = 1.001 ! specifies the allowed load imbalance for each constraint
+      integer, parameter :: VERTICES_PER_CELL = 3 ! number of vertices in cell (triangles only)
+      integer(kind=METIS_INDEX_KIND), parameter :: CONSTRAINT_COUNT = 1 ! METIS balancing constraints.
+      real(kind=METIS_REAL_KIND), dimension(CONSTRAINT_COUNT), parameter :: IMBALANCE_TOLERANCE = &
+         1.001_METIS_REAL_KIND
 !
 !   Local variables
 !
       integer :: i ! loop counter
       integer, save :: ient = 0 ! number of entries in this subroutine
-      integer(kind=kint) :: ierr ! Metis error indicator
-      integer :: iostat ! I/O status in call FOR
+      integer(kind=c_int) :: ierr ! METIS status.
+      integer :: io_status, close_status
       integer :: istat ! indicate status of allocation
-      integer(kind=kint) :: ivert ! vertex index
+      integer(kind=METIS_INDEX_KIND) :: ivert ! vertex index
       integer :: j ! loop counter
-      integer(kind=kint) :: jvert ! index of neighbouring vertex
-      integer(kind=kint) :: k ! counter
-      integer(kind=kint) :: maxfv ! maximum number of faces for any vertex
+      integer(kind=METIS_INDEX_KIND) :: jvert ! index of neighbouring vertex
+      integer(kind=METIS_INDEX_KIND) :: k ! counter
+      integer(kind=METIS_INDEX_KIND) :: maxfv ! maximum number of faces for any vertex
       integer :: ndsd ! unit reference number of file
-      integer(kind=kint) :: ne ! number of edges in the graph
-      integer(kind=kint) :: nf2 ! twice the number of faces
-      integer(kind=kint) :: np ! number of partitions
-      integer(kind=kint) :: nv ! number of vertices in the graph
-      integer(kind=kint) :: edgecut ! total edges cut of the partitioning
+      integer(kind=METIS_INDEX_KIND) :: ne ! number of edges in the graph
+      integer(kind=METIS_INDEX_KIND) :: nf2 ! twice the number of faces
+      integer(kind=METIS_INDEX_KIND) :: np ! number of partitions
+      integer(kind=METIS_INDEX_KIND) :: nv ! number of vertices in the graph
+      integer(kind=METIS_INDEX_KIND) :: edgecut ! total edges cut of the partitioning
       !
-      integer(kint), dimension(0:METIS_NOPTIONS - 1) :: options ! Metis options as described in Section 5.4 of the Metis manual v 5.0
+      integer(kind=METIS_INDEX_KIND), dimension(METIS_NOPTIONS) :: options ! METIS option values.
       !
-      integer(kind=kint), dimension(:), allocatable :: adjncy ! adjacency structure of the graph as described in Section 5.5 of the Metis manual v 5.0
-      integer(kind=kint), dimension(:), allocatable :: adjw ! weights of the faces as described in Section 5.5 of the Metis manual v 5.0
-      integer(kind=kint), dimension(:, :), allocatable :: covts ! adjacency list of neighbouring vertices for each vertex
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: adjncy ! Compressed adjacency list.
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: adjw ! Edge weights.
+      integer(kind=METIS_INDEX_KIND), dimension(:, :), allocatable :: covts ! Neighbors of each vertex.
       ! = (j,i); index of j-th neighbouring vertex linked to vertex i
-      integer(kind=kint), dimension(:), allocatable :: nfacev ! number of faces for each vertex
-      integer(kind=kint), dimension(:), allocatable :: vneigh ! sorted neighbouring vertices
-      integer(kind=kint), dimension(:), allocatable :: vsize ! size of the vertices for computing the total communication volume as described in Section 5.7 of the Metis manual v 5.0
-      ! (not used)
-      integer(kind=kint), dimension(:), allocatable :: vwgt ! weights of the vertices as described in Section 5.5 of the Metis manual v 5.0
-      integer(kind=kint), dimension(:), allocatable :: xadj ! adjacency structure of the graph as described in Section 5.5 of the Metis manual v 5.0
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: nfacev ! number of faces for each vertex
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: vneigh ! sorted neighbouring vertices
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: vsize ! Vertex sizes (unused for edge-cut minimization).
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: vwgt ! Vertex weights.
+      integer(kind=METIS_INDEX_KIND), dimension(:), allocatable :: xadj ! Offsets into the compressed adjacency list.
       !
-      real(kind=krea), dimension(:), allocatable :: tpwgts ! specifies the desired weight for each partition and constraint
+      real(kind=METIS_REAL_KIND), dimension(:), allocatable :: tpwgts ! Target partition weights.
       !
-      character(120) :: msgstr ! string to pass message
+      character(len=120) :: msgstr ! string to pass message
       !
       logical :: found ! true if desired vertex for symmetry check is found
       logical :: symmetric ! true if adjacency vertex matrix is symmetric
       !
-      integer(kind=kint), external :: METIS_PartGraphKway ! function to partition a graph into a number of parts using multilevel k-way partitioning
-      integer(kind=kint), external :: METIS_SetDefaultOptions ! function to set default Metis options
+      ! Bind the C symbols used by the METIS Fortran wrappers directly.
+      interface
+         function metis_set_default_options(options) bind(C, name="METIS_SetDefaultOptions") result(status)
+            import :: c_int, METIS_INDEX_KIND, METIS_NOPTIONS
+            integer(kind=METIS_INDEX_KIND), dimension(METIS_NOPTIONS), intent(out) :: options !< Option values.
+
+            integer(kind=c_int) :: status !< METIS status code.
+         end function metis_set_default_options
+
+         function metis_part_graph_kway(nvtxs, ncon, xadj, adjncy, vwgt, vsize, adjwgt, nparts, &
+                                       tpwgts, ubvec, options, edgecut, part) &
+                                       bind(C, name="METIS_PartGraphKway") result(status)
+            import :: c_int, METIS_INDEX_KIND, METIS_REAL_KIND, METIS_NOPTIONS
+            integer(kind=METIS_INDEX_KIND), intent(in) :: nvtxs !< Number of graph vertices.
+            integer(kind=METIS_INDEX_KIND), intent(in) :: ncon !< Number of balancing constraints.
+            integer(kind=METIS_INDEX_KIND), dimension(nvtxs + 1), intent(inout) :: xadj !< CSR offsets.
+            integer(kind=METIS_INDEX_KIND), dimension(*), intent(inout) :: adjncy !< CSR neighbors.
+            integer(kind=METIS_INDEX_KIND), dimension(nvtxs * ncon), intent(in) :: vwgt !< Vertex weights.
+            integer(kind=METIS_INDEX_KIND), dimension(nvtxs), intent(in) :: vsize !< Vertex sizes.
+            integer(kind=METIS_INDEX_KIND), dimension(*), intent(in) :: adjwgt !< CSR edge weights.
+            integer(kind=METIS_INDEX_KIND), intent(in) :: nparts !< Number of partitions.
+            real(kind=METIS_REAL_KIND), dimension(ncon * nparts), intent(in) :: tpwgts !< Target weights.
+            real(kind=METIS_REAL_KIND), dimension(ncon), intent(in) :: ubvec !< Imbalance tolerance.
+            integer(kind=METIS_INDEX_KIND), dimension(METIS_NOPTIONS), intent(in) :: options !< Options.
+            integer(kind=METIS_INDEX_KIND), intent(out) :: edgecut !< Edge-cut weight.
+            integer(kind=METIS_INDEX_KIND), dimension(nvtxs), intent(out) :: part !< Vertex owners.
+
+            integer(kind=c_int) :: status !< METIS status code.
+         end function metis_part_graph_kway
+      end interface
 !
 !   Structure
 !
@@ -348,11 +391,11 @@ contains
       !
       ! set size of input graph based on vertices of the global mesh
       !
-      nv = nvertsg
+      nv = int(nvertsg, kind=METIS_INDEX_KIND)
       !
       ! set number of partitions equal to the number of parallel cores
       !
-      np = NPROC
+      np = int(nproc, kind=METIS_INDEX_KIND)
       !
       if (ITEST >= 50 .and. IAMMASTER) then
          write (PRINTF, '(a)')
@@ -377,16 +420,18 @@ contains
       if (istat == 0 .and. .not. allocated(nfacev)) then
          allocate (nfacev(nv), stat=istat)
       end if
-      if (istat == 0 .and. .not. allocated(vneigh)) then
-         allocate (vneigh(nv), stat=istat)
+      if (istat /= 0) then
+         write (msgstr, '(a,i0)') 'Cannot allocate mesh partitioning data, status ', istat
+         call msgerr(4, trim(msgstr))
+         return
       end if
-      !
+
       ne = 0
       nfacev = 0
       !
       ! compute the number of faces for each vertex
       !
-      do j = 1, nov
+      do j = 1, VERTICES_PER_CELL
          do i = 1, ncellsg
             ivert = kvertc(j, i)
             ne = ne + 2
@@ -412,8 +457,8 @@ contains
       if (istat == 0 .and. .not. allocated(adjw)) then
          allocate (adjw(ne), stat=istat)
       end if
-      if (istat == 0 .and. .not. allocated(covts)) then
-         allocate (covts(maxfv, nv), stat=istat)
+      if (istat == 0) then
+         allocate (covts(maxfv, nv), vneigh(maxfv), stat=istat)
       end if
       !
       if (istat /= 0) then
@@ -422,11 +467,12 @@ contains
          return
       end if
       !
-      ! compute list of neighbouring vertices and number of faces containing a vertex
+      ! compute list of neighbouring vertices and number of faces containing a
+      ! vertex
       !
       nfacev = 0
       !
-      do j = 1, nov
+      do j = 1, VERTICES_PER_CELL
          do i = 1, ncellsg
             ivert = kvertc(j, i)
             covts(nfacev(ivert) + 1, ivert) = kvertc(mod(j, 3) + 1, i)
@@ -445,7 +491,7 @@ contains
          end do
          if (nfacev(i) > 1) then
             k = nfacev(i)
-            call hpsort(k, vneigh)
+            call hpsort(vneigh(:k))
             jvert = vneigh(1)
             covts(1, i) = jvert
             k = 1
@@ -526,11 +572,12 @@ contains
       !
       ! the graph will be equally distributed among the processors
       !
-      tpwgts = 1./real(np)
+      tpwgts = 1.0_METIS_REAL_KIND / real(np, kind=METIS_REAL_KIND)
       !
-      ! set the Metis defaults, in particular edge-cut minimization and C-style numbering
+      ! set the Metis defaults, in particular edge-cut minimization and C-style
+      ! numbering
       !
-      ierr = METIS_SetDefaultOptions(options)
+      ierr = metis_set_default_options(options)
       if (ierr /= METIS_OK) then
          if (ierr == METIS_ERROR_INPUT) then
             write (msgstr, '(a)') 'function METIS_SetDefaultOptions failed due to erroneous inputs or options'
@@ -547,7 +594,8 @@ contains
       !
       ! partition the graph and create the ipown array
       !
-      ierr = METIS_PartGraphKway(nv, ncon, xadj, adjncy, vwgt, vsize, adjw, np, tpwgts, ubvec, options, edgecut, ipown)
+      ierr = metis_part_graph_kway(nv, CONSTRAINT_COUNT, xadj, adjncy, vwgt, vsize, adjw, np, &
+                                  tpwgts, IMBALANCE_TOLERANCE, options, edgecut, ipown)
       !
       if (ierr /= METIS_OK) then
          if (ierr == METIS_ERROR_INPUT) then
@@ -574,14 +622,23 @@ contains
       if (ITEST >= 50 .and. IAMMASTER) then
          write (PRTEST, 203) edgecut
          write (PRINTF, '(a)') ' writing mesh partition to file partit.mesh'
-         ndsd = 0
-         iostat = 0
-         FILENM = 'partit.mesh'
-         call FOR(ndsd, FILENM, 'UF', iostat)
+         open (newunit=ndsd, file='partit.mesh', status='replace', action='write', &
+               iostat=io_status, iomsg=msgstr)
+         if (io_status /= 0) then
+            call msgerr(1, 'Cannot open partit.mesh: ' // trim(msgstr))
+            return
+         end if
          do i = 1, nvertsg
-            write (ndsd, '(i6)') ipown(i)
+            write (ndsd, '(i6)', iostat=io_status, iomsg=msgstr) ipown(i)
+            if (io_status /= 0) then
+               call msgerr(1, 'Cannot write partit.mesh: ' // trim(msgstr))
+               exit
+            end if
          end do
-         close (ndsd)
+         close (ndsd, iostat=close_status, iomsg=msgstr)
+         if (close_status /= 0) then
+            call msgerr(1, 'Cannot close partit.mesh: ' // trim(msgstr))
+         end if
       end if
       !
 201   format(' unstructured mesh containing ', i7, ' vertices is partitioned into ', i4, ' subdomains')
@@ -590,6 +647,7 @@ contains
       !
    end subroutine SwanMeshPartition
 !
+   !> Build local mesh maps and halo exchange lists.
    subroutine SwanCommAdmin
 !
 !   --|-----------------------------------------------------------|--
@@ -637,19 +695,18 @@ contains
 !   - create data structures for message passing
 !   - create connectivity table for each subdomain
 !
-!   The algorithm for setting up the data structures is copied from decomp.F of the ADCIRC suite
+!   The algorithm for setting up the data structures is copied from decomp.F of
+!   the ADCIRC suite
 !
 !   Modules used
 !
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-!
-      implicit none
+      use ocpcomm4, only: itest, ltrace, printf
+      use m_parall, only: iammaster, inode, nproc, swint
+      use SwanGriddata, only: excmark, ivertg, kvertc, ncells, ncellsg, nverts, nvertsg, vmark
 !
 !   Parameter variables
 !
-      integer, parameter :: nov = 3 ! number of vertices in cell (triangles only)
+      integer, parameter :: VERTICES_PER_CELL = 3 ! number of vertices in cell (triangles only)
 !
 !   Local variables
 !
@@ -659,64 +716,27 @@ contains
       integer :: icell ! global cell index
       integer, save :: ient = 0 ! number of entries in this subroutine
       integer :: ip ! actual subdomain number
-      integer :: ip1 ! subdomain number of first vertex
-      integer :: ip2 ! subdomain number of second vertex
-      integer :: ip3 ! subdomain number of third vertex
       integer :: istat ! indicate status of allocation
       integer :: ivert ! global vertex index
       integer :: j ! loop counter
       integer :: jvert ! local vertex index
       integer :: k ! (loop) counter
-      integer :: maxncp ! maximum number of cells of any subdomain
-      integer :: maxnvp ! maximum number of vertices of any subdomain
-      integer, dimension(NPROC) :: ncellp ! number of cells assigned to each subdomain including ghost cells
-      integer :: nl ! length of unsorted list
-      integer, dimension(NPROC) :: nvertp ! number of vertices assigned to each subdomain including ghost vertices
-      integer, dimension(NPROC) :: nvresp ! number of resident vertices in each subdomain
-      integer, dimension(NPROC) :: plistcm ! list of communicating subdomains in current subdomain
-      integer :: v1 ! first vertex of present cell
-      integer :: v2 ! second vertex of present cell
-      integer :: v3 ! third vertex of present cell
-      !
-      integer, dimension(:, :), allocatable :: clistlg ! local-to-global cell-based list
-      ! = (j,i);  global cell index of local cell j in subdomain i
-      integer, dimension(:), allocatable :: ivertl ! local vertex index of global vertex
-      integer, dimension(:), allocatable :: jlist ! auxiliary array to store a list of entries temporarily
-      integer, dimension(:, :), allocatable :: kvtcp ! connectivity table in current subdomain
-      integer, dimension(:, :), allocatable :: vlistlg ! local-to-global vertex-based list
-      ! = (j,i); global vertex index of local vertex j in subdomain i
-      !
-      logical :: stpnow ! indicate whether program must be terminated or not
-      !
-      character(120) :: msgstr ! string to pass message
-      !
-      type clistpt ! linked list for local-to-global cell-based list
-         integer :: clg
-         type(clistpt), pointer :: nextcl
-      end type clistpt
-      type(clistpt), target :: frstcl
-      type(clistpt), pointer :: currcl, tmpcl
-      !
-      type vlistpt ! linked list for local-to-global vertex-based list
-         integer :: vlg
-         type(vlistpt), pointer :: nextvl
-      end type vlistpt
-      type(vlistpt), target :: frstvl
-      type(vlistpt), pointer :: currvl, tmpvl
-      !
-      type rlistpt ! linked list for receive list
-         integer :: jrl
-         type(rlistpt), pointer :: nextrl
-      end type rlistpt
-      type(rlistpt), target :: frstrl
-      type(rlistpt), pointer :: currrl, tmprl
-      !
-      type slistpt ! linked list for send list
-         integer :: jsl
-         type(slistpt), pointer :: nextsl
-      end type slistpt
-      type(slistpt), target :: frstsl
-      type(slistpt), pointer :: currsl, tmpsl
+      integer, dimension(NPROC) :: ncellp ! Local cell counts, including ghosts.
+      integer :: nl ! Number of entries to sort.
+      integer, dimension(NPROC) :: nvresp ! Resident vertex counts.
+      integer, dimension(NPROC) :: plistcm ! Neighbor partition numbers.
+      integer, dimension(VERTICES_PER_CELL) :: cell_owners ! Owners of the three cell vertices.
+
+      type :: partition_indices
+         integer, dimension(:), allocatable :: values
+      end type partition_indices
+
+      type(partition_indices), dimension(:), allocatable :: cells_by_part, vertices_by_part
+      integer, dimension(:), allocatable :: ivertl ! Local index of each global vertex.
+      integer, dimension(:), allocatable :: jlist ! Scratch indices for sorting.
+      integer, dimension(:, :), allocatable :: kvtcp ! Local cell connectivity.
+      integer :: maxrvg, maxsvg ! Largest receive and send counts among neighbors.
+      character(len=120) :: msgstr
 !
 !   Structure
 !
@@ -728,145 +748,85 @@ contains
          call strace(ient, 'SwanCommAdmin')
       end if
       !
-      istat = 0
-      if (.not. allocated(jlist)) then
-         allocate (jlist(nov * ncellsg), stat=istat)
-      end if
-      if (istat == 0 .and. .not. allocated(ivertl)) then
-         allocate (ivertl(nvertsg), stat=istat)
-      end if
-      !
+      allocate (jlist(VERTICES_PER_CELL * ncellsg), ivertl(nvertsg), stat=istat)
       if (istat /= 0) then
-         write (msgstr, '(a,i6)') 'allocation problem: comm administration data and return code is ', istat
+         write (msgstr, '(a,i0)') 'Cannot allocate communication setup data, status ', istat
          call msgerr(4, trim(msgstr))
          return
       end if
-      ivertl = 0
-      !
-      ! use Metis partition to compute the number of resident vertices in each subdomain
-      !
+
+      ! Every rank has the same global mesh and owner map. Reject an empty
+      ! partition on all ranks before modifying the mesh or starting MPI.
+      if (any(ipown < 1) .or. any(ipown > nproc)) then
+         call msgerr(4, 'SwanCommAdmin: invalid vertex owner')
+         return
+      end if
       nvresp = 0
-      !
       do i = 1, nvertsg
-         k = nvresp(ipown(i)) + 1
-         nvresp(ipown(i)) = k
+         ip = ipown(i)
+         nvresp(ip) = nvresp(ip) + 1
       end do
-      !
-      ! create local-to-global list containing global cell index for each local cell
-      ! by adding a cell to the list if it has a resident vertex
-      ! in effect, a layer of ghost cells is included
-      !
-      maxncp = 0
-      !
-      frstcl%clg = 0
-      nullify (frstcl%nextcl)
-      currcl => frstcl
-      do i = 1, NPROC
-         ncellp(i) = 0
-         do j = 1, ncellsg
-            v1 = kvertc(1, j)
-            v2 = kvertc(2, j)
-            v3 = kvertc(3, j)
-            ip1 = ipown(v1)
-            ip2 = ipown(v2)
-            ip3 = ipown(v3)
-            if (ip1 == i .or. ip2 == i .or. ip3 == i) then
-               ncellp(i) = ncellp(i) + 1
-               allocate (tmpcl)
-               tmpcl%clg = j
-               nullify (tmpcl%nextcl)
-               currcl%nextcl => tmpcl
-               currcl => tmpcl
+
+      ! A partition includes each cell incident on any of its resident
+      ! vertices. Count each distinct owner once per cell.
+      allocate (cells_by_part(nproc), vertices_by_part(nproc))
+      ncellp = 0
+      do icell = 1, ncellsg
+         cell_owners = ipown(kvertc(:, icell))
+         do k = 1, VERTICES_PER_CELL
+            ip = cell_owners(k)
+            if (.not. any(cell_owners(:k - 1) == ip)) then
+               ncellp(ip) = ncellp(ip) + 1
             end if
          end do
-         if (ncellp(i) > maxncp) then
-            maxncp = ncellp(i)
-         end if
       end do
-      !
-      allocate (clistlg(maxncp, NPROC))
-      clistlg = 0
-      !
-      currcl => frstcl%nextcl
-      do i = 1, NPROC
-         do j = 1, ncellp(i)
-            clistlg(j, i) = currcl%clg
-            tmpcl => currcl%nextcl
-            deallocate (currcl)
-            currcl => tmpcl
+      do ip = 1, nproc
+         if (ncellp(ip) == 0) then
+            write (msgstr, '(a,i0,a)') 'SwanCommAdmin: partition ', ip, ' has no cells'
+            call msgerr(4, trim(msgstr))
+            return
+         end if
+         allocate (cells_by_part(ip)%values(ncellp(ip)))
+      end do
+
+      ncellp = 0
+      do icell = 1, ncellsg
+         cell_owners = ipown(kvertc(:, icell))
+         do k = 1, VERTICES_PER_CELL
+            ip = cell_owners(k)
+            if (.not. any(cell_owners(:k - 1) == ip)) then
+               ncellp(ip) = ncellp(ip) + 1
+               cells_by_part(ip)%values(ncellp(ip)) = icell
+            end if
          end do
       end do
-      nullify (frstcl%nextcl)
-      !
-      ncells = ncellp(INODE)
-      !
-      ! using local-to-global cell-based list create local-to-global vertex-based list
-      ! and construct global-to-local vertex-based list
-      !
-      maxnvp = 0
-      !
-      frstvl%vlg = 0
-      nullify (frstvl%nextvl)
-      currvl => frstvl
-      do i = 1, NPROC
+
+      ! Derive each partition's ordered vertex list from its cell list.
+      do ip = 1, nproc
          nl = 0
-         do j = 1, ncellp(i)
-            icell = clistlg(j, i)
-            do k = 1, nov
-               nl = nl + 1
-               jlist(nl) = kvertc(k, icell)
-            end do
+         do j = 1, ncellp(ip)
+            icell = cells_by_part(ip)%values(j)
+            jlist(nl + 1:nl + VERTICES_PER_CELL) = kvertc(:, icell)
+            nl = nl + VERTICES_PER_CELL
          end do
-         ! sort and remove multiple entries from vertex list
-         call hpsort(nl, jlist)
+         call hpsort(jlist(:nl))
          k = 1
-         ivert = jlist(1)
-         allocate (tmpvl)
-         tmpvl%vlg = ivert
-         nullify (tmpvl%nextvl)
-         currvl%nextvl => tmpvl
-         currvl => tmpvl
-         if (ipown(ivert) == i) then
-            ivertl(ivert) = k
-         end if
          do j = 2, nl
-            if (jlist(j) /= ivert) then
+            if (jlist(j) /= jlist(k)) then
                k = k + 1
-               ivert = jlist(j)
-               allocate (tmpvl)
-               tmpvl%vlg = ivert
-               nullify (tmpvl%nextvl)
-               currvl%nextvl => tmpvl
-               currvl => tmpvl
-               if (ipown(ivert) == i) then
-                  ivertl(ivert) = k
-               end if
+               jlist(k) = jlist(j)
             end if
          end do
-         nvertp(i) = k
-         if (nvertp(i) > maxnvp) then
-            maxnvp = nvertp(i)
-         end if
+         allocate (vertices_by_part(ip)%values(k), source=jlist(:k))
       end do
-      !
-      allocate (vlistlg(maxnvp, NPROC))
-      vlistlg = 0
-      !
-      currvl => frstvl%nextvl
-      do i = 1, NPROC
-         do j = 1, nvertp(i)
-            vlistlg(j, i) = currvl%vlg
-            tmpvl => currvl%nextvl
-            deallocate (currvl)
-            currvl => tmpvl
-         end do
+
+      ncells = ncellp(inode)
+      nverts = size(vertices_by_part(inode)%values)
+      allocate (ivertg(nverts), source=vertices_by_part(inode)%values)
+      ivertl = 0
+      do j = 1, nverts
+         ivertl(ivertg(j)) = j
       end do
-      nullify (frstvl%nextvl)
-      !
-      nverts = nvertp(INODE)
-      !
-      allocate (ivertg(nverts))
-      ivertg(1:nverts) = vlistlg(1:nverts, INODE)
       !
       ! create identification list for vertices (resident/ghost)
       !
@@ -900,7 +860,7 @@ contains
          nvcomm = 0
       else
          ! sort and remove duplicates
-         call hpsort(nl, jlist)
+         call hpsort(jlist(:nl))
          k = 1
          ip = jlist(1)
          plistcm(1) = ip
@@ -919,102 +879,50 @@ contains
          vsubcm(j) = plistcm(j)
       end do
       !
-      ! create vertex-based receive list
-      !
-      allocate (nvrecv(nvcomm))
-      maxrvg = 0
-      !
-      frstrl%jrl = 0
-      nullify (frstrl%nextrl)
-      currrl => frstrl
+      ! Size the send and receive maps, then fill them in global vertex
+      ! order so both sides pack each halo message in the same order.
+      allocate (nvrecv(nvcomm), nvsend(nvcomm), source=0)
       do j = 1, nvcomm
          ip = vsubcm(j)
-         nvrecv(j) = 0
          do jvert = 1, nverts
-            ivert = ivertg(jvert)
-            if (ipown(ivert) == ip) then
+            if (ipown(ivertg(jvert)) == ip) then
                nvrecv(j) = nvrecv(j) + 1
-               allocate (tmprl)
-               tmprl%jrl = jvert
-               nullify (tmprl%nextrl)
-               currrl%nextrl => tmprl
-               currrl => tmprl
             end if
          end do
-         if (nvrecv(j) > maxrvg) then
-            maxrvg = nvrecv(j)
-         end if
-      end do
-      !
-      allocate (ivrecv(maxrvg, nvcomm))
-      ivrecv = 0
-      !
-      currrl => frstrl%nextrl
-      do j = 1, nvcomm
-         do i = 1, nvrecv(j)
-            ivrecv(i, j) = currrl%jrl
-            tmprl => currrl%nextrl
-            deallocate (currrl)
-            currrl => tmprl
+         do k = 1, size(vertices_by_part(ip)%values)
+            ivert = vertices_by_part(ip)%values(k)
+            if (ipown(ivert) == inode) then
+               nvsend(j) = nvsend(j) + 1
+            end if
          end do
       end do
-      nullify (frstrl%nextrl)
-      !
-      ! create vertex-based send list
-      !
-      allocate (nvsend(nvcomm))
-      maxsvg = 0
-      !
-      frstsl%jsl = 0
-      nullify (frstsl%nextsl)
-      currsl => frstsl
+      maxrvg = max(0, maxval(nvrecv))
+      maxsvg = max(0, maxval(nvsend))
+      allocate (ivrecv(maxrvg, nvcomm), ivsend(maxsvg, nvcomm), source=0)
       do j = 1, nvcomm
          ip = vsubcm(j)
-         nvsend(j) = 0
-         do k = 1, nvertp(ip)
-            ivert = vlistlg(k, ip)
-            if (ipown(ivert) == INODE) then
-               nvsend(j) = nvsend(j) + 1
-               allocate (tmpsl)
-               tmpsl%jsl = ivertl(ivert)
-               nullify (tmpsl%nextsl)
-               currsl%nextsl => tmpsl
-               currsl => tmpsl
+         i = 0
+         do jvert = 1, nverts
+            if (ipown(ivertg(jvert)) == ip) then
+               i = i + 1
+               ivrecv(i, j) = jvert
             end if
          end do
-         if (nvsend(j) > maxsvg) then
-            maxsvg = nvsend(j)
-         end if
-      end do
-      !
-      allocate (ivsend(maxsvg, nvcomm))
-      ivsend = 0
-      !
-      currsl => frstsl%nextsl
-      do j = 1, nvcomm
-         do i = 1, nvsend(j)
-            ivsend(i, j) = currsl%jsl
-            tmpsl => currsl%nextsl
-            deallocate (currsl)
-            currsl => tmpsl
+         i = 0
+         do k = 1, size(vertices_by_part(ip)%values)
+            ivert = vertices_by_part(ip)%values(k)
+            if (ipown(ivert) == inode) then
+               i = i + 1
+               ivsend(i, j) = ivertl(ivert)
+            end if
          end do
       end do
-      nullify (frstsl%nextsl)
-      !
-      ! reconstruct connectivity table for current subdomain
-      !
-      allocate (kvtcp(3, ncells))
-      kvtcp = 0
-      !
-      ! create global-to-local vertex lookup including ghost ones
-      ivertl = 0
-      do j = 1, nverts
-         ivertl(ivertg(j)) = j
-      end do
+
+      allocate (kvtcp(VERTICES_PER_CELL, ncells), source=0)
       ! look for vertices for each local cell and put them in table
       do j = 1, ncells
-         icell = clistlg(j, INODE)
-         do k = 1, nov
+         icell = cells_by_part(inode)%values(j)
+         do k = 1, VERTICES_PER_CELL
             ivert = kvertc(k, icell)
             jvert = ivertl(ivert)
             if (jvert > 0) then
@@ -1030,9 +938,7 @@ contains
       !
       ! delete other parts of connectivity table while keeping local table
       !
-      deallocate (kvertc)
-      allocate (kvertc(3, ncells))
-      kvertc = kvtcp
+      call move_alloc(kvtcp, kvertc)
       !
       ! create copy of parts of vmark for each subdomain
       !
@@ -1059,7 +965,7 @@ contains
       allocate (rbuf(maxrvg, nvcomm))
       allocate (sbuf(maxsvg, nvcomm))
       !
-      deallocate (ivertl, jlist, kvtcp, clistlg, vlistlg)
+      deallocate (ivertl, jlist, cells_by_part, vertices_by_part)
       !
       iarrl(1) = nvcomm
       iarrl(2) = sum(nvrecv)
@@ -1074,7 +980,8 @@ contains
          write (PRINTF, '(a)') ' subdomain  # communicating PEs  comm. vol/calc. vol (%)'
          write (PRINTF, '(a)') ' ---------  -------------------  -----------------------'
          do i = 1, NPROC
-            write (PRINTF, 201) i, iarrc(1, i), (real(iarrc(2, i)) / real(nvresp(i))) * 100.
+            write (PRINTF, 201) i, iarrc(1, i), &
+               (real(iarrc(2, i), kind=SWAN_REAL_KIND) / real(nvresp(i), kind=SWAN_REAL_KIND)) * 100.0_SWAN_REAL_KIND
          end do
          write (PRINTF, '(a)')
       end if
@@ -1083,6 +990,8 @@ contains
       !
    end subroutine SwanCommAdmin
 !
+   !> Update the ghost entries of an integer vertex field.
+   !! Retain integer handles for the legacy MPI Fortran interface.
    subroutine SwanUvExchgI(ifld)
 !
 !   --|-----------------------------------------------------------|--
@@ -1122,28 +1031,27 @@ contains
 !
 !   Purpose
 !
-!   Updates field array containing vertex entries of type integer through exchanging values between neighbouring subdomains
+!   Updates field array containing vertex entries of type integer through
+!   exchanging values between neighbouring subdomains
 !
 !   Method
 !
-!   Make use of MPI non-blocking recv/send commands and also administration (stored in ivsend/ivrecv)
+!   Make use of MPI non-blocking recv/send commands and also administration
+!   (stored in ivsend/ivrecv)
 !
 !   Modules used
 !
-!MPI      use mpi
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-!
-      implicit none
+!MPI      use mpi, only: MPI_SUCCESS, MPI_STATUSES_IGNORE
+      use ocpcomm4, only: ltrace
+      use m_parall, only: inode, parll, swint
+      use SwanGriddata, only: nverts
 !
 !   Argument variables
 !
-      integer, dimension(nverts), intent(inout) :: ifld ! field array for which values in ghost vertices must be copied from neighbouring subdomains
+      integer, dimension(nverts), intent(inout) :: ifld !< Local vertex field, including ghosts.
 !
 !   Parameter variables
 !
-      integer, parameter :: itag = 2 ! message tag for sending and receiving
 !
 !   Local variables
 !
@@ -1153,7 +1061,7 @@ contains
       integer :: ierr ! error value of MPI call
       integer :: j ! loop counter
       integer :: ndata ! number of variables to send/receive
-      character(120) :: msgstr ! string to pass message
+      character(len=120) :: msgstr ! string to pass message
 !
 !   Structure
 !
@@ -1190,12 +1098,12 @@ contains
 !MPI         !
 !MPI         ! post recvs
 !MPI         !
-!MPI         call MPI_IRECV ( irbuf(1,j), ndata, SWINT, idom-1, itag, SwanParallelComm(), rrqst(j), ierr )
+!MPI         call MPI_IRECV ( irbuf(1,j), ndata, SWINT, idom-1, HALO_TAG, SwanParallelComm(), rrqst(j), ierr )
 !MPI         if ( ierr /= MPI_SUCCESS ) then
-!MPI            write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI            write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI            call msgerr ( 4, trim(msgstr) )
 !MPI            return
-!MPI         endif
+!MPI         end if
 !MPI         !
 !MPI         ! get number of ghost values to send
 !MPI         !
@@ -1203,23 +1111,23 @@ contains
 !MPI         !
 !MPI         ! post sends
 !MPI         !
-!MPI         call MPI_ISEND ( isbuf(1,j), ndata, SWINT, idom-1, itag, SwanParallelComm(), srqst(j), ierr )
-!MPI         if ( ierr /= MPI_SUCCESS ) THEN
-!MPI            write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         call MPI_ISEND ( isbuf(1,j), ndata, SWINT, idom-1, HALO_TAG, SwanParallelComm(), srqst(j), ierr )
+!MPI         if ( ierr /= MPI_SUCCESS ) then
+!MPI            write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI            call msgerr ( 4, trim(msgstr) )
 !MPI            return
-!MPI         endif
+!MPI         end if
 !MPI         !
 !MPI      end do
 !MPI      !
 !MPI      ! wait for receives to complete
 !MPI      !
 !MPI      call MPI_WAITALL ( nvcomm, rrqst, MPI_STATUSES_IGNORE, ierr )
-!MPI      if ( ierr /= MPI_SUCCESS ) THEN
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI      if ( ierr /= MPI_SUCCESS ) then
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
 !MPI      ! store the received data
 !MPI      !
@@ -1232,14 +1140,16 @@ contains
 !MPI      ! wait for sends to complete
 !MPI      !
 !MPI      call MPI_WAITALL ( nvcomm, srqst, MPI_STATUSES_IGNORE, ierr)
-!MPI      if ( ierr /= MPI_SUCCESS ) THEN
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI      if ( ierr /= MPI_SUCCESS ) then
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
       !
    end subroutine SwanUvExchgI
 !
+   !> Update the ghost entries of a real vertex field.
+   !! Retain integer handles for the legacy MPI Fortran interface.
    subroutine SwanUvExchgR(fld)
 !
 !   --|-----------------------------------------------------------|--
@@ -1279,28 +1189,27 @@ contains
 !
 !   Purpose
 !
-!   Updates field array containing vertex entries of type real through exchanging values between neighbouring subdomains
+!   Updates field array containing vertex entries of type real through
+!   exchanging values between neighbouring subdomains
 !
 !   Method
 !
-!   Make use of MPI non-blocking recv/send commands and also administration (stored in ivsend/ivrecv)
+!   Make use of MPI non-blocking recv/send commands and also administration
+!   (stored in ivsend/ivrecv)
 !
 !   Modules used
 !
-!MPI      use mpi
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-!
-      implicit none
+!MPI      use mpi, only: MPI_SUCCESS, MPI_STATUSES_IGNORE
+      use ocpcomm4, only: ltrace
+      use m_parall, only: inode, parll, swreal
+      use SwanGriddata, only: nverts
 !
 !   Argument variables
 !
-      real, dimension(nverts), intent(inout) :: fld ! field array for which values in ghost vertices must be copied from neighbouring subdomains
+      real(kind=SWAN_REAL_KIND), dimension(nverts), intent(inout) :: fld !< Local vertex field, including ghosts.
 !
 !   Parameter variables
 !
-      integer, parameter :: itag = 2 ! message tag for sending and receiving
 !
 !   Local variables
 !
@@ -1310,7 +1219,7 @@ contains
       integer :: ierr ! error value of MPI call
       integer :: j ! loop counter
       integer :: ndata ! number of variables to send/receive
-      character(120) :: msgstr ! string to pass message
+      character(len=120) :: msgstr ! string to pass message
 !
 !   Structure
 !
@@ -1347,12 +1256,12 @@ contains
 !MPI         !
 !MPI         ! post recvs
 !MPI         !
-!MPI         call MPI_IRECV ( rbuf(1,j), ndata, SWREAL, idom-1, itag, SwanParallelComm(), rrqst(j), ierr )
+!MPI         call MPI_IRECV ( rbuf(1,j), ndata, SWREAL, idom-1, HALO_TAG, SwanParallelComm(), rrqst(j), ierr )
 !MPI         if ( ierr /= MPI_SUCCESS ) then
-!MPI            write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI            write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI            call msgerr ( 4, trim(msgstr) )
 !MPI            return
-!MPI         endif
+!MPI         end if
 !MPI         !
 !MPI         ! get number of ghost values to send
 !MPI         !
@@ -1360,23 +1269,23 @@ contains
 !MPI         !
 !MPI         ! post sends
 !MPI         !
-!MPI         call MPI_ISEND ( sbuf(1,j), ndata, SWREAL, idom-1, itag, SwanParallelComm(), srqst(j), ierr )
-!MPI         if ( ierr /= MPI_SUCCESS ) THEN
-!MPI            write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         call MPI_ISEND ( sbuf(1,j), ndata, SWREAL, idom-1, HALO_TAG, SwanParallelComm(), srqst(j), ierr )
+!MPI         if ( ierr /= MPI_SUCCESS ) then
+!MPI            write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI            call msgerr ( 4, trim(msgstr) )
 !MPI            return
-!MPI         endif
+!MPI         end if
 !MPI         !
 !MPI      end do
 !MPI      !
 !MPI      ! wait for receives to complete
 !MPI      !
 !MPI      call MPI_WAITALL ( nvcomm, rrqst, MPI_STATUSES_IGNORE, ierr )
-!MPI      if ( ierr /= MPI_SUCCESS ) THEN
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI      if ( ierr /= MPI_SUCCESS ) then
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
 !MPI      ! store the received data
 !MPI      !
@@ -1389,14 +1298,15 @@ contains
 !MPI      ! wait for sends to complete
 !MPI      !
 !MPI      call MPI_WAITALL ( nvcomm, srqst, MPI_STATUSES_IGNORE, ierr)
-!MPI      if ( ierr /= MPI_SUCCESS ) THEN
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI      if ( ierr /= MPI_SUCCESS ) then
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
       !
    end subroutine SwanUvExchgR
 !
+   !> Gather global boundary polygons from the local partitions.
    subroutine SwanCollBpntlist
 !
 !   --|-----------------------------------------------------------|--
@@ -1436,17 +1346,16 @@ contains
 !
 !   Purpose
 !
-!   Gathers the lists of boundary points in the ascending order from each processor to all the processes
+!   Gathers the lists of boundary points in the ascending order from each
+!   processor to all the processes
 !
 !   Modules used
 !
-!MPI      use mpi
-      use ocpcomm4
-      use m_parall
-      use SwanGriddata
-      use SwanCompdata
-!
-      implicit none
+!MPI      use mpi, only: MPI_SUCCESS
+      use ocpcomm4, only: ltrace
+      use m_parall, only: inode, nproc, parll, swint, swsum
+      use SwanGriddata, only: excmark, ivertg, vmark, xcugrdgl, ycugrdgl
+      use SwanCompdata, only: blist, bmark, nbpol, nbpt
 !
 !   Local variables
 !
@@ -1477,23 +1386,24 @@ contains
       integer :: nbpgl ! number of boundary vertices in global grid
       integer :: nbpolgl ! number of boundary polygons in global grid
       !
-      real, dimension(:), allocatable :: ang ! angle of boundary points with respect to centroid
-      real, dimension(:), allocatable :: dxc ! distance in x-direction with respect to centroid
-      real, dimension(:), allocatable :: dyc ! distance in y-direction with respect to centroid
-      real :: rtmp ! temporary stored real for swapping
-      real :: sumx ! sum of all x-coordinates of boundary points
-      real :: sumy ! sum of all y-coordinates of boundary points
-      real :: xc ! x-coordinate of centroid
-      real :: yc ! y-coordinate of centroid
+      real(kind=SWAN_REAL_KIND), dimension(:), allocatable :: ang ! angle of boundary points with respect to centroid
+      real(kind=SWAN_REAL_KIND), dimension(:), allocatable :: dxc ! distance in x-direction with respect to centroid
+      real(kind=SWAN_REAL_KIND), dimension(:), allocatable :: dyc ! distance in y-direction with respect to centroid
+      real(kind=SWAN_REAL_KIND) :: rtmp ! temporary stored real for swapping
+      real(kind=SWAN_REAL_KIND) :: sumx ! sum of all x-coordinates of boundary points
+      real(kind=SWAN_REAL_KIND) :: sumy ! sum of all y-coordinates of boundary points
+      real(kind=SWAN_REAL_KIND) :: xc ! x-coordinate of centroid
+      real(kind=SWAN_REAL_KIND) :: yc ! y-coordinate of centroid
       !
-      character(120)                       :: msgstr   ! string to pass message
+      character(len=120)                       :: msgstr   ! string to pass message
 !
 !   Structure
 !
 !   Description of the pseudo code
 !
 !   for each boundary polygon do
-!       complete the list of genuine boundary points and scatter to all processes
+!       complete the list of genuine boundary points and scatter to all
+!       processes
 !       re-order this list counterclockwise
 !
       if (ltrace) then
@@ -1515,7 +1425,8 @@ contains
 !MPI      !
 !MPI      nbptot = maxnbp * nbpol
 !MPI      !
-!MPI      ! store the global indices, markers and polygon sequence number of genuine boundary points
+!MPI      ! store the global indices, markers and polygon sequence number of
+!MPI      ! genuine boundary points
 !MPI      !
 !MPI      allocate (iarr1(nbptot))
 !MPI      allocate (iarr2(nbptot))
@@ -1551,10 +1462,10 @@ contains
 !MPI      !
 !MPI      call MPI_ALLREDUCE ( nbptot, nbpgl, 1, SWINT, SWSUM, SwanParallelComm(), ierr )
 !MPI      if ( ierr /= MPI_SUCCESS ) then
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
 !MPI      ! allocate temporary global data
 !MPI      !
@@ -1577,12 +1488,13 @@ contains
 !MPI      !
 !MPI      call MPI_ALLGATHER ( nbptot, 1, SWINT, icount, 1, SWINT, SwanParallelComm(), ierr )
 !MPI      if ( ierr /= MPI_SUCCESS ) then
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
-!MPI      ! calculate starting address of each local array with respect to the global array
+!MPI      ! calculate starting address of each local array with respect to the
+!MPI      ! global array
 !MPI      !
 !MPI      idsplc(0) = 0
 !MPI      do i = 1, NPROC - 1
@@ -1593,28 +1505,30 @@ contains
 !MPI      !
 !MPI      call MPI_ALLGATHERV ( iarr1(1:nbptot), nbptot, SWINT, iarrg1, icount, idsplc, SWINT, SwanParallelComm(), ierr )
 !MPI      if ( ierr /= MPI_SUCCESS ) then
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
-!MPI      ! gather corresponding markers from each processor to all the processes
+!MPI      ! gather corresponding markers from each processor to all the
+!MPI      ! processes
 !MPI      !
 !MPI      call MPI_ALLGATHERV ( iarr2(1:nbptot), nbptot, SWINT, iarrg2, icount, idsplc, SWINT, SwanParallelComm(), ierr )
 !MPI      if ( ierr /= MPI_SUCCESS ) then
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
-!MPI      ! gather corresponding polygon sequence number from each processor to all the processes
+!MPI      ! gather corresponding polygon sequence number from each processor to
+!MPI      ! all the processes
 !MPI      !
 !MPI      call MPI_ALLGATHERV ( iarr3(1:nbptot), nbptot, SWINT, iarrg3, icount, idsplc, SWINT, SwanParallelComm(), ierr )
 !MPI      if ( ierr /= MPI_SUCCESS ) then
-!MPI         write (msgstr, '(a,i3,a,i4)') 'MPI produces some internal error - return code is ',ierr,' and node number is ',INODE
+!MPI         write (msgstr, '(a,i0,a,i0)') 'MPI status ', ierr, ' on SWAN rank ', inode
 !MPI         call msgerr ( 4, trim(msgstr) )
 !MPI         return
-!MPI      endif
+!MPI      end if
 !MPI      !
 !MPI      deallocate (iarr1, iarr2, iarr3, icount, idsplc)
 !MPI      !
@@ -1657,7 +1571,8 @@ contains
 !MPI      blist = 0
 !MPI      bmark = 0
 !MPI      !
-!MPI      ! allocate global data to store unordered boundary indices and corresponding markers
+!MPI      ! allocate global data to store unordered boundary indices and
+!MPI      ! corresponding markers
 !MPI      !
 !MPI      istat = 0
 !MPI      if (.not. allocated(blistg)) then
@@ -1674,7 +1589,8 @@ contains
 !MPI      blistg = 0
 !MPI      bmarkg = 0
 !MPI      !
-!MPI      ! complete the list of genuine boundary vertices in ascending order for all boundary polygons
+!MPI      ! complete the list of genuine boundary vertices in ascending order
+!MPI      ! for all boundary polygons
 !MPI      !
 !MPI      nbpol = 0
 !MPI      !
@@ -1725,16 +1641,16 @@ contains
 !MPI         !
 !MPI         ! first determine centroid
 !MPI         !
-!MPI         sumx = 0.
-!MPI         sumy = 0.
+!MPI         sumx = 0.0_SWAN_REAL_KIND
+!MPI         sumy = 0.0_SWAN_REAL_KIND
 !MPI         do i = 1, nbp
 !MPI            ii = blistg(i)
 !MPI            sumx = sumx + xcugrdgl(ii)
 !MPI            sumy = sumy + ycugrdgl(ii)
 !MPI         end do
 !MPI         !
-!MPI         xc = sumx / real(nbp)
-!MPI         yc = sumy / real(nbp)
+!MPI         xc = sumx / real(nbp, kind=SWAN_REAL_KIND)
+!MPI         yc = sumy / real(nbp, kind=SWAN_REAL_KIND)
 !MPI         !
 !MPI         do i = 1, nbp
 !MPI            ii = blistg(i)
@@ -1790,97 +1706,54 @@ contains
       !
    end subroutine SwanCollBpntlist
 !
-   subroutine hpsort(n, ia)
-!
-!     SWAN (Simulating WAves Nearshore); a third generation wave model
-!     Copyright (C) 1993-2024  Delft University of Technology
-!
-!     This program is free software: you can redistribute it and/or modify
-!     it under the terms of the GNU General Public License as published by
-!     the Free Software Foundation, either version 3 of the License, or
-!     (at your option) any later version.
-!
-!     This program is distributed in the hope that it will be useful,
-!     but WITHOUT ANY WARRANTY; without even the implied warranty of
-!     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-!     GNU General Public License for more details.
-!
-!     You should have received a copy of the GNU General Public License
-!     along with this program. If not, see <http://www.gnu.org/licenses/>.
-!
-!
-!   Purpose
-!
-!   Sorts an integer array IA of length N in ascending order by the heapsort method
-!
-!   Method
-!
-!   The routine is copied from: Press et al., Numerical Recipes
-!
-!   Note that this method has O(N log2 N) complexity and thus
-!   can be used for very large arrays
-!
-!   Modules used
-!
-      use ocpcomm4, only: ltrace
-!
-      implicit none
-!
-!   Argument variables
-!
-      integer(kind=kint), intent(in) :: n ! size of array
-      integer(kind=kint), dimension(n), intent(inout) :: ia ! array to be sorted
-!
-!   Local variables
-!
-      integer, save :: ient = 0 ! number of entries in this subroutine
-      integer(kind=kint) :: i ! counter
-      integer(kind=kint) :: iia ! auxiliary value
-      integer(kind=kint) :: ip ! position array
-      integer(kind=kint) :: j ! counter
-      integer(kind=kint) :: l ! counter
-!
-!   Source text
-!
-      if (ltrace) then
-         call strace(ient, 'hpsort')
+   !> Sort a vertex or partition index list in ascending order.
+   subroutine hpsort(indices)
+      integer(kind=METIS_INDEX_KIND), dimension(:), intent(inout) :: indices !< Index list.
+
+      integer :: heap_start, heap_end, parent, child
+      integer(kind=METIS_INDEX_KIND) :: value
+
+      heap_end = size(indices)
+      if (heap_end < 2) then
+         return
       end if
-      !
-      l = n / 2 + 1
-      ip = n
-10    continue
-      if (l > 1) then
-         l = l - 1
-         iia = ia(l)
-      else
-         iia = ia(ip)
-         ia(ip) = ia(1)
-         ip = ip - 1
-         if (ip == 1) then
-            ia(1) = iia
-            return
-         end if
-      end if
-      i = l
-      j = l + l
-20    if (j <= ip) then
-         if (j < ip) then
-            if (ia(j) < ia(j + 1)) then
-               j = j + 1
+
+      heap_start = heap_end / 2 + 1
+      ! Build a max heap from the right, then move its largest value to
+      ! the end of the unsorted prefix and restore the heap.
+      do
+         if (heap_start > 1) then
+            heap_start = heap_start - 1
+            value = indices(heap_start)
+         else
+            value = indices(heap_end)
+            indices(heap_end) = indices(1)
+            heap_end = heap_end - 1
+            if (heap_end == 1) then
+               indices(1) = value
+               exit
             end if
          end if
-         if (iia < ia(j)) then
-            ia(i) = ia(j)
-            i = j
-            j = j + j
-         else
-            j = ip + 1
-         end if
-         go to 20
-      end if
-      ia(i) = iia
-      go to 10
-      !
+
+         parent = heap_start
+         do
+            if (parent > heap_end / 2) then
+               exit
+            end if
+            child = 2 * parent
+            if (child < heap_end) then
+               if (indices(child) < indices(child + 1)) then
+                  child = child + 1
+               end if
+            end if
+            if (value >= indices(child)) then
+               exit
+            end if
+            indices(parent) = indices(child)
+            parent = child
+         end do
+         indices(parent) = value
+      end do
    end subroutine hpsort
-!
+
 end module SwanParallel

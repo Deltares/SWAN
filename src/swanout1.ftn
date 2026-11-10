@@ -1488,7 +1488,7 @@
       USE OUTP_DATA
       USE SwanGriddata                                                    40.80
       USE SwanGridobjects                                                 40.91
-!METIS      USE SwanParallel
+!METIS      use SwanParallel, only: vres
 !
       IMPLICIT NONE
 !
