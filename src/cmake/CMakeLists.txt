@@ -14,6 +14,7 @@ include(functions.cmake)
 #
 # Handle command line options
 option(USE_MPI "Use MPI for parallel computing" OFF)
+option(USE_METIS "Use METIS for unstructured mesh partitioning" ${USE_MPI})
 option(PRECISION "Use single/double precision" SINGLE)
 option(TIMING "Timing info in output" OFF)
 
@@ -25,7 +26,14 @@ else()
     set(MPI_SWITCH)
 endif(USE_MPI)
 
+if(USE_METIS)
+    set(METIS_SWITCH -metis)
+else()
+    set(METIS_SWITCH)
+endif()
+
 message("-- Precision: ${PRECISION}")
+message(STATUS "METIS partitioning: ${USE_METIS}")
 
 #
 # Performance optimization,
@@ -120,7 +128,9 @@ endif(UNIX)
 list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/conan/generators")
 find_package(netCDF CONFIG REQUIRED)
 find_package(netCDF-Fortran CONFIG REQUIRED)
-find_package(metis CONFIG REQUIRED)
+if(USE_METIS)
+    find_package(metis CONFIG REQUIRED)
+endif()
 
 # generate directory where we place the generated code
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -146,8 +156,10 @@ set(SWANMOD
     ${CMAKE_CURRENT_BINARY_DIR}/generated/swn_outnc.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/HRextensions.f90
     ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanQCM.f90
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90
 )
+if(USE_METIS)
+    list(APPEND SWANMOD ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90)
+endif()
 # The SWANMOD files are split in 5 blocks, dependent on each other, 
 # to be able to compile on Windows (in one go). 
 # Compiling the fifth block, SWANMOD_EXTENSIONS (with project name "swanmod"), 
@@ -270,38 +282,48 @@ file(GLOB SWAN_SCRIPTS_WIN
     ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.py
     ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/*.bat
 )
+# Make option changes visible to source generation with every CMake generator.
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/swan_switches.txt"
+    CONTENT "${OS_SWITCH};${MPI_SWITCH};${METIS_SWITCH};${TIMING_SWITCH}\n")
+
 # generate code using switch.py
 add_custom_command(
     OUTPUT
     ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE}
     COMMAND
-    ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
+    ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py -netcdf ${OS_SWITCH} ${METIS_SWITCH} ${MPI_SWITCH} ${TIMING_SWITCH} buildir=${CMAKE_CURRENT_BINARY_DIR} *.ftn*
     WORKING_DIRECTORY
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/../switch.py
     ${SWAN_SOURCE_FILES}
+    ${CMAKE_CURRENT_BINARY_DIR}/swan_switches.txt
+    VERBATIM
 )
+add_custom_target(swan_sources DEPENDS ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE})
 
 add_library(swanmod_base "")
 target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
+add_dependencies(swanmod_base swan_sources)
 
 add_library(swanmod_core "")
 target_sources(swanmod_core PRIVATE ${SWANMOD_CORE})
 target_link_libraries(swanmod_core PUBLIC swanmod_base)
 
-# Compile the parallel module before the I/O modules that use it, and keep
-# its object in the solver archive to avoid a module/solver archive cycle.
-add_library(swan_parallel OBJECT ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90)
-set_target_properties(swan_parallel PROPERTIES
-    Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
-target_include_directories(swan_parallel PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/generated
-    ${SWANMOD_MODULE_DIRECTORY}
-    ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
-target_link_libraries(swan_parallel PRIVATE swanmod_core)
-if(USE_MPI)
-    target_include_directories(swan_parallel PRIVATE ${mpi_module_path})
+if(USE_METIS)
+    # Compile the parallel module before the I/O modules that use it, and keep
+    # its object in the solver archive to avoid a module/solver archive cycle.
+    add_library(swan_parallel OBJECT ${CMAKE_CURRENT_BINARY_DIR}/generated/SwanParallel.f90)
+    set_target_properties(swan_parallel PROPERTIES
+        Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
+    target_include_directories(swan_parallel PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}/generated
+        ${SWANMOD_MODULE_DIRECTORY}
+        ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
+    target_link_libraries(swan_parallel PRIVATE swanmod_core)
+    if(USE_MPI)
+        target_include_directories(swan_parallel PRIVATE ${mpi_module_path})
+    endif()
 endif()
 
 add_library(swanmod_io "")
@@ -311,7 +333,9 @@ target_link_libraries(swanmod_io PUBLIC swanmod_core)
 add_library(swanmod_xnl "")
 target_sources(swanmod_xnl PRIVATE ${SWANMOD_XNL})
 target_link_libraries(swanmod_xnl PUBLIC swanmod_io)
-add_dependencies(swanmod_xnl swan_parallel)
+if(USE_METIS)
+    add_dependencies(swanmod_xnl swan_parallel)
+endif()
 
 add_library(swanmod "")
 target_sources(swanmod PRIVATE ${SWANMOD_EXTENSIONS})
@@ -351,9 +375,12 @@ if(UNIX)
 endif()
 
 add_library(${SWANLIB} STATIC "")
-target_sources(${SWANLIB} PRIVATE ${SWANF} $<TARGET_OBJECTS:swan_parallel>)
-# METIS exports an MSC C macro that must not replace the Fortran MSC variable.
-target_link_libraries(${SWANLIB} PUBLIC $<LINK_ONLY:metis::metis>)
+target_sources(${SWANLIB} PRIVATE ${SWANF})
+if(USE_METIS)
+    target_sources(${SWANLIB} PRIVATE $<TARGET_OBJECTS:swan_parallel>)
+    # METIS exports an MSC C macro that must not replace the Fortran MSC variable.
+    target_link_libraries(${SWANLIB} PUBLIC $<LINK_ONLY:metis::metis>)
+endif()
 set_target_properties(${SWANLIB} PROPERTIES
     Fortran_MODULE_DIRECTORY ${SWANMOD_MODULE_DIRECTORY})
 target_include_directories(${SWANLIB} PRIVATE
@@ -398,6 +425,7 @@ endif(WIN32)
 
 if(USE_MPI)
     add_executable(hcat "")
+    add_dependencies(hcat swan_sources)
     target_sources(hcat PRIVATE ${HCAT})
     target_include_directories(${SWANLIB} PRIVATE ${mpi_module_path})
     target_include_directories(${SWANEXE} PRIVATE ${mpi_module_path})
@@ -409,8 +437,14 @@ if(USE_MPI)
     endif(WIN32)
 endif(USE_MPI)
 
-if(BUILD_TESTING AND USE_MPI)
-    add_subdirectory(../tests ${CMAKE_CURRENT_BINARY_DIR}/tests)
+if(BUILD_TESTING)
+    add_test(NAME swan_source_switches
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_switch.py)
+    add_test(NAME swan_build_options
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_build_options.py)
+    if(USE_MPI AND USE_METIS)
+        add_subdirectory(../tests ${CMAKE_CURRENT_BINARY_DIR}/tests)
+    endif()
 endif()
 
 #

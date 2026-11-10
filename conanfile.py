@@ -5,13 +5,16 @@ from conan.tools.files import save
 class SWANRecipe(ConanFile):
     settings = "os", "compiler", "build_type", "arch", "fortran_compiler"
     generators = "CMakeDeps"
+    options = {"with_metis": [True, False]}
+    default_options = {"with_metis": False}
 
     def requirements(self):
         self.requires("zlib/[>=1.2.11 <2]")
         self.requires("hdf5/1.14.2")
         self.requires("netcdf/4.9.2")
         self.requires("netcdf-fortran/4.6.2")
-        self.requires("metis/5.1.1")
+        if self.options.with_metis:
+            self.requires("metis/5.1.1")
 
     def generate(self):
         save(self, "conan.stamp", "Timestamp of this file is used by CMake to detect if conan.lock has changed since last conan install.")
@@ -20,8 +23,9 @@ class SWANRecipe(ConanFile):
         self.folders.generators = "generators"
 
     def configure(self):
-        self.options["metis"].shared = False
-        self.options["metis"].with_64bit_types = False
+        if self.options.with_metis:
+            self.options["metis"].shared = False
+            self.options["metis"].with_64bit_types = False
         self.options["zlib"].shared = True
         self.options["hdf5"].shared = True
         self.options["netcdf"].shared = True

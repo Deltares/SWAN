@@ -136,6 +136,9 @@ def update_lockfile(profile: str) -> None:
             f"--profile:all={profile}",
             "--settings:all",
             "build_type=Release",
+            # Keep optional METIS dependencies in the shared lockfile.
+            "--options:all",
+            "&:with_metis=True",
             f"--lockfile-out={LOCKFILE}",
             "--remote=local-recipes",
             "--update",
@@ -159,6 +162,7 @@ def conan_install(
     consumer_build_type: str | None = None,
     ci: bool = False,
     build_policy: BuildPolicy = BuildPolicy.NONE,
+    with_metis: bool = False,
 ) -> None:
     cmd = [
         "conan",
@@ -168,6 +172,8 @@ def conan_install(
         f"build_type={build_type}",
         f"--output-folder={output_folder}",
         f"--lockfile={LOCKFILE}",
+        "--options:all",
+        f"&:with_metis={with_metis}",
         # Large source archives can exceed Conan's default 60-second read timeout.
         "--core-conf",
         "core.net.http:timeout=300",
@@ -309,6 +315,7 @@ def _do_install(
     *,
     ci: bool = False,
     build_policy: BuildPolicy = BuildPolicy.NONE,
+    with_metis: bool = False,
 ) -> None:
     os_name = platform.system()
     if os_name == "Windows":
@@ -319,6 +326,7 @@ def _do_install(
             output_folder,
             "Release",
             ci=ci,
+            with_metis=with_metis,
             build_policy=build_policy,
         )
         conan_install(
@@ -327,6 +335,7 @@ def _do_install(
             "Release",
             consumer_build_type="Debug",
             ci=ci,
+            with_metis=with_metis,
         )
         conan_install(
             profile,
@@ -334,6 +343,7 @@ def _do_install(
             "Release",
             consumer_build_type="RelWithDebInfo",
             ci=ci,
+            with_metis=with_metis,
         )
     else:
         # Single-config generator: one install for the requested build type.
@@ -344,6 +354,7 @@ def _do_install(
             "Release",
             consumer_build_type=build_type,
             ci=ci,
+            with_metis=with_metis,
             build_policy=build_policy,
         )
 
@@ -382,6 +393,7 @@ def cmd_install(args: argparse.Namespace) -> None:
         args.build_type,
         ci=args.ci,
         build_policy=build_policy,
+        with_metis=args.with_metis,
     )
 
 
@@ -445,6 +457,11 @@ def main() -> None:
         ),
     )
     parser_install.add_argument("--ci", action="store_true", help="Non-interactive mode.")
+    parser_install.add_argument(
+        "--with-metis",
+        action="store_true",
+        help="Install METIS for unstructured partitioning.",
+    )
     build_group = parser_install.add_mutually_exclusive_group()
     build_group.add_argument(
         "--build-missing",

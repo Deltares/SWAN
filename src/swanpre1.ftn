@@ -41,7 +41,7 @@
       USE SwanIEM, only: nmax, dfiem, e_trsh, sflog                       41.85
       USE SwanBraggScat, only: mkbx, mkby, dkbx, dkby, botspc             41.80
       USE SwanQCM, only: mkxc, mkyc                                       41.90
-      USE SwanParallel                                                    42.10
+!METIS      USE SwanParallel                                                    42.10
 !
       IMPLICIT NONE
 !
@@ -1537,10 +1537,15 @@
           ELSEIF ( LOGCOM(5) .AND. LOGCOM(2) .AND.                        40.80
      &            .NOT.LOGCOM(4) .AND. .NOT.LOGCOM(6) .AND.               42.10 40.80
      &            .NOT.LOGCOM(7) ) THEN                                   42.10
-            CALL SwanDecomposition (LOGCOM)                               42.10
-            if (STPNOW()) then
-               RETURN
-            end if
+!METIS            CALL SwanDecomposition (LOGCOM)                               42.10
+!METIS            if (STPNOW()) then
+!METIS               RETURN
+!METIS            end if
+!NMETIS            IF (PARLL) THEN
+!NMETIS               CALL MSGERR (4,
+!NMETIS     &         'Unstructured MPI requires USE_METIS=ON')
+!NMETIS               RETURN
+!NMETIS            END IF
             IF ( PARLL .AND. .NOT.LOGCOM(7) )                             42.10
      &         CALL MSGERR (4,                                            42.10
      &          'to run in parallel the mesh must be partitioned first')  42.10

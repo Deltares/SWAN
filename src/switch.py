@@ -16,6 +16,7 @@ d = [
 ['-esmf'   , 0, '^!ESMF',   '^!!ESMF'],
 ['-timg'   , 0, '^!TIMG',   ''],
 ['-jac'    , 0, '^!JAC' ,   '^!WFR'],
+['-metis'  , 0, '^!METIS',  '^!NMETIS'],
 ['-mpi'    , 0, '^!MPI' ,   '^!NMPI'],
 ['-pun'    , 0, '^!PUN' ,   '^!NPUN'],
 ['-f95'    , 0, '^!F95' ,   ''],
@@ -51,15 +52,27 @@ def switch_line(line):
             switched = re.sub(item[3], '', switched)
     return switched
 
+# Regenerate when feature switches change, even if the templates are unchanged.
+generated_dir = os.path.join("..", buildir, "generated")
+os.makedirs(generated_dir, exist_ok=True)
+state_file = os.path.join(generated_dir, ".swan_switches")
+switch_state = repr([(item[0], item[1]) for item in d])
+try:
+    with open(state_file, encoding="ascii") as state:
+        switches_changed = state.read() != switch_state
+except FileNotFoundError:
+    switches_changed = True
+
+
 def need_update(old, new):
     newfile_exists = os.path.isfile(new)
-    if not newfile_exists:
+    if switches_changed or not newfile_exists:
         return 1
 
     modtime_old = os.path.getmtime(old)
     modtime_new = os.path.getmtime(new)
 
-    return modtime_old > modtime_new
+    return max(modtime_old, os.path.getmtime(__file__)) > modtime_new
 
 def switch_content(old, new):
     if not need_update(old, new):
@@ -90,3 +103,7 @@ for f1 in fixed:
 for f2 in free:
     f2new = re.sub('ftn90$', 'f90', f2)
     switch_content(f2, os.path.join("..", buildir, 'generated', f2new))
+
+# Record switches only after every source file has been generated successfully.
+with open(state_file, "w", encoding="ascii") as state:
+    state.write(switch_state)

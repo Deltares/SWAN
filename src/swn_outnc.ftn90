@@ -308,7 +308,8 @@ contains
       logical                             :: lopen, file_exists, &
                                              EQREAL, STPNOW
       integer                             :: ip, ierr, otype, i, tmip, binnr, irq, &
-                                             tip, ips(MIP), iproc, nref, ilpos, nread, nunique
+                                             tip, ips(MIP), iproc, nref, ilpos, nunique
+!METIS      integer                             :: nread
       integer(kind=8)                     :: xpctime2
 
       integer, save                       :: IENT=0
@@ -340,7 +341,7 @@ contains
 ! a. Prepare spectra/auxilary data struct
 !
         irq        = OQI(2)
-        nread      = 0
+!METIS        nread      = 0
         nunique    = 0
         seen       = .false.
         spcaux%mip = MIP
@@ -453,7 +454,7 @@ contains
                 return
             end if
             if ( tmip == 0 ) cycle
-            nread = nread + tmip
+!METIS            nread = nread + tmip
 
             read(binnr, IOSTAT=ierr) ips(1:tmip)
             if ( ierr /= 0 ) then
@@ -491,13 +492,13 @@ contains
             call MSGERR(4, errmsg)
             return
         end if
-        if ( LCOMPGRD .and. optg == 5 .and. nunique < MIP ) then
-            write(errmsg,'("Incomplete parallel spectral hotstart collection for ",A, &
-                 &": read ",I0," records covering ",I0," of ",I0," points at time ",A)') &
-                 trim(ncfile), nread, nunique, MIP, CHTIME
-            call MSGERR(4, errmsg)
-            return
-        end if
+!METIS        if ( LCOMPGRD .and. optg == 5 .and. nunique < MIP ) then
+!METIS            write(errmsg,'("Incomplete parallel spectral hotstart collection for ",A, &
+!METIS                 &": read ",I0," records covering ",I0," of ",I0," points at time ",A)') &
+!METIS                 trim(ncfile), nread, nunique, MIP, CHTIME
+!METIS            call MSGERR(4, errmsg)
+!METIS            return
+!METIS        end if
         !
         ! MPI with a cold start shows some interesting initial values
         ! remove them
@@ -539,7 +540,7 @@ contains
                               lspcaux)
       USE OCPCOMM2
       USE TIMECOMM, only: TINIC, TFINC, TIMCO
-      use SwanGriddata, only: ivertg, nvertsg
+!METIS      use SwanGriddata, only: ivertg, nvertsg
 !
 !
 !   --|-----------------------------------------------------------|--
@@ -619,11 +620,12 @@ contains
 !
 !  5. Local variables
 !
-      logical                                        :: EQREAL, lopen, do_open_files, write_header, &
-                                                        direct_compgrid_spectrum, direct_done
+      logical                                        :: EQREAL, lopen, do_open_files, write_header
+!METIS      logical                                    :: direct_compgrid_spectrum, direct_done
       integer                                        :: ip, ierr, otype, xpctmp(2), &
                                                         pnr, ri, i, tmip, irq, iproc, &
-                                                        binnr, xi, yi, npnts, id, is, local_ip
+                                                        binnr, xi, yi, npnts
+!METIS      integer                                    :: id, is, local_ip
       integer(kind=8)                                :: xpctime
       integer, allocatable                           :: ips(:)
       integer, save                                  :: IENT=0
@@ -673,8 +675,8 @@ contains
 
       if (RTYPE(3:3) .eq. 'R') lspcaux%relative = .true.
       if (RTYPE(4:4) .eq. 'C') lspcaux%is2d     = .true.
-      direct_compgrid_spectrum = PARLL .and. OPTG == 5 .and. LCOMPGRD .and. &
-                                  lspcaux%is2d .and. lspcaux%relative
+!METIS      direct_compgrid_spectrum = PARLL .and. OPTG == 5 .and. LCOMPGRD .and. &
+!METIS                                  lspcaux%is2d .and. lspcaux%relative
 !
 ! b. collect auxillary data / set default (task e. set hs and wind values)
 !
@@ -765,22 +767,22 @@ contains
         do ip = 1, MIP
             if ( IONOD(ip).eq.IPROC ) then
                 tmip      = tmip + 1
-                if ( direct_compgrid_spectrum ) then
-                    if ( .not. allocated(ivertg) ) then
-                        write(errmsg,'("Missing global vertex map for parallel unstructured hotstart at time ",A)') CHTIME
-                        call MSGERR(4, errmsg)
-                        return
-                    end if
-                    if ( ip > size(ivertg) .or. ivertg(ip) < 1 .or. ivertg(ip) > nvertsg ) then
-                        write(errmsg,'("Invalid global vertex index for local point ",I0," at time ",A)') &
-                             ip, CHTIME
-                        call MSGERR(4, errmsg)
-                        return
-                    end if
-                    ips(tmip) = ivertg(ip)
-                else
+!METIS                if ( direct_compgrid_spectrum ) then
+!METIS                    if ( .not. allocated(ivertg) ) then
+!METIS                        write(errmsg,'("Missing global vertex map for parallel unstructured hotstart at time ",A)') CHTIME
+!METIS                        call MSGERR(4, errmsg)
+!METIS                        return
+!METIS                    end if
+!METIS                    if ( ip > size(ivertg) .or. ivertg(ip) < 1 .or. ivertg(ip) > nvertsg ) then
+!METIS                        write(errmsg,'("Invalid global vertex index for local point ",I0," at time ",A)') &
+!METIS                             ip, CHTIME
+!METIS                        call MSGERR(4, errmsg)
+!METIS                        return
+!METIS                    end if
+!METIS                    ips(tmip) = ivertg(ip)
+!METIS                else
                     ips(tmip) = ip
-                end if
+!METIS                end if
             end if
         end do
         if ( NSTATM > 0 ) then
@@ -821,26 +823,26 @@ contains
              IONOD(ip).eq.INODE ) then
           ! if depth > 0 and not a dummy value
           if ( lspcaux%depth(ip) > epsilon(1.) .and. abs(lspcaux%depth(ip) - OVEXCV(4)) > epsilon(1.) ) then
-            direct_done = .false.
-            if ( direct_compgrid_spectrum ) then
-                local_ip = ip
-                if ( local_ip >= 1 .and. local_ip <= size(AC2, 3) ) then
-                    do is = 1, MSC
-                        do id = 1, MDC
-                            ! Leave the 2*pi rad/s-to-Hz conversion to the common NetCDF write path.
-                            lspcaux%E(id + (is - 1) * MDC, ip) = AC2(id, is, local_ip) * SPCSIG(is)
-                        end do
-                    end do
-                    ierr = 0
-                    direct_done = .true.
-                end if
-            end if
-            if ( .not. direct_done ) then
+!METIS            direct_done = .false.
+!METIS            if ( direct_compgrid_spectrum ) then
+!METIS                local_ip = ip
+!METIS                if ( local_ip >= 1 .and. local_ip <= size(AC2, 3) ) then
+!METIS                    do is = 1, MSC
+!METIS                        do id = 1, MDC
+!METIS                            ! Leave the 2*pi rad/s-to-Hz conversion to the common NetCDF write path.
+!METIS                            lspcaux%E(id + (is - 1) * MDC, ip) = AC2(id, is, local_ip) * SPCSIG(is)
+!METIS                        end do
+!METIS                    end do
+!METIS                    ierr = 0
+!METIS                    direct_done = .true.
+!METIS                end if
+!METIS            end if
+!METIS            if ( .not. direct_done ) then
             call SWCMSP (otype, lspcaux%xc(ip), lspcaux%yc(ip), AC2, lspcaux%E(:, ip), SPCSIG, &
                          lspcaux%depth(ip) , dep2, lspcaux%ux(ip), lspcaux%uy(ip),        &
                          SPCDIR(1,2), SPCDIR(1,3), 1., KGRPNT,  &
                          CROSS(1,IP), ierr)
-            end if
+!METIS            end if
 
             ! when ierr > 0 then energy == 0. That's fine.
 

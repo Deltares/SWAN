@@ -66,6 +66,7 @@ def run_conan(
     profile: str | None = None,
     ci: bool = False,
     build_dependencies: bool = False,
+    with_metis: bool = False,
 ) -> None:
     """Run run_conan.py to install dependencies."""
     output_folder = build_dir / "conan"
@@ -83,6 +84,8 @@ def run_conan(
         cmd.append("--ci")
     if build_dependencies:
         cmd.append("--build-missing")
+    if with_metis:
+        cmd.append("--with-metis")
     print("Running Conan dependency install...")
     subprocess.run(cmd, check=True)
 
@@ -94,6 +97,7 @@ def run_cmake_configure(
     build_dir: Path,
     install_dir: Path,
     prl: str,
+    with_metis: bool,
     timing: str,
     precision: str,
     config_log: str,
@@ -109,6 +113,7 @@ def run_cmake_configure(
         str(build_dir),
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DUSE_MPI={prl}",
+        f"-DUSE_METIS={'ON' if with_metis else 'OFF'}",
         f"-DTIMING={timing}",
         f"{config_log}",
     ]
@@ -206,6 +211,12 @@ def main() -> None:
         help="SWAN MPI version instead of OMP version.",
     )
     parser.add_argument(
+        "--metis",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable METIS unstructured partitioning (default: follows --mpi).",
+    )
+    parser.add_argument(
         "--timing",
         action="store_true",
         help="SWAN with timing output.",
@@ -226,6 +237,8 @@ def main() -> None:
         help="CMake debug info during build.",
     )
     args = parser.parse_args()
+
+    with_metis = args.mpi if args.metis is None else args.metis
 
     if args.mpi:
         prl = "ON"
@@ -270,6 +283,7 @@ def main() -> None:
             print("Warning: Visual Studio not detected. Using CMake default generator.")
 
     print(f"  parallel   : {prl_message}")
+    print(f"  metis      : {'yes' if with_metis else 'no'}")
     print(f"  timing     : {timing_message}")
     print(f"  precision  : {precision_message}")
     if platform.system() == "Windows":
@@ -300,6 +314,7 @@ def main() -> None:
         profile=args.profile,
         ci=args.ci,
         build_dependencies=args.build_dependencies,
+        with_metis=with_metis,
     )
 
     # CMake configure
@@ -309,6 +324,7 @@ def main() -> None:
         build_dir=build_dir,
         install_dir=install_dir,
         prl=prl,
+        with_metis=with_metis,
         timing=timing,
         precision=precision,
         config_log=config_log,
