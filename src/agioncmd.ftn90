@@ -136,7 +136,8 @@
         private
         real, parameter                              :: AGIONCMD_VERSION = 1.6
         integer, parameter :: SWAN_REAL_KIND = kind(0.0)
-        real, parameter                              :: AGNC_DUMMY = NF90_FILL_FLOAT
+        real(SWAN_REAL_KIND), parameter :: AGNC_DUMMY = real(NF90_FILL_FLOAT, SWAN_REAL_KIND)
+        real(SWAN_REAL_KIND), parameter :: PACKED_SPECTRAL_MAX = real(2**15 - 1, SWAN_REAL_KIND)
         integer(kind=1), parameter                   :: AGNC_FILL_BYTE = -2**7
         integer(kind=2), parameter                   :: AGNC_FILL_SHORT= -2**15
 
@@ -1729,10 +1730,8 @@
 
            do_scale = varid_scale_density > 0
            if (do_scale) then
-              scale_density = maxval(e2d, dim=1) / real(2**15 - 1, SWAN_REAL_KIND)
-              where (scale_density < epsilon(1.0_SWAN_REAL_KIND))
-                 scale_density = epsilon(1.0_SWAN_REAL_KIND)
-              end where
+              allocate (scale_density(npoints))
+              call compute_spectral_scales(e2d, scale_density)
               if (spc_as_map) then
                  call nccheck(nf90_put_var(ncid, varid_scale_density, &
                               reshape(scale_density, [mapgrid%nx, mapgrid%ny, 1]), [1, 1, ti]))
@@ -1773,6 +1772,30 @@
            call update_date(ncid, 'date_modified')
         end subroutine agnc_add_spcdata_density
 
+        !> Calculate the packing scale from the valid energy bins at each point.
+        pure subroutine compute_spectral_scales(spectra, scales)
+           real(SWAN_REAL_KIND), dimension(:, :), intent(in) :: spectra !< Bins by output point.
+           real(SWAN_REAL_KIND), dimension(:), intent(out) :: scales !< Packing divisor for each point.
+
+           real(SWAN_REAL_KIND), parameter :: MIN_SCALE = epsilon(1.0_SWAN_REAL_KIND)
+           real(SWAN_REAL_KIND) :: peak
+           integer :: point
+
+           do point = 1, size(scales)
+              ! Use the minimum scale for zero or entirely missing spectra.
+              peak = maxval(spectra(:, point), mask=valid_spectral_bin(spectra(:, point)))
+              scales(point) = max(peak / PACKED_SPECTRAL_MAX, MIN_SCALE)
+           end do
+        end subroutine compute_spectral_scales
+
+        !> Identify the bins that participate in scaling and packing.
+        elemental function valid_spectral_bin(energy) result(valid)
+           real(SWAN_REAL_KIND), intent(in) :: energy !< Energy in a spectral bin.
+           logical :: valid !< Whether to pack the bin as energy.
+
+           valid = abs(energy - AGNC_DUMMY) > epsilon(1.0_SWAN_REAL_KIND)
+        end function valid_spectral_bin
+
         !> Pack one point's energy into direction and frequency bins.
         subroutine pack_spectral_point(energy, scale_density, point, density)
            real(kind=SWAN_REAL_KIND), dimension(:), intent(in) :: energy !< Flat spectrum, direction varying fastest.
@@ -1797,7 +1820,7 @@
            do frequency = 1, size(density, 2)
               do direction = 1, size(density, 1)
                  bin = bin + 1
-                 if (abs(energy(bin) - AGNC_DUMMY) > epsilon(1.0_SWAN_REAL_KIND)) then
+                 if (valid_spectral_bin(energy(bin))) then
                     if (do_scale) then
                        density(direction, frequency) = real(nint(energy(bin) / scale_factor), SWAN_REAL_KIND)
                     else
@@ -1835,7 +1858,7 @@
             logical,                           intent(in   )    :: spc_as_map
 
             ! local variables
-            real        ,    dimension(:),       allocatable    :: scale_energy
+            real(SWAN_REAL_KIND), dimension(:), allocatable :: scale_energy
             real        ,    dimension(:,:,:),   allocatable    :: eloc, tloc, sloc
             integer                                             :: varid_scale_energy, &
                                                                    varid_energy, varid_theta, &
@@ -1875,21 +1898,17 @@
             if ( varid_scale_energy > 0 ) then
                 do_scale = .true.
 
-                allocate(scale_energy(msc))
+                allocate (scale_energy(msc))
+                call compute_spectral_scales(energy, scale_energy)
 
-                ! Note the assumption that AGNC_DUMMY is negative (or zero)
-                scale_energy = maxval(energy, 1) / (2**15-1)
-
-                do ip=1, msc
-                    ! scale or replace energy dummies with _FillValue
-                    if (scale_energy(ip) < epsilon(1.) ) scale_energy(ip) = epsilon(1.)
-                    do ik=1, spcgrid%nfreq
-                        if ( abs(energy(ik,ip) - AGNC_DUMMY) > epsilon(1.)) then
-                        energy(ik,ip) = nint(energy(ik,ip) / scale_energy(ip))
-                        else
-                            energy(ik,ip) = NF90_FILL_SHORT
-                        end if
-                    end do
+                do ip = 1, msc
+                   do ik = 1, spcgrid%nfreq
+                      if (valid_spectral_bin(energy(ik, ip))) then
+                         energy(ik, ip) = real(nint(energy(ik, ip) / scale_energy(ip)), SWAN_REAL_KIND)
+                      else
+                         energy(ik, ip) = real(NF90_FILL_SHORT, SWAN_REAL_KIND)
+                      end if
+                   end do
                 end do
 
                 if ( spc_as_map ) then

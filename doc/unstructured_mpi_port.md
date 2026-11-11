@@ -108,18 +108,14 @@ Direct calls into the compiled spectral routines also passed:
   valid values are exact, and scaled error remains within half a quantization
   step.
 
-Two existing standalone limitations were reproduced and remain outside this
-port:
+Scaled NetCDF output computes each point's scale factor from its valid bins.
+The MPI regression checks that a spectrum with valid and missing bins retains
+both the valid values within packing tolerance and the NetCDF fill codes.
 
-1. The standalone heap corruption (`0xC0000374`) also affects pristine baseline
-   `2a97069`. It is fixed separately by `e473ebc` on
-   `swan/bugfix/SWANxxx_heap_error`. That fix remains separate from this branch.
-   Full-model validation of the optional build configurations uses the obstacle
-   argument correction only in temporary generated build sources.
-2. A partly missing scaled output spectrum can lose valid bins because the
-   existing scale-factor maximum includes positive `AGNC_DUMMY` values.
-   That scale-factor calculation is unchanged by this port. The direct
-   reader tests and complete-point missing-value writer tests above pass.
+The standalone heap corruption (`0xC0000374`) also affects pristine baseline
+`2a97069`. It is fixed separately by `e473ebc` on the SWAN-329 heap-error branch.
+Full-model validation of the optional build configurations used the obstacle
+argument correction in temporary generated build sources.
 
 The independent code reviews checked all 13 solver source files changed by
 the originating branch, the standalone-specific adaptations, module ordering,

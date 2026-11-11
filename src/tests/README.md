@@ -54,6 +54,12 @@ NetCDF files each have two hourly records with nonzero spectra. The hotstart
 test reads compatible point-list and scaled map spectra. It then changes the
 number of directions to verify that all ranks terminate with a diagnostic.
 
+The scaled spectra test calls the NetCDF writer on each MPI rank. It decodes
+the resulting one-dimensional and directional spectra in both point-list and
+map layouts. It checks that valid bins survive alongside missing bins, that
+missing bins retain the fill code, and that all-missing and all-zero spectra
+use the minimum scale.
+
 ```text
 ctest --test-dir <build> -C Release -R "^swan_mpi_" --output-on-failure
 ```
