@@ -7,6 +7,7 @@ project(SWAN LANGUAGES Fortran)
 enable_language(Fortran C CXX)
 
 include(functions.cmake)
+include(CTest)
 
 #
 # Handle command line options
@@ -279,7 +280,10 @@ add_custom_command(
     ${SWAN_SOURCE_FILES}
 )
 
+add_custom_target(swan_sources DEPENDS ${SWANF} ${HCAT} ${SWANMOD} ${SWANPROGRAM_FILE})
+
 add_library(swanmod_base "")
+add_dependencies(swanmod_base swan_sources)
 target_sources(swanmod_base PRIVATE ${SWANMOD_BASE})
 
 add_library(swanmod_core "")
@@ -449,4 +453,8 @@ elseif(WIN32)
     install(FILES ${SWAN_SCRIPTS_WIN} DESTINATION scripts)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(../tests/prep tests/prep)
 endif()
