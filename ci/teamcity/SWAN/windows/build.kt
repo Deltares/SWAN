@@ -15,10 +15,6 @@ object WindowsBuild : BuildType({
     name = "Build"
     buildNumberPattern = "SWAN: %build.vcs.number%"
 
-    val branchName = "%teamcity.build.branch%"
-    val regex = "^.*SWAN".toRegex()
-    val branchNameStripped = branchName.replace(regex, "SWAN")
-
     allowExternalStatus = true
     artifactRules = """
         #teamcity:symbolicLinks=as-is
@@ -52,15 +48,13 @@ object WindowsBuild : BuildType({
     }
 
     steps {
-    
-    
         script {
             name = "Build All"
             enabled = true
             scriptContent = """
                 call C:\set-env.cmd
                 
-                call ci\teamcity\SWAN\windows\scripts\build_all_local.bat %build_type% $branchNameStripped
+                call ci\teamcity\SWAN\windows\scripts\build_all_local.bat %build_type% "%teamcity.build.branch%"
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/delft3d-buildtools-windows:%container.tag%"
@@ -74,7 +68,7 @@ object WindowsBuild : BuildType({
             scriptContent = """
                 call C:\set-env.cmd
 
-                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace $branchNameStripped "%ref_version%"
+                powershell -NoProfile -ExecutionPolicy Bypass -File ci\teamcity\SWAN\windows\scripts\run_tests_local.ps1 C:\workspace "%teamcity.build.branch%" "%ref_version%"
                 if %%errorlevel%% neq 0 exit /b %%errorlevel%%
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-windows:%container.tag%"
