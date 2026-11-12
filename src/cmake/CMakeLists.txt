@@ -395,13 +395,7 @@ if(BUILD_TESTING)
     target_include_directories(swan_coordinate_test PRIVATE
         ${SWANMOD_MODULE_DIRECTORY}
         ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
-    if(LINUX)
-        # HRextensions in swanmod calls SWBCPT in the solver archive.
-        target_link_libraries(swan_coordinate_test PRIVATE
-            "$<LINK_GROUP:RESCAN,${SWANLIB},swanmod>" netCDF::netcdff)
-    else()
-        target_link_libraries(swan_coordinate_test PRIVATE ${SWANLIB} swanmod netCDF::netcdff)
-    endif()
+    target_link_libraries(swan_coordinate_test PRIVATE ${SWANLIB} swanmod netCDF::netcdff)
     if(WIN32 AND USE_MPI)
         target_link_directories(swan_coordinate_test PRIVATE "${mpi_library_path}")
         target_link_libraries(swan_coordinate_test PRIVATE "${mpi_fortran_library}")
