@@ -16,6 +16,10 @@ object LinuxBuild : BuildType({
     name = "Build"
     buildNumberPattern = "SWAN: %build.vcs.number%"
 
+    val branchName = "%teamcity.build.branch%"
+    val regex = "^.*SWAN".toRegex()
+    val branchNameStripped = branchName.replace(regex, "SWAN")
+
     allowExternalStatus = true
     artifactRules = """
         #teamcity:symbolicLinks=as-is
@@ -64,7 +68,7 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 echo '#define BUILD_NR "%build.vcs.number%"' > checkout_info.h
-                echo '#define BRANCH "%teamcity.build.branch%"' >> checkout_info.h
+                echo '#define BRANCH $branchNameStripped' >> checkout_info.h
             """.trimIndent()
         }
         script {
@@ -73,7 +77,7 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh Release "%teamcity.build.branch%"
+                ./ci/teamcity/SWAN/linux/containers/scripts/build_all_local.sh Release $branchNameStripped
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
             dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
@@ -87,7 +91,7 @@ object LinuxBuild : BuildType({
             scriptContent = """
                 #!/usr/bin/env bash
                 source /etc/bashrc
-                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" "%teamcity.build.branch%" "%ref_version%"
+                ./ci/teamcity/SWAN/linux/containers/scripts/run_tests_local.sh "/workspace" $branchNameStripped "%ref_version%"
                 
             """.trimIndent()
             dockerImage = "containers.deltares.nl/swan-dev/swan-buildtools-linux:%container.tag%"
