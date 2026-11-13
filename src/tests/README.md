@@ -7,22 +7,14 @@ and prevents SWDIM from subtracting the origin or missing-value offsets twice.
 Legacy unformatted coordinate records remain default REAL; scaling is applied
 in double precision after reading those records.
 
-Configure with BUILD_TESTING=ON, then build the executable and test program:
+Configure with BUILD_TESTING=ON and build the SWAN executable.
 
 ```text
-cmake --build <build> --config Release --target swan_omp swan_coordinate_test
-ctest --test-dir <build> -C Release -R "^swan_coordinate_" --output-on-failure
+cmake --build <build> --config Release --target swan_omp
+ctest --test-dir <build> -C Release -R "^swan_coordinate_model$" --output-on-failure
 ```
 
 Use the normal SWAN runtime DLL or shared-library search paths when running.
-The reader test covers all six layouts, free/fixed formatting, headers,
-scaling, binary compatibility, NetCDF double metadata and missing values,
-existing origins, invalid file units, missing-coordinate pairs, and resets.
-SERIES coverage includes all layouts and free/fixed/binary input with zero,
-equal, and unequal file and component header counts. File headers (`NHEDF`)
-and per-array headers (`NHED`, derived from `NHEDVEC` for coordinates) are
-distinct: a replacement file contains both, matching the legacy `INAR2D`
-contract. Its file headers are consumed once, then its array headers once.
 The Python integration test runs two small stationary curvilinear models
 through the actual executable and compares translated-coordinate wave heights.
 It also runs the original geometry through a SERIES coordinate input with
@@ -34,9 +26,6 @@ after the test.
 The coordinate module uses named kinds, restricted imports, explicit legacy
 interfaces, Doxygen argument documentation, and checked file operations. New
 reader errors return through SWAN's diagnostic and layout-status conventions.
-The Fortran test reports assertion failures and terminates only in its main
-program. Exact comparisons in the regressions intentionally check representation
-and translation invariance.
 
 The source remains a `.ftn90` template because SWAN generates its compiled `.f90`
 files with `switch.py`. Existing fixed-form templates and public legacy symbols

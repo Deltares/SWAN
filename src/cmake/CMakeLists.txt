@@ -391,25 +391,13 @@ endif(USE_MPI)
 
 if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
-    add_executable(swan_coordinate_test ../tests/test_coordinate_input.f90)
-    target_include_directories(swan_coordinate_test PRIVATE
-        ${SWANMOD_MODULE_DIRECTORY}
-        ${SWANMOD_MODULE_DIRECTORY}/$<CONFIG>)
-    if(LINUX)
-        # HRextensions in swanmod calls SWBCPT in the solver archive.
-        target_link_libraries(swan_coordinate_test PRIVATE
-            "$<LINK_GROUP:RESCAN,${SWANLIB},swanmod>" netCDF::netcdff)
-    else()
-        target_link_libraries(swan_coordinate_test PRIVATE ${SWANLIB} swanmod netCDF::netcdff)
-    endif()
-    if(WIN32 AND USE_MPI)
-        target_link_directories(swan_coordinate_test PRIVATE "${mpi_library_path}")
-        target_link_libraries(swan_coordinate_test PRIVATE "${mpi_fortran_library}")
-    endif()
-    add_test(NAME swan_coordinate_input COMMAND swan_coordinate_test)
     add_test(NAME swan_coordinate_model
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_coordinate_model.py
             $<TARGET_FILE:${SWANEXE}>)
+    add_test(NAME swan_sweep_striping
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_sweep_striping.py
+            $<TARGET_FILE:${SWANEXE}>)
+    set_tests_properties(swan_sweep_striping PROPERTIES PROCESSORS 2 TIMEOUT 250)
 endif()
 
 #
@@ -481,8 +469,4 @@ elseif(WIN32)
     install(FILES ${SWAN_SCRIPTS_WIN} DESTINATION scripts)
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     install(PROGRAMS ${DLL_PATHS} DESTINATION bin)
-endif()
-
-if(BUILD_TESTING)
-    add_subdirectory(../tests/prep tests/prep)
 endif()

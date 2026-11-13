@@ -234,6 +234,7 @@
      &                   IDDLOW    ,IDDTOP    ,ISSTOP    ,
      &                   DEP2      ,UX2       ,UY2       ,
      &                   SPCDIR    ,RDX       ,RDY       ,                40.41
+     &                   CHECK_SWEEP, TANGENT_BIN,
      &                   KGRPNT                                           40.41 40.13 30.21
      &                                                    )
 !
@@ -511,6 +512,10 @@
      &          UY2(MCGRD)          ,
      &          RDX(MICMAX), RDY(MICMAX)                                  40.08
 !
+      LOGICAL, INTENT(IN) :: CHECK_SWEEP
+      LOGICAL, INTENT(OUT) :: TANGENT_BIN(MDC)
+      REAL(KIND=SWAN_REAL_KIND) :: TANGENT_LIMIT(2), SPEED_SQUARED
+!
       LOGICAL   ANYBIN(MDC,MSC)     ,
      &          LOWEST, LOWBIN, HGHBIN
 !
@@ -554,6 +559,15 @@
 !
 !     *** DO LOOP totally organized for curvilinear 30.21       ***
 
+!     At a curved-grid sweep boundary a nearly tangent bin can use an
+!     upstream value from the preceding iteration. Mark these bins for
+!     a separate convergence check without changing their upwind stencil.
+      TANGENT_BIN = .FALSE.
+      IF (CHECK_SWEEP) THEN
+        TANGENT_LIMIT = SIN(DDIR/8._SWAN_REAL_KIND)**2 *
+     &                 (RDX(1:2)**2 + RDY(1:2)**2)
+      ENDIF
+!
       DO 500 IS = 1, MSC
         IDCLOW  = 0
         IDCHGH  = 0
@@ -564,6 +578,12 @@
             CAYMID = CAX(ID,IS,1)*RDX(2) + CAY(ID,IS,1)*RDY(2)
             IF (CAXMID .GE. 0. .AND. CAYMID .GE. 0.) THEN
               ANYBIN(ID,IS) = .TRUE.
+              IF (CHECK_SWEEP) THEN
+                SPEED_SQUARED = CAX(ID,IS,1)**2 + CAY(ID,IS,1)**2
+                TANGENT_BIN(ID) =
+     &            CAXMID**2.LE.TANGENT_LIMIT(1)*SPEED_SQUARED .OR.
+     &            CAYMID**2.LE.TANGENT_LIMIT(2)*SPEED_SQUARED
+              ENDIF
               IDSUM = IDSUM + 1
               ISSLOW = MIN(IS,ISSLOW)                                     40.13
               ISSTOP = MAX(IS,ISSTOP)                                     40.13
