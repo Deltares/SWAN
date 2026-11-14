@@ -76,16 +76,15 @@ def alongshore_residual(heights, row, column):
 
 
 def check_global_stop(folder):
-    """Require a stop at the first global pass with near-tangent points pending."""
+    """Require a stop at the first global accuracy pass."""
     report = (folder / "PRINT").read_text(encoding="ascii")
     iterations = re.findall(r"(?m)^ *iteration +([0-9]+); sweep 4\b", report)
     accuracy = re.findall(r"accuracy OK in +([0-9.]+) %.*?\( *([0-9.]+) % required", report)
     reached = [float(actual) >= float(required) for actual, required in accuracy]
     if len(iterations) >= 50 or reached != [False] * (len(iterations) - 2) + [True]:
         raise AssertionError("Expected SWAN to stop at the first global accuracy pass")
-    last_sweep = report.rsplit(f"iteration {int(iterations[-1]):4d}; sweep 4", 1)[-1]
-    if not re.search(r"Unconverged near-tangent points: +[1-9][0-9]*", last_sweep):
-        raise AssertionError("Expected near-tangent points to remain at the global stop")
+    if "Unconverged near-tangent points" in report:
+        raise AssertionError("Unexpected near-tangent diagnostic")
 
 
 def main():
@@ -96,7 +95,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="swan-sweep-") as temporary:
         root = Path(temporary)
         # Use a 1 mm Hs tolerance at all wet points to preserve the
-        # residual comparison when near-tangent points are diagnostic.
+        # spatial residual comparison with the tighter solve.
         prepare_model(root / "normal", dabs=0.001, drel=0.01, curvat=0.005)
         # Use a tighter solve to account for the grid's smooth physical gradients.
         prepare_model(root / "reference", dabs=0.00001, drel=0.00001, curvat=0.00001)

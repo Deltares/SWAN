@@ -881,8 +881,6 @@
       REAL, DIMENSION(:,:,:), ALLOCATABLE :: FBD                          41.80
 
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC1,HSAC2,SACC1,SACC2          40.22
-      REAL(KIND=SWAN_REAL_KIND), ALLOCATABLE :: SWEEP_CHANGE(:,:)
-      LOGICAL :: CHECK_SWEEP
       LOGICAL :: PAIR_PREDICTOR_SWEEPS, PAIR_SWEEPS, REPORT_SWEEP
       INTEGER :: SWEEP_STEP, SWEEP_STEPS, PREDICTOR_COLUMN
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC0,HSDIFC                     40.41
@@ -1019,13 +1017,11 @@
       ALLOCATE(HSAC2(MCGRD))                                              40.22
       ALLOCATE(SACC1(MCGRD))                                              40.22
       ALLOCATE(SACC2(MCGRD))                                              40.22
-!     The STOPC bulk criterion can hide slow changes in individual bins.
-      CHECK_SWEEP = OPTG.EQ.3 .AND. NSTATC.EQ.0 .AND. ICUR.EQ.0
-     &              .AND. .NOT.ONED .AND. PNUMS(21).EQ.1.
-     &              .AND. IQCM.EQ.0
 !     Pair the first-guess sweeps for stationary Cartesian runs with
 !     standard wind input and locally evaluated source terms.
-      PAIR_PREDICTOR_SWEEPS = CHECK_SWEEP .AND. KSPHER.EQ.0
+      PAIR_PREDICTOR_SWEEPS = OPTG.EQ.3 .AND. NSTATC.EQ.0
+     &    .AND. ICUR.EQ.0 .AND. .NOT.ONED .AND. PNUMS(21).EQ.1.
+     &    .AND. IQCM.EQ.0 .AND. KSPHER.EQ.0
      &    .AND. FULCIR .AND. KREPTX.EQ.0 .AND. .NOT.PARLL
      &    .AND. .NOT.CCURV .AND. IREFR.EQ.1 .AND. .NOT.DYNDEP
      &    .AND. NUMOBS.EQ.0 .AND. ITRIAD.EQ.0 .AND. IGEN.EQ.3
@@ -1035,7 +1031,6 @@
       IF (PAIR_PREDICTOR_SWEEPS) THEN
          WRITE(PRINTF,'(A)') ' Paired first-iteration predictor sweeps'
       END IF
-      ALLOCATE(SWEEP_CHANGE(2,MCGRD))
       ALLOCATE(HSAC0(MCGRD))                                              40.41
       ALLOCATE(HSDIFC(MCGRD))                                             40.41
       ALLOCATE(SACC0(MCGRD))                                              40.93
@@ -1512,9 +1507,6 @@
 
 !       initialise local (thread private) counter for SIP solver          40.31
         INOCNT = 0                                                        40.31
-        IF (CHECK_SWEEP) THEN
-          SWEEP_CHANGE(:,I1GRD:I2GRD) = 0._SWAN_REAL_KIND
-        ENDIF
 !
 !       initialise propagation, generation, dissipation, redistribution,  40.85
 !       leak and radiation stress for each iteration
@@ -2080,7 +2072,6 @@
      &            MEMQCM           ,MEMQCB           ,                    41.91 41.90
      &            ISLMIN           ,NFLIM            ,NRSCAL           ,  40.23
      &            MEMSINA          ,MEMSINB          ,                    40.88
-     &            CHECK_SWEEP      ,SWEEP_CHANGE                       ,
      &            CAX1             ,CAY1                                  40.22
      &                                                                 )
 !TIMG                CALL SWTSTO(104)                                          40.23
@@ -2331,7 +2322,6 @@
      &                   SACC0         ,SACC1           ,SACC2 ,          40.93 40.41
      &                   HSDIFC        ,TMDIFC          ,                 40.93 40.41
      &                   COMPDA(1,JDHS),COMPDA(1,JDTM)  ,                 40.41
-     &                   CHECK_SWEEP    ,SWEEP_CHANGE    ,
      &                   COMPDA(1,JDP2),ACCUR           ,                 40.41
      &                   I1MYC         ,I2MYC           )                 40.93
         END IF                                                            40.41
@@ -2399,7 +2389,7 @@
 !       --- check if breaker index for BKD needs to be modified           41.96
         IF (MODGAM .AND. ACCUR.GE.PNUMS(37)) MODGAM = .FALSE.             41.96
 !
-!       The near-tangent count is diagnostic. Stop at global accuracy.
+!       Stop when the global accuracy criterion is met.
         IF ((ITER.NE.1 .OR. PNUMS(21).EQ.0.) .AND.
      &      ACCUR.GE.PNUMS(4)) THEN
            EXIT
@@ -2507,7 +2497,6 @@
       DEALLOCATE(HSAC2)                                                   40.22
       DEALLOCATE(SACC1)                                                   40.22
       DEALLOCATE(SACC2)                                                   40.22
-      DEALLOCATE(SWEEP_CHANGE)
       DEALLOCATE(HSAC0)                                                   40.41
       DEALLOCATE(HSDIFC)                                                  40.41
       DEALLOCATE(SACC0)                                                   40.93
@@ -2566,7 +2555,6 @@
      &                   MEMQCM   ,MEMQCB   ,                             41.91 41.90
      &                   ISLMIN   ,NFLIM    ,NRSCAL   ,                   40.23
      &                   MEMSINA  ,MEMSINB  ,                             40.88
-     &                   CHECK_SWEEP,SWEEP_CHANGE,
      &                   CAX1,CAY1                                        33.08
      &                                                 )
 !
@@ -2997,11 +2985,6 @@
      &         UFRIC ,SMEBRK,KTETA
 !
       LOGICAL  INSIDE                                                     33.09
-      LOGICAL, INTENT(IN) :: CHECK_SWEEP
-      REAL(KIND=SWAN_REAL_KIND), INTENT(INOUT) :: SWEEP_CHANGE(2,MCGRD)
-      LOGICAL :: TANGENT_BIN(MDC)
-      REAL(KIND=SWAN_REAL_KIND) :: DELTA_ENERGY, ENERGY_WEIGHT
-      REAL(KIND=SWAN_REAL_KIND) :: BIN_ENERGY, OLD_ACTION, NEW_ACTION
       LOGICAL  LPREDT
 !
       INTEGER :: XYTST(2*NPTST) ,IDCMIN(MSC)                              40.22
@@ -3434,7 +3417,6 @@
      &             IDDLOW          ,IDDTOP           ,ISSTOP        ,
      &             COMPDA(1,JDP2)  ,COMPDA(1,JVX2)   ,COMPDA(1,JVY2),
      &             SPCDIR          ,RDX              ,RDY           ,     40.41 30.72
-     &             CHECK_SWEEP    ,TANGENT_BIN       ,
      &             KGRPNT                                                 40.13
      &                                                              )
 !TIMG      CALL SWTSTO(112)                                                    40.23
@@ -3879,31 +3861,6 @@
         IF ( IWIND .EQ. 1 .OR. IWIND .EQ. 2 )
      &    CALL WINDP3 (ISSTOP, ALIMW, AC2, GROWW, IDCMIN, IDCMAX )        40.41 30.21
 !TIMG        CALL SWTSTO(123)                                                  40.23
-!
-!       Sum absolute changes so opposite changes cannot cancel in Hs.
-        IF (CHECK_SWEEP .AND. ANY(TANGENT_BIN)) THEN
-          DELTA_ENERGY = 0._SWAN_REAL_KIND
-          BIN_ENERGY = 0._SWAN_REAL_KIND
-          DO IS = 1, MSC
-            ENERGY_WEIGHT = SPCSIG(IS)**2 * DDIR * FRINTF
-            IF (IS.EQ.MSC) ENERGY_WEIGHT = SPCSIG(IS)**2 * DDIR *
-     &                                    (FRINTF + PWTAIL(6))
-            DO IDDUM = IDCMIN(IS), IDCMAX(IS)
-              ID = MOD(IDDUM-1+MDC,MDC) + 1
-              IF (.NOT.TANGENT_BIN(ID)) CYCLE
-              OLD_ACTION = SWMATR(ID,IS,JAOLD)
-              NEW_ACTION = AC2(ID,IS,KCGRD(1))
-              DELTA_ENERGY = DELTA_ENERGY +
-     &                       ENERGY_WEIGHT * ABS(NEW_ACTION-OLD_ACTION)
-              BIN_ENERGY = BIN_ENERGY +
-     &                     ENERGY_WEIGHT * MAX(NEW_ACTION,OLD_ACTION)
-            ENDDO
-          ENDDO
-          SWEEP_CHANGE(1,KCGRD(1)) = SWEEP_CHANGE(1,KCGRD(1)) +
-     &                               DELTA_ENERGY
-          SWEEP_CHANGE(2,KCGRD(1)) = SWEEP_CHANGE(2,KCGRD(1)) +
-     &                               BIN_ENERGY
-        ENDIF
 !
 !       *** test output ***
 !
@@ -9688,13 +9645,11 @@
 !
       SUBROUTINE SWSTPC ( HSACC0, HSACC1, HSACC2, SACC0 , SACC1,
      &                    SACC2 , HSDIFC, TMDIFC, DELHS , DELTM,
-     &                    CHECK_SWEEP, SWEEP_CHANGE,
      &                    DEP2  , ACCUR , I1MYC , I2MYC )
 !
 !****************************************************************
 !
       USE OCPCOMM4                                                        40.41
-      USE SWCOMM2, ONLY: SWAN_REAL_KIND
       USE SWCOMM3                                                         40.41
       USE SWCOMM4                                                         40.41
       USE M_GENARR
@@ -9824,19 +9779,14 @@
 !     XMOM1 :     first moment
 !
       INTEGER ID, IS, IENT, II, INDX, IX, IY, IX1, IX2, IY1, IY2
-      INTEGER IACCUR, WETGRD, IACCURt, WETGRDt, IARR(3)
+      INTEGER IACCUR, WETGRD, IACCURt, WETGRDt, IARR(2)
       REAL    ACS2, ACS3, HSREL ,HSABS, HSCURV, HSDIFO, TMABS,
      &        TMREL, TMCURV, TMDIFO, XMOM0, XMOM1
       LOGICAL LCONV, LHEAD, TSTFL
 !
 !  7. Common blocks used
 !
-      LOGICAL, INTENT(IN) :: CHECK_SWEEP
-      REAL(KIND=SWAN_REAL_KIND), INTENT(IN) :: SWEEP_CHANGE(2,MCGRD)
-      REAL(KIND=SWAN_REAL_KIND) :: ENERGY_TOL
-      INTEGER :: SWEEP_PENDING, SWEEP_PENDING_LOCAL
-!
-      COMMON/SWSTPC_MT_COM/WETGRD,IACCUR,SWEEP_PENDING
+      COMMON/SWSTPC_MT_COM/WETGRD,IACCUR
 !
 !     SWSTPC_MT_COM    place local summed variables WETGRD and IACCUR
 !                      in common block so they will be scoped as shared
@@ -9876,7 +9826,6 @@
 !$OMP MASTER
       WETGRD = 0
       IACCUR = 0
-      SWEEP_PENDING = 0
 !$OMP END MASTER
 !$OMP BARRIER
 
@@ -9960,7 +9909,6 @@
       END DO
 
       IACCURt = 0
-      SWEEP_PENDING_LOCAL = 0
 
 !     --- calculate a set of accuracy parameters based on relative,
 !         absolute and curvature values of Hs and check accuracy
@@ -10024,15 +9972,6 @@
 !              --- add gridpoint in which wave parameters have
 !                  reached required accuracy
 
-!              Check the near-tangent energy separately. The relative Hs
-!              tolerance corresponds to twice that tolerance in energy.
-!              The absolute tolerance supplies the energy floor at rest.
-               IF (CHECK_SWEEP) THEN
-                  ENERGY_TOL = MAX((PNUMS(2)/4._SWAN_REAL_KIND)**2,
-     &                 2._SWAN_REAL_KIND*PNUMS(1)*SWEEP_CHANGE(2,INDX))
-                  IF (SWEEP_CHANGE(1,INDX).GT.ENERGY_TOL)
-     &               SWEEP_PENDING_LOCAL = SWEEP_PENDING_LOCAL + 1
-               ENDIF
                IF ( LCONV ) IACCURt = IACCURt + 1                         41.90
 
                IF (TSTFL.AND.IQCM.EQ.0) THEN                              41.90
@@ -10059,22 +9998,17 @@
       IACCUR = IACCUR + IACCURt
 !$OMP ATOMIC
       WETGRD = WETGRD + WETGRDt
-!$OMP ATOMIC
-      SWEEP_PENDING = SWEEP_PENDING + SWEEP_PENDING_LOCAL
 
 !     --- carry out reductions across all nodes
 
 !$OMP BARRIER
 !$OMP MASTER
-      IARR = (/ IACCUR, WETGRD, SWEEP_PENDING /)
-      CALL SWREDUCE ( IARR, 3, SWINT, SWSUM )
+      IARR(1) = IACCUR
+      IARR(2) = WETGRD
+      CALL SWREDUCE ( IARR, 2, SWINT, SWSUM )
 !MPI      IF (STPNOW()) RETURN
       IACCUR = IARR(1)
       WETGRD = IARR(2)
-      IF (IARR(3).GT.0 .AND. ITEST.GE.1) THEN
-         WRITE(PRINTF, '(A,I0)') ' Unconverged near-tangent points: ',
-     &                          IARR(3)
-      END IF
       ACCUR  = CEILING(REAL(IACCUR) * 10000. / REAL(WETGRD))/100.
 !$OMP END MASTER
 !$OMP BARRIER
