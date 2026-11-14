@@ -4,6 +4,7 @@ import argparse
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -24,8 +25,9 @@ BOUN SIDE EAST CON PAR 2.0 8.0 85.0 4.0
 GEN3 KOMEN
 BREAK CON 1.0 0.65
 FRIC JON 0.038
-NUM STOPC DABS={dabs} DREL={drel} CURVAT={curvat} NPNTS=99 STAT MXITST=50
+NUM STOPC DABS={dabs} DREL={drel} CURVAT={curvat} NPNTS=100 STAT MXITST=50
 TABLE 'COMPGRID' NOHEAD 'height.tbl' HSIGN
+TEST ITEST=1
 COMPUTE STAT
 STOP
 """
@@ -73,6 +75,19 @@ def alongshore_residual(heights, row, column):
     return heights[index] - 0.5 * (heights[index - NX] + heights[index + NX])
 
 
+def check_global_stop(folder):
+    """Require a stop at the first global pass with near-tangent points pending."""
+    report = (folder / "PRINT").read_text(encoding="ascii")
+    iterations = re.findall(r"(?m)^ *iteration +([0-9]+); sweep 4\b", report)
+    accuracy = re.findall(r"accuracy OK in +([0-9.]+) %.*?\( *([0-9.]+) % required", report)
+    reached = [float(actual) >= float(required) for actual, required in accuracy]
+    if len(iterations) >= 50 or reached != [False] * (len(iterations) - 2) + [True]:
+        raise AssertionError("Expected SWAN to stop at the first global accuracy pass")
+    last_sweep = report.rsplit(f"iteration {int(iterations[-1]):4d}; sweep 4", 1)[-1]
+    if not re.search(r"Unconverged near-tangent points: +[1-9][0-9]*", last_sweep):
+        raise AssertionError("Expected near-tangent points to remain at the global stop")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path)
@@ -80,10 +95,13 @@ def main():
     executable = args.executable.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="swan-sweep-") as temporary:
         root = Path(temporary)
-        prepare_model(root / "normal", dabs=0.005, drel=0.01, curvat=0.005)
+        # Use a 1 mm Hs tolerance at all wet points to preserve the
+        # residual comparison when near-tangent points are diagnostic.
+        prepare_model(root / "normal", dabs=0.001, drel=0.01, curvat=0.005)
         # Use a tighter solve to account for the grid's smooth physical gradients.
         prepare_model(root / "reference", dabs=0.00001, drel=0.00001, curvat=0.00001)
         normal = run_model(executable, root / "normal", threads=2)
+        check_global_stop(root / "normal")
         reference = run_model(executable, root / "reference", threads=2)
         residual_error = max(
             abs(alongshore_residual(normal, row, column) -

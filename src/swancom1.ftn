@@ -882,7 +882,9 @@
 
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC1,HSAC2,SACC1,SACC2          40.22
       REAL(KIND=SWAN_REAL_KIND), ALLOCATABLE :: SWEEP_CHANGE(:,:)
-      LOGICAL :: CHECK_SWEEP, SWEEP_CONVERGED
+      LOGICAL :: CHECK_SWEEP
+      LOGICAL :: PAIR_PREDICTOR_SWEEPS, PAIR_SWEEPS, REPORT_SWEEP
+      INTEGER :: SWEEP_STEP, SWEEP_STEPS, PREDICTOR_COLUMN
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC0,HSDIFC                     40.41
       REAL, DIMENSION(:), ALLOCATABLE :: SACC0,TMDIFC                     40.93
 
@@ -1021,8 +1023,19 @@
       CHECK_SWEEP = OPTG.EQ.3 .AND. NSTATC.EQ.0 .AND. ICUR.EQ.0
      &              .AND. .NOT.ONED .AND. PNUMS(21).EQ.1.
      &              .AND. IQCM.EQ.0
+!     Pair the first-guess sweeps for stationary Cartesian runs with
+!     standard wind input and locally evaluated source terms.
+      PAIR_PREDICTOR_SWEEPS = CHECK_SWEEP .AND. KSPHER.EQ.0
+     &    .AND. FULCIR .AND. KREPTX.EQ.0 .AND. .NOT.PARLL
+     &    .AND. .NOT.CCURV .AND. IREFR.EQ.1 .AND. .NOT.DYNDEP
+     &    .AND. NUMOBS.EQ.0 .AND. ITRIAD.EQ.0 .AND. IGEN.EQ.3
+     &    .AND. IWIND.EQ.3 .AND. IQUAD.LE.2 .AND. ICOND.NE.4
+     &    .AND. ISURF.LE.5 .AND. IBRAG.LE.2
+!MPI      PAIR_PREDICTOR_SWEEPS = .FALSE.
+      IF (PAIR_PREDICTOR_SWEEPS) THEN
+         WRITE(PRINTF,'(A)') ' Paired first-iteration predictor sweeps'
+      END IF
       ALLOCATE(SWEEP_CHANGE(2,MCGRD))
-      SWEEP_CONVERGED = .TRUE.
       ALLOCATE(HSAC0(MCGRD))                                              40.41
       ALLOCATE(HSDIFC(MCGRD))                                             40.41
       ALLOCATE(SACC0(MCGRD))                                              40.93
@@ -1177,6 +1190,8 @@
 !----------------------------------------------------------------------   40.22
 
 !$OMP PARALLEL DEFAULT(SHARED)                                            40.22
+!$OMP+PRIVATE(PAIR_SWEEPS, SWEEP_STEP, SWEEP_STEPS)
+!$OMP+PRIVATE(REPORT_SWEEP, PREDICTOR_COLUMN)
 !$OMP+PRIVATE(ITER, SWPDIR, IX, IY, II, IJ, IK)                           40.41 40.22
 !$OMP+PRIVATE(CAX, CAY, CAX1, CAY1, CAS, CAD, CGO, KWAVE, DMW)            40.59 40.22
 !$OMP+PRIVATE(SIGFT, CGFT, UXFT, UYFT, CFT, RFT, SFT, WFT, WSAVE)         41.90
@@ -1493,7 +1508,7 @@
 !TIMG      CALL SWTSTO(135)                                                    40.41
 !
 !TIMG      CALL SWTSTA(103)                                                    40.23
-      DO 450 ITER = 1, ITERMX                                             30.00
+      DO ITER = 1, ITERMX
 
 !       initialise local (thread private) counter for SIP solver          40.31
         INOCNT = 0                                                        40.31
@@ -1707,8 +1722,24 @@
 !
 !       *** loop over sweep directions ***
 !
-!WFR        DO 410 SWPDIR = 1, 4
-!JAC        DO 410 ISWP = 0, 3
+!WFR!       Sweeps 3 and 2 share the same upstream column. Finish both
+!WFR!       in each column before proceeding to the next, so a bin
+!WFR!       crossing their handoff sees updated action in SPREDT.
+!WFR        PAIR_SWEEPS = PAIR_PREDICTOR_SWEEPS .AND. ITER.EQ.1
+!WFR        SWEEP_STEPS = 4
+!WFR        IF (PAIR_SWEEPS) THEN
+!WFR           SWEEP_STEPS = 2 + 2*(MXC-1)
+!WFR        END IF
+!WFR        DO SWEEP_STEP = 1, SWEEP_STEPS
+!WFR           SWPDIR = SWEEP_STEP
+!WFR           IF (PAIR_SWEEPS) THEN
+!WFR              IF (SWEEP_STEP.EQ.SWEEP_STEPS) THEN
+!WFR                 SWPDIR = 4
+!WFR              ELSE IF (SWEEP_STEP.GT.1) THEN
+!WFR                 SWPDIR = 3 - MOD(SWEEP_STEP,2)
+!WFR              END IF
+!WFR           END IF
+!JAC        DO ISWP = 0, 3
 !JAC
 !JAC! ======================================================================  40.30
 !JAC!
@@ -1839,7 +1870,15 @@
               IYSTEP = 1
             ENDIF                                                         32.02
 !
-            IF (SCREEN.NE.PRINTF) THEN
+            REPORT_SWEEP = .TRUE.
+!WFR            IF (PAIR_SWEEPS .AND. SWPDIR.GE.2
+!WFR     &          .AND. SWPDIR.LE.3) THEN
+!WFR               PREDICTOR_COLUMN = MXC - SWEEP_STEP/2
+!WFR               IX1 = PREDICTOR_COLUMN
+!WFR               IX2 = PREDICTOR_COLUMN
+!WFR               REPORT_SWEEP = PREDICTOR_COLUMN.EQ.MXC-1
+!WFR            END IF
+            IF (SCREEN.NE.PRINTF .AND. REPORT_SWEEP) THEN
               IF (NSTATC.EQ.1) THEN                                       40.00
                 IF (IAMMASTER) WRITE(SCREEN,313) CHTIME, IT,              40.95 40.30
      &                                                 ITER, SWPDIR       40.30
@@ -2109,7 +2148,7 @@
 !     before starting next sweep direction.                               40.22
 !----------------------------------------------------------------------   40.22
 !$OMP BARRIER                                                             40.22
- 410    CONTINUE
+        END DO
 !WFR!MPI!
 !WFR!MPI!       --- exchange action densities at subdomain interfaces             40.31
 !WFR!MPI!
@@ -2293,7 +2332,6 @@
      &                   HSDIFC        ,TMDIFC          ,                 40.93 40.41
      &                   COMPDA(1,JDHS),COMPDA(1,JDTM)  ,                 40.41
      &                   CHECK_SWEEP    ,SWEEP_CHANGE    ,
-     &                   SWEEP_CONVERGED,
      &                   COMPDA(1,JDP2),ACCUR           ,                 40.41
      &                   I1MYC         ,I2MYC           )                 40.93
         END IF                                                            40.41
@@ -2361,14 +2399,12 @@
 !       --- check if breaker index for BKD needs to be modified           41.96
         IF (MODGAM .AND. ACCUR.GE.PNUMS(37)) MODGAM = .FALSE.             41.96
 !
-!       *** if accuracy has been reached then the iteration ***
-!       *** can be terminated ---> goto 470                 ***
-!
-        IF ( (ITER.NE.1 .OR. PNUMS(21).EQ.0.) .AND.                       40.41
-     &               ACCUR.GE.PNUMS(4) .AND. SWEEP_CONVERGED ) GOTO 470
-!
- 450  CONTINUE                                                            30.00
- 470  CONTINUE
+!       The near-tangent count is diagnostic. Stop at global accuracy.
+        IF ((ITER.NE.1 .OR. PNUMS(21).EQ.0.) .AND.
+     &      ACCUR.GE.PNUMS(4)) THEN
+           EXIT
+        END IF
+      END DO
 !TIMG      CALL SWTSTO(103)                                                    40.23
 
 !----------------------------------------------------------------------   40.22
@@ -9652,7 +9688,7 @@
 !
       SUBROUTINE SWSTPC ( HSACC0, HSACC1, HSACC2, SACC0 , SACC1,
      &                    SACC2 , HSDIFC, TMDIFC, DELHS , DELTM,
-     &                    CHECK_SWEEP, SWEEP_CHANGE, SWEEP_CONVERGED,
+     &                    CHECK_SWEEP, SWEEP_CHANGE,
      &                    DEP2  , ACCUR , I1MYC , I2MYC )
 !
 !****************************************************************
@@ -9796,7 +9832,6 @@
 !  7. Common blocks used
 !
       LOGICAL, INTENT(IN) :: CHECK_SWEEP
-      LOGICAL, INTENT(OUT) :: SWEEP_CONVERGED
       REAL(KIND=SWAN_REAL_KIND), INTENT(IN) :: SWEEP_CHANGE(2,MCGRD)
       REAL(KIND=SWAN_REAL_KIND) :: ENERGY_TOL
       INTEGER :: SWEEP_PENDING, SWEEP_PENDING_LOCAL
@@ -10036,10 +10071,10 @@
 !MPI      IF (STPNOW()) RETURN
       IACCUR = IARR(1)
       WETGRD = IARR(2)
-      SWEEP_CONVERGED = IARR(3).EQ.0
-      IF (.NOT.SWEEP_CONVERGED .AND. ITEST.GE.1)
-     &   WRITE(PRINTF, '(A,I0)') ' Unconverged near-tangent points: ',
+      IF (IARR(3).GT.0 .AND. ITEST.GE.1) THEN
+         WRITE(PRINTF, '(A,I0)') ' Unconverged near-tangent points: ',
      &                          IARR(3)
+      END IF
       ACCUR  = CEILING(REAL(IACCUR) * 10000. / REAL(WETGRD))/100.
 !$OMP END MASTER
 !$OMP BARRIER
