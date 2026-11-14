@@ -882,7 +882,9 @@
 
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC1,HSAC2,SACC1,SACC2          40.22
       LOGICAL :: PAIR_PREDICTOR_SWEEPS, PAIR_SWEEPS, REPORT_SWEEP
-      INTEGER :: SWEEP_STEP, SWEEP_STEPS, PREDICTOR_COLUMN
+      LOGICAL :: SWEEP_BY_COLUMNS
+      INTEGER :: SWEEP_STEP, SWEEP_STEPS, PREDICTOR_LINE
+      INTEGER :: SWEEP_OFFSET, PAIRED_LINES, SWEEP_INDEX
       REAL, DIMENSION(:), ALLOCATABLE :: HSAC0,HSDIFC                     40.41
       REAL, DIMENSION(:), ALLOCATABLE :: SACC0,TMDIFC                     40.93
 
@@ -1028,6 +1030,20 @@
      &    .AND. IWIND.EQ.3 .AND. IQUAD.LE.2 .AND. ICOND.NE.4
      &    .AND. ISURF.LE.5 .AND. IBRAG.LE.2
 !MPI      PAIR_PREDICTOR_SWEEPS = .FALSE.
+!JAC      PAIR_PREDICTOR_SWEEPS = .FALSE.
+      SWEEP_OFFSET = 0
+      IF (PAIR_PREDICTOR_SWEEPS) THEN
+         CALL PREDICTOR_SWEEP_OFFSET(SWEEP_OFFSET)
+      END IF
+      SWEEP_BY_COLUMNS = .FALSE.
+!WFR      SWEEP_BY_COLUMNS = PARLL .AND. MXCGL.LE.MYCGL
+      IF (PAIR_PREDICTOR_SWEEPS) THEN
+         SWEEP_BY_COLUMNS = MOD(SWEEP_OFFSET,2).NE.0
+      END IF
+      PAIRED_LINES = MXC - 1
+      IF (SWEEP_BY_COLUMNS) THEN
+         PAIRED_LINES = MYC - 1
+      END IF
       IF (PAIR_PREDICTOR_SWEEPS) THEN
          WRITE(PRINTF,'(A)') ' Paired first-iteration predictor sweeps'
       END IF
@@ -1186,7 +1202,7 @@
 
 !$OMP PARALLEL DEFAULT(SHARED)                                            40.22
 !$OMP+PRIVATE(PAIR_SWEEPS, SWEEP_STEP, SWEEP_STEPS)
-!$OMP+PRIVATE(REPORT_SWEEP, PREDICTOR_COLUMN)
+!$OMP+PRIVATE(REPORT_SWEEP, PREDICTOR_LINE, SWEEP_INDEX)
 !$OMP+PRIVATE(ITER, SWPDIR, IX, IY, II, IJ, IK)                           40.41 40.22
 !$OMP+PRIVATE(CAX, CAY, CAX1, CAY1, CAS, CAD, CGO, KWAVE, DMW)            40.59 40.22
 !$OMP+PRIVATE(SIGFT, CGFT, UXFT, UYFT, CFT, RFT, SFT, WFT, WSAVE)         41.90
@@ -1714,23 +1730,25 @@
 !
 !       *** loop over sweep directions ***
 !
-!WFR!       Sweeps 3 and 2 share the same upstream column. Finish both
-!WFR!       in each column before proceeding to the next, so a bin
-!WFR!       crossing their handoff sees updated action in SPREDT.
+!WFR!       In the order aligned with the dominant transport direction,
+!WFR!       sweeps 3 and 2 share an upstream line. Finish both sweeps on
+!WFR!       that line before advancing to the next. Use the same physical
+!WFR!       ordering in subsequent iterations.
 !WFR        PAIR_SWEEPS = PAIR_PREDICTOR_SWEEPS .AND. ITER.EQ.1
 !WFR        SWEEP_STEPS = 4
 !WFR        IF (PAIR_SWEEPS) THEN
-!WFR           SWEEP_STEPS = 2 + 2*(MXC-1)
+!WFR           SWEEP_STEPS = 2 + 2*PAIRED_LINES
 !WFR        END IF
 !WFR        DO SWEEP_STEP = 1, SWEEP_STEPS
-!WFR           SWPDIR = SWEEP_STEP
+!WFR           SWEEP_INDEX = SWEEP_STEP
 !WFR           IF (PAIR_SWEEPS) THEN
 !WFR              IF (SWEEP_STEP.EQ.SWEEP_STEPS) THEN
-!WFR                 SWPDIR = 4
+!WFR                 SWEEP_INDEX = 4
 !WFR              ELSE IF (SWEEP_STEP.GT.1) THEN
-!WFR                 SWPDIR = 3 - MOD(SWEEP_STEP,2)
+!WFR                 SWEEP_INDEX = 3 - MOD(SWEEP_STEP,2)
 !WFR              END IF
 !WFR           END IF
+!WFR           SWPDIR = 1 + MOD(SWEEP_INDEX-1+SWEEP_OFFSET,4)
 !JAC        DO ISWP = 0, 3
 !JAC
 !JAC! ======================================================================  40.30
@@ -1863,12 +1881,17 @@
             ENDIF                                                         32.02
 !
             REPORT_SWEEP = .TRUE.
-!WFR            IF (PAIR_SWEEPS .AND. SWPDIR.GE.2
-!WFR     &          .AND. SWPDIR.LE.3) THEN
-!WFR               PREDICTOR_COLUMN = MXC - SWEEP_STEP/2
-!WFR               IX1 = PREDICTOR_COLUMN
-!WFR               IX2 = PREDICTOR_COLUMN
-!WFR               REPORT_SWEEP = PREDICTOR_COLUMN.EQ.MXC-1
+!WFR            IF (PAIR_SWEEPS .AND. SWEEP_INDEX.GE.2
+!WFR     &          .AND. SWEEP_INDEX.LE.3) THEN
+!WFR               PREDICTOR_LINE = SWEEP_STEP/2 - 1
+!WFR               IF (SWEEP_BY_COLUMNS) THEN
+!WFR                  IY1 = IY1 - KSY*PREDICTOR_LINE
+!WFR                  IY2 = IY1
+!WFR               ELSE
+!WFR                  IX1 = IX1 - KSX*PREDICTOR_LINE
+!WFR                  IX2 = IX1
+!WFR               END IF
+!WFR               REPORT_SWEEP = PREDICTOR_LINE.EQ.0
 !WFR            END IF
             IF (SCREEN.NE.PRINTF .AND. REPORT_SWEEP) THEN
               IF (NSTATC.EQ.1) THEN                                       40.00
@@ -1906,7 +1929,7 @@
 !WFR!                                                                         40.30
 !WFR! ======================================================================  40.30
 !WFR
-!WFR            IF ( MXCGL.GT.MYCGL .OR. .NOT.PARLL ) THEN                    40.30
+!WFR            IF (.NOT.SWEEP_BY_COLUMNS) THEN
 !WFR               JS   =  IY1                                                40.30
 !WFR               JE   =  IY2                                                40.30
 !WFR               INCJ = -IYSTEP                                             40.30
@@ -2015,7 +2038,7 @@
 !WFR!MPI              IF (STPNOW()) RETURN                                        40.30
 !WFR
 !WFR              DO 390 II = IS, IE, INCI                                    40.30
-!WFR                IF ( MXCGL.GT.MYCGL .OR. .NOT.PARLL ) THEN                40.30
+!WFR                IF (.NOT.SWEEP_BY_COLUMNS) THEN
 !WFR                  IX = II                                                 40.30
 !WFR                  IY = JJ                                                 40.30
 !WFR                ELSE                                                      40.30
@@ -2027,17 +2050,28 @@
 !               The next while loop will guarantee execution within       40.22
 !               OpenMP environment will not proceed until the data        40.22
 !               dependencies for grid point (IX,IY) are satisfied.        40.22
-!               Since we parallelize only in the y-direction, we only     40.31
-!               need to check data dependencies in the y-direction.       40.31
-!               The flush is required to ensure each thread has a         40.22
-!               consistent view of LLOCK.                                 40.22
-!----------------------------------------------------------------------   40.22
-!$              IF ( .NOT.ONED ) THEN                                     40.31
-!$                  DO WHILE(LLOCK(IX,IY+IYSTEP))                         40.31
-!$OMP FLUSH (LLOCK)                                                       40.31
-!$                  END DO                                                40.31
-!$OMP FLUSH                                                               40.31
-!$              END IF                                                    40.31
+!               Wait for the upwind neighbor in the workshared
+!               direction. Along the inner loop, the same thread has
+!               already updated the other upwind neighbor.
+!----------------------------------------------------------------------
+!$              IF (.NOT.ONED) THEN
+!$                 IF (SWEEP_BY_COLUMNS) THEN
+!$                    DO
+!$OMP FLUSH (LLOCK)
+!$                       IF (.NOT.LLOCK(IX+KSX,IY)) THEN
+!$                          EXIT
+!$                       END IF
+!$                    END DO
+!$                 ELSE
+!$                    DO
+!$OMP FLUSH (LLOCK)
+!$                       IF (.NOT.LLOCK(IX,IY+IYSTEP)) THEN
+!$                          EXIT
+!$                       END IF
+!$                    END DO
+!$                 END IF
+!$OMP FLUSH
+!$              END IF
 
 !TIMG                CALL SWTSTA(104)                                          40.23
                 CALL SWOMPU (SWPDIR,KSX              ,KSY              ,
@@ -2519,6 +2553,98 @@
 !----------------------------------------------------------------------   40.22
 !
       RETURN
+      CONTAINS
+
+!> Align the common direction of predictor sweeps 3 and 2 with the
+!> dominant wind transport in grid-index space.
+      SUBROUTINE PREDICTOR_SWEEP_OFFSET(OFFSET)
+      INTEGER, INTENT(OUT) :: OFFSET !< Rotation of the sweep numbers.
+
+      INTEGER :: I, J
+      INTEGER, DIMENSION(2,2) :: POINTS
+      LOGICAL :: DOMINANT_I
+      REAL(KIND=SWAN_COORD_KIND) :: DXI, DYI, DXJ, DYJ, AREA
+      REAL(KIND=SWAN_COORD_KIND) :: WIND_X, WIND_Y, SUM_I, SUM_J
+      REAL(KIND=SWAN_COORD_KIND) :: CROSS_I, CROSS_J, TOLERANCE
+      REAL(KIND=SWAN_COORD_KIND), PARAMETER :: HALF =
+     &   0.5_SWAN_COORD_KIND, ZERO = 0.0_SWAN_COORD_KIND
+
+      SUM_I = ZERO
+      SUM_J = ZERO
+      CROSS_I = ZERO
+      CROSS_J = ZERO
+      WIND_X = REAL(U10,SWAN_COORD_KIND)*COS(REAL(WDIC,SWAN_COORD_KIND))
+      WIND_Y = REAL(U10,SWAN_COORD_KIND)*SIN(REAL(WDIC,SWAN_COORD_KIND))
+      DO J = 1, MYC-1
+         DO I = 1, MXC-1
+            POINTS = KGRPNT(I:I+1,J:J+1)
+            IF (MINVAL(POINTS).LE.1) THEN
+               CYCLE
+            END IF
+            IF (MIN(COMPDA(POINTS(1,1),JDP2),
+     &              COMPDA(POINTS(2,1),JDP2),
+     &              COMPDA(POINTS(1,2),JDP2),
+     &              COMPDA(POINTS(2,2),JDP2)).LE.DEPMIN) THEN
+               CYCLE
+            END IF
+            DXI = HALF*(REAL(XCGRID(I+1,J),SWAN_COORD_KIND)-XCGRID(I,J)
+     &                + REAL(XCGRID(I+1,J+1),SWAN_COORD_KIND)
+     &                - XCGRID(I,J+1))
+            DYI = HALF*(REAL(YCGRID(I+1,J),SWAN_COORD_KIND)-YCGRID(I,J)
+     &                + REAL(YCGRID(I+1,J+1),SWAN_COORD_KIND)
+     &                - YCGRID(I,J+1))
+            DXJ = HALF*(REAL(XCGRID(I,J+1),SWAN_COORD_KIND)-XCGRID(I,J)
+     &                + REAL(XCGRID(I+1,J+1),SWAN_COORD_KIND)
+     &                - XCGRID(I+1,J))
+            DYJ = HALF*(REAL(YCGRID(I,J+1),SWAN_COORD_KIND)-YCGRID(I,J)
+     &                + REAL(YCGRID(I+1,J+1),SWAN_COORD_KIND)
+     &                - YCGRID(I+1,J))
+            AREA = DXI*DYJ - DYI*DXJ
+            IF (AREA.EQ.ZERO) THEN
+               CYCLE
+            END IF
+            IF (VARWI) THEN
+               WIND_X = HALF*HALF*SUM(REAL([
+     &            COMPDA(POINTS(1,1),JWX2),COMPDA(POINTS(2,1),JWX2),
+     &            COMPDA(POINTS(1,2),JWX2),COMPDA(POINTS(2,2),JWX2)],
+     &            SWAN_COORD_KIND))
+               WIND_Y = HALF*HALF*SUM(REAL([
+     &            COMPDA(POINTS(1,1),JWY2),COMPDA(POINTS(2,1),JWY2),
+     &            COMPDA(POINTS(1,2),JWY2),COMPDA(POINTS(2,2),JWY2)],
+     &            SWAN_COORD_KIND))
+            END IF
+!           Invert the local grid basis to obtain grid lines crossed
+!           per second. Also project the wind rotated 90 degrees
+!           counterclockwise to resolve ties between the two axes.
+            SUM_I = SUM_I + (DYJ*WIND_X - DXJ*WIND_Y)/AREA
+            SUM_J = SUM_J + (DXI*WIND_Y - DYI*WIND_X)/AREA
+            CROSS_I = CROSS_I - (DYJ*WIND_Y + DXJ*WIND_X)/AREA
+            CROSS_J = CROSS_J + (DXI*WIND_X + DYI*WIND_Y)/AREA
+         END DO
+      END DO
+
+      TOLERANCE = REAL(EPSILON(0.0_SWAN_REAL_KIND),SWAN_COORD_KIND)*
+     &            MAX(ABS(SUM_I),ABS(SUM_J))
+      DOMINANT_I = ABS(SUM_I).GE.ABS(SUM_J)
+      IF (ABS(ABS(SUM_I)-ABS(SUM_J)).LE.TOLERANCE) THEN
+         DOMINANT_I = CROSS_I*SIGN(1.0_SWAN_COORD_KIND,SUM_I).GE.
+     &                CROSS_J*SIGN(1.0_SWAN_COORD_KIND,SUM_J)
+      END IF
+
+!     The unrotated pair advances toward decreasing I. Shift all four
+!     sweep numbers together when the common upstream direction changes.
+      IF (DOMINANT_I) THEN
+         OFFSET = 0
+         IF (SUM_I.GT.ZERO) THEN
+            OFFSET = 2
+         END IF
+      ELSE
+         OFFSET = 1
+         IF (SUM_J.GT.ZERO) THEN
+            OFFSET = 3
+         END IF
+      END IF
+      END SUBROUTINE PREDICTOR_SWEEP_OFFSET
       END subroutine SWCOMP
 !
 !************************************************************************
